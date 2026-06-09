@@ -1,67 +1,96 @@
-// Runs inside rota-app.html. Leaves the Rota tab as Schedule-only.
+// Runs inside rota-app.html. Forces the embedded Rota tab to be Schedule-only.
 (function scheduleOnlyRotaTab() {
-  function removeNonScheduleButtons() {
+  let rendering = false;
+
+  function cleanTabs() {
     document.querySelectorAll('button').forEach(button => {
       const text = button.textContent.trim().toLowerCase();
       const click = button.getAttribute('onclick') || '';
-      if (
-        text === 'home' || text === 'people' || text === 'admin' || text === 'timesheets' || text === 'clock in' ||
+      const shouldRemove =
+        text === 'home' ||
+        text === 'people' ||
+        text === 'admin' ||
+        text === 'timesheets' ||
+        text === 'clock in' ||
+        click.includes("setView('home')") || click.includes('setView("home")') ||
         click.includes("setView('people')") || click.includes('setView("people")') ||
         click.includes("setView('admin')") || click.includes('setView("admin")') ||
         click.includes("setView('timesheets')") || click.includes('setView("timesheets")') ||
-        click.includes("setView('clock')") || click.includes('setView("clock")')
-      ) button.remove();
+        click.includes("setView('clock')") || click.includes('setView("clock")');
+      if (shouldRemove) button.remove();
+      if (text === 'schedule') button.classList.add('active');
     });
   }
 
-  function forceScheduleOnly() {
-    if (window.state && window.state.view !== 'rota') {
+  function forceScheduleState() {
+    if (window.state) {
       window.state.view = 'rota';
-      if (typeof window.save === 'function') window.save();
+      try { if (typeof window.save === 'function') window.save(); } catch (e) {}
+    }
+  }
+
+  function renderScheduleDirect() {
+    if (rendering) return;
+    rendering = true;
+    try {
+      forceScheduleState();
+      if (typeof window.renderRota === 'function') {
+        window.renderRota();
+      } else if (typeof window.render === 'function') {
+        window.render();
+      }
+      forceScheduleState();
+      cleanTabs();
+    } catch (e) {
+      console.error('Schedule-only rota patch failed:', e);
+    } finally {
+      rendering = false;
     }
   }
 
   function patchSetView() {
-    if (typeof window.setView !== 'function' || window.__scheduleOnlySetView) return;
+    if (typeof window.setView !== 'function' || window.__scheduleOnlySetViewV3) return;
     const originalSetView = window.setView;
     window.setView = function patchedSetView(view) {
-      if (view !== 'rota') return originalSetView('rota');
-      return originalSetView(view);
+      if (view !== 'rota') {
+        forceScheduleState();
+        renderScheduleDirect();
+        return;
+      }
+      const result = originalSetView.call(this, 'rota');
+      setTimeout(renderScheduleDirect, 0);
+      return result;
     };
-    window.__scheduleOnlySetView = true;
+    window.__scheduleOnlySetViewV3 = true;
   }
 
   function patchRender() {
-    if (typeof window.render !== 'function' || window.__scheduleOnlyRender) return;
+    if (typeof window.render !== 'function' || window.__scheduleOnlyRenderV3) return;
     const originalRender = window.render;
     window.render = function patchedRender() {
-      forceScheduleOnly();
-      originalRender();
-      removeNonScheduleButtons();
+      if (rendering) return originalRender.apply(this, arguments);
+      forceScheduleState();
+      const result = typeof window.renderRota === 'function' ? window.renderRota() : originalRender.apply(this, arguments);
+      cleanTabs();
+      return result;
     };
-    window.__scheduleOnlyRender = true;
-  }
-
-  function patchShell() {
-    if (typeof window.shell !== 'function' || window.__scheduleOnlyShell) return;
-    const originalShell = window.shell;
-    window.shell = function patchedShell(inner) {
-      originalShell(inner);
-      removeNonScheduleButtons();
-    };
-    window.__scheduleOnlyShell = true;
+    window.__scheduleOnlyRenderV3 = true;
   }
 
   function runPatch() {
     patchSetView();
     patchRender();
-    patchShell();
-    forceScheduleOnly();
-    removeNonScheduleButtons();
-    if (typeof window.render === 'function') window.render();
+    renderScheduleDirect();
+    cleanTabs();
   }
 
-  runPatch();
-  const interval = setInterval(runPatch, 150);
-  setTimeout(() => clearInterval(interval), 6000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runPatch);
+  } else {
+    runPatch();
+  }
+
+  window.addEventListener('load', runPatch);
+  const interval = setInterval(runPatch, 100);
+  setTimeout(() => clearInterval(interval), 10000);
 })();
