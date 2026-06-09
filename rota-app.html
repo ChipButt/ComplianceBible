@@ -10,11 +10,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/hard-schedule-fix.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/schedule-shift-block.css" />
   <style>
-    html, body { margin: 0; min-height: 100%; background: #eef3ee; }
+    html, body { margin: 0; min-height: 100%; background: #f4f1e8; }
     body { overflow-x: hidden; }
     #app { min-height: 100vh; }
-    .tabs { display: none !important; }
-    main { padding-top: 0 !important; }
   </style>
 </head>
 <body>
@@ -28,6 +26,11 @@
         <select id="currentUserSelect" title="Current user"></select>
       </div>
     </header>
+    <nav class="tabs">
+      <button class="tab active">Home</button>
+      <button class="tab">Schedule</button>
+      <button class="tab">Admin</button>
+    </nav>
     <main>
       <section id="rotaView" class="view active">
         <div id="rotaGrid" class="rotaGrid"></div>
