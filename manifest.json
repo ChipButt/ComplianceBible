@@ -1,0 +1,10 @@
+{
+  "name": "Pub Compliance Hub",
+  "short_name": "Compliance",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f1f1b",
+  "theme_color": "#14342b",
+  "orientation": "portrait-primary",
+  "icons": []
+}
