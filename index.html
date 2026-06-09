@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#14342b" />
+  <title>Pub Compliance Hub</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="appShell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Public House Compliance</p>
+        <h1>Pub Compliance Hub</h1>
+      </div>
+      <button id="installBtn" class="ghost small hidden">Install</button>
+    </header>
+
+    <main id="app"></main>
+
+    <nav class="bottomNav" aria-label="Main navigation">
+      <button data-route="dashboard" class="navBtn active">Home</button>
+      <button data-route="checks" class="navBtn">Checks</button>
+      <button data-route="documents" class="navBtn">Docs</button>
+      <button data-route="logs" class="navBtn">Logs</button>
+      <button data-route="staff" class="navBtn">Staff</button>
+      <button data-route="inspection" class="navBtn">Inspect</button>
+    </nav>
+  </div>
+
+  <div id="modal" class="modalBackdrop hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
