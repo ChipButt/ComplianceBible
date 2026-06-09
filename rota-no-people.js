@@ -1,60 +1,63 @@
-// Runs inside rota-app.html. Removes the Rota App People option wherever it is regenerated.
-(function removeRotaPeopleEverywhere() {
-  function removePeopleButtons() {
+// Runs inside rota-app.html. Leaves the Rota tab as Schedule-only.
+(function scheduleOnlyRotaTab() {
+  function removeNonScheduleButtons() {
     document.querySelectorAll('button').forEach(button => {
       const text = button.textContent.trim().toLowerCase();
       const click = button.getAttribute('onclick') || '';
-      if (text === 'people' || click.includes("setView('people')") || click.includes('setView("people")')) {
-        button.remove();
-      }
+      if (
+        text === 'home' || text === 'people' || text === 'admin' || text === 'timesheets' || text === 'clock in' ||
+        click.includes("setView('people')") || click.includes('setView("people")') ||
+        click.includes("setView('admin')") || click.includes('setView("admin")') ||
+        click.includes("setView('timesheets')") || click.includes('setView("timesheets")') ||
+        click.includes("setView('clock')") || click.includes('setView("clock")')
+      ) button.remove();
     });
   }
 
-  function forceAwayFromPeople() {
-    if (window.state && window.state.view === 'people') {
+  function forceScheduleOnly() {
+    if (window.state && window.state.view !== 'rota') {
       window.state.view = 'rota';
       if (typeof window.save === 'function') window.save();
     }
   }
 
-  function patchShell() {
-    if (typeof window.shell !== 'function' || window.__peopleRemovedFromShell) return;
-    const originalShell = window.shell;
-    window.shell = function patchedRotaShell(inner) {
-      originalShell(inner);
-      forceAwayFromPeople();
-      removePeopleButtons();
-    };
-    window.__peopleRemovedFromShell = true;
-  }
-
   function patchSetView() {
-    if (typeof window.setView !== 'function' || window.__peopleRemovedFromSetView) return;
+    if (typeof window.setView !== 'function' || window.__scheduleOnlySetView) return;
     const originalSetView = window.setView;
     window.setView = function patchedSetView(view) {
-      if (view === 'people') return originalSetView('rota');
+      if (view !== 'rota') return originalSetView('rota');
       return originalSetView(view);
     };
-    window.__peopleRemovedFromSetView = true;
+    window.__scheduleOnlySetView = true;
   }
 
   function patchRender() {
-    if (typeof window.render !== 'function' || window.__peopleRemovedFromRender) return;
+    if (typeof window.render !== 'function' || window.__scheduleOnlyRender) return;
     const originalRender = window.render;
     window.render = function patchedRender() {
-      forceAwayFromPeople();
+      forceScheduleOnly();
       originalRender();
-      removePeopleButtons();
+      removeNonScheduleButtons();
     };
-    window.__peopleRemovedFromRender = true;
+    window.__scheduleOnlyRender = true;
+  }
+
+  function patchShell() {
+    if (typeof window.shell !== 'function' || window.__scheduleOnlyShell) return;
+    const originalShell = window.shell;
+    window.shell = function patchedShell(inner) {
+      originalShell(inner);
+      removeNonScheduleButtons();
+    };
+    window.__scheduleOnlyShell = true;
   }
 
   function runPatch() {
-    patchShell();
     patchSetView();
     patchRender();
-    forceAwayFromPeople();
-    removePeopleButtons();
+    patchShell();
+    forceScheduleOnly();
+    removeNonScheduleButtons();
     if (typeof window.render === 'function') window.render();
   }
 
