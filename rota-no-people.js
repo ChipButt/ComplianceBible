@@ -1,23 +1,64 @@
-// Runs inside rota-app.html. Removes the Rota App People tab so the main Bible Users tab is the single source of people/profile info.
-(function removeRotaPeopleTab() {
-  function patch() {
-    if (typeof window.shell !== 'function') return false;
-    const originalShell = window.shell;
-    window.shell = function patchedRotaShell(inner) {
-      originalShell(inner);
-      document.querySelectorAll('.tabs .tab').forEach(button => {
-        if (button.textContent.trim().toLowerCase() === 'people') button.remove();
-      });
-    };
+// Runs inside rota-app.html. Removes the Rota App People option wherever it is regenerated.
+(function removeRotaPeopleEverywhere() {
+  function removePeopleButtons() {
+    document.querySelectorAll('button').forEach(button => {
+      const text = button.textContent.trim().toLowerCase();
+      const click = button.getAttribute('onclick') || '';
+      if (text === 'people' || click.includes("setView('people')") || click.includes('setView("people")')) {
+        button.remove();
+      }
+    });
+  }
+
+  function forceAwayFromPeople() {
     if (window.state && window.state.view === 'people') {
       window.state.view = 'rota';
       if (typeof window.save === 'function') window.save();
     }
+  }
+
+  function patchShell() {
+    if (typeof window.shell !== 'function' || window.__peopleRemovedFromShell) return;
+    const originalShell = window.shell;
+    window.shell = function patchedRotaShell(inner) {
+      originalShell(inner);
+      forceAwayFromPeople();
+      removePeopleButtons();
+    };
+    window.__peopleRemovedFromShell = true;
+  }
+
+  function patchSetView() {
+    if (typeof window.setView !== 'function' || window.__peopleRemovedFromSetView) return;
+    const originalSetView = window.setView;
+    window.setView = function patchedSetView(view) {
+      if (view === 'people') return originalSetView('rota');
+      return originalSetView(view);
+    };
+    window.__peopleRemovedFromSetView = true;
+  }
+
+  function patchRender() {
+    if (typeof window.render !== 'function' || window.__peopleRemovedFromRender) return;
+    const originalRender = window.render;
+    window.render = function patchedRender() {
+      forceAwayFromPeople();
+      originalRender();
+      removePeopleButtons();
+    };
+    window.__peopleRemovedFromRender = true;
+  }
+
+  function runPatch() {
+    patchShell();
+    patchSetView();
+    patchRender();
+    forceAwayFromPeople();
+    removePeopleButtons();
     if (typeof window.render === 'function') window.render();
-    return true;
   }
-  if (!patch()) {
-    const timer = setInterval(() => { if (patch()) clearInterval(timer); }, 50);
-    setTimeout(() => clearInterval(timer), 3000);
-  }
+
+  runPatch();
+  const interval = setInterval(runPatch, 150);
+  setTimeout(() => clearInterval(interval), 6000);
 })();
