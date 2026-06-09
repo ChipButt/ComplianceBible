@@ -1,96 +1,164 @@
-// Moves Rota Home features into the main Home tab and Rota Admin features into main Settings.
+// Integrates the Rota App Home screen into the main Compliance Home tab and keeps Rota Admin tools in Settings.
 (function rotaMainIntegrationPatch() {
-  function rs() {
-    const base = readRotaState() || {};
-    base.sections = base.sections || state.rotaSettings?.sections || ROTA_SECTIONS;
+  if (window.__rotaMainIntegrationPatchV2) return;
+  window.__rotaMainIntegrationPatchV2 = true;
+
+  function safeRotaState() {
+    const base = (typeof readRotaState === 'function' && readRotaState()) || {};
+    base.sections = base.sections || (state.rotaSettings && state.rotaSettings.sections) || (typeof ROTA_SECTIONS !== 'undefined' ? ROTA_SECTIONS : ['FOH', 'Kitchen', 'Office']);
     base.users = state.users || base.users || [];
     base.shifts = base.shifts || [];
     base.logs = base.logs || {};
     base.leaveRequests = base.leaveRequests || [];
     return base;
   }
-  function saveRs(data) {
-    localStorage.setItem(ROTA_KEY, JSON.stringify(data));
+
+  function saveRotaStateLocal(data) {
+    if (typeof ROTA_KEY !== 'undefined') localStorage.setItem(ROTA_KEY, JSON.stringify(data));
   }
-  function rotaUserById(id) {
-    return state.users.find(u => u.id === id) || rs().users.find(u => u.id === id) || state.users[0];
-  }
+
+  function currentUserId() { return state.currentUser || (state.users && state.users[0] && state.users[0].id); }
+  function rotaUserById(id) { return (state.users || []).find(u => u.id === id) || safeRotaState().users.find(u => u.id === id) || (state.users || [])[0] || {}; }
   function timeNowShort() { return new Date().toTimeString().slice(0, 5); }
-  function mins(time) { const [h, m] = String(time || '00:00').split(':').map(Number); return h * 60 + m; }
+  function mins(time) { const bits = String(time || '00:00').split(':').map(Number); return (bits[0] || 0) * 60 + (bits[1] || 0); }
   function durationMins(start, end) { const raw = mins(end) - mins(start); return raw < 0 ? raw + 1440 : raw; }
   function hours(start, end) { return Math.round(durationMins(start, end) / 60 * 100) / 100; }
+  function niceDate(date) { try { return new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return date || ''; } }
+  function startDate(shift) { return new Date(String(shift.date || today()) + 'T' + String(shift.start || '00:00') + ':00'); }
+  function makeShiftId() { return 's_' + Math.random().toString(36).slice(2, 9); }
+
   function rotaLog(data, shiftId) {
     data.logs[shiftId] = data.logs[shiftId] || { in: null, out: null, breaks: [] };
     return data.logs[shiftId];
   }
-  function activeShift(data, userId = state.currentUser) {
-    return data.shifts.find(shift => shift.userId === userId && rotaLog(data, shift.id).in && !rotaLog(data, shift.id).out);
+
+  function activeShift(data, userId) {
+    const id = userId || currentUserId();
+    return data.shifts.find(shift => shift.userId === id && rotaLog(data, shift.id).in && !rotaLog(data, shift.id).out);
   }
-  function todaysShifts(data, userId = state.currentUser) {
-    return data.shifts.filter(shift => shift.userId === userId && shift.date === today()).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+
+  function todaysShifts(data, userId) {
+    const id = userId || currentUserId();
+    return data.shifts.filter(shift => shift.userId === id && shift.date === today()).sort((a, b) => String(a.start).localeCompare(String(b.start)));
   }
-  function nextShift(data, userId = state.currentUser) {
-    return data.shifts.filter(shift => shift.userId === userId && shift.date >= today()).sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`))[0];
+
+  function upcomingShifts(data, userId) {
+    const id = userId || currentUserId();
+    return data.shifts.filter(shift => shift.userId === id && shift.date >= today()).sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
   }
-  function shiftLine(shift) {
-    return `${esc(shift.section)} · ${esc(shift.start)}–${esc(shift.end)} · ${hours(shift.start, shift.end)} hrs`;
+
+  function nextShift(data, userId) {
+    const now = new Date();
+    return upcomingShifts(data, userId).filter(shift => startDate(shift) > now && !rotaLog(data, shift.id).out)[0] || upcomingShifts(data, userId)[0];
   }
-  function rotaHomeBlock() {
-    const data = rs();
-    const meUser = rotaUserById(state.currentUser);
-    const todayList = todaysShifts(data, state.currentUser);
-    const active = activeShift(data, state.currentUser);
-    const next = nextShift(data, state.currentUser);
-    return `<section class="panel rotaHomePanel">
-      <div class="profileTop rotaHomeTop">
-        <span class="avatarText big">${esc(userInitials(meUser.name || meUser.nickname))}</span>
-        <div><h2>${esc(meUser.nickname || meUser.name)}</h2><p>${esc(meUser.jobArea || meUser.area || '')} · ${esc(meUser.role || '')}</p></div>
-        ${active ? badge('On shift', 'ok') : badge('Ready')}
-      </div>
-      <div class="profileHero rotaHomeHero">
-        <div>${next ? `<p>Next shift</p><h2>${esc(next.start)} – ${esc(next.end)}</h2><p class="muted">${esc(next.date)} · ${esc(next.section)}</p>` : '<p>No upcoming shift</p><h2>—</h2>'}</div>
-      </div>
-      <div class="quickActions">
-        <button data-route="rota">Open schedule</button>
-        <button data-route="staff">Open users</button>
-      </div>
-      <h3>Clock In</h3>
-      <div class="workCard">
-        <h3>Start unscheduled shift</h3>
-        <p class="muted">Use this if no shift has been added for you.</p>
-        <label>Section<select id="mainUnscheduledSection">${data.sections.map(section => `<option>${esc(section)}</option>`).join('')}</select></label>
-        <label>Note<input id="mainUnscheduledNote" placeholder="Optional duty note"></label>
-        <button ${active ? 'disabled' : ''} data-main-unscheduled-clock>Clock in without scheduled shift</button>
-      </div>
-      ${todayList.length ? todayList.map(shift => mainClockCard(data, shift)).join('') : '<p class="muted">No scheduled shifts today.</p>'}
-    </section>`;
+
+  function countdownText(shift) {
+    if (!shift) return 'No upcoming shift.';
+    const minutes = Math.max(0, Math.floor((startDate(shift) - new Date()) / 60000));
+    const days = Math.floor(minutes / 1440);
+    const hoursLeft = Math.floor((minutes % 1440) / 60);
+    const minsLeft = minutes % 60;
+    const bits = [];
+    if (days) bits.push(days + ' day' + (days === 1 ? '' : 's'));
+    if (hoursLeft) bits.push(hoursLeft + ' hour' + (hoursLeft === 1 ? '' : 's'));
+    bits.push(minsLeft + ' minute' + (minsLeft === 1 ? '' : 's'));
+    return 'Starting in ' + bits.join(', ') + ' at ' + (shift.section || 'work');
   }
-  function mainClockCard(data, shift) {
-    const log = rotaLog(data, shift.id);
-    const on = log.in && !log.out;
-    return `<div class="workCard mainClockCard">
-      <h3>${esc(shift.section)}</h3>
-      <p>${esc(shift.start)} – ${esc(shift.end)}</p>
-      <p class="muted">${esc(shift.notes || '')}</p>
-      <span class="statusBadge ${on ? 'live' : ''}">${on ? 'Clocked in' : log.out ? 'Clocked out' : 'Ready'}</span>
-      <div class="breakControls">
-        <button ${log.in ? 'disabled' : ''} data-main-clock-in="${shift.id}">Clock in</button>
-        <button ${!on ? 'disabled' : ''} data-main-clock-out="${shift.id}">Clock out</button>
-        <button class="secondary" ${!on ? 'disabled' : ''} data-main-break="${shift.id}|unpaid">Unpaid break</button>
-        <button class="secondary" ${!on ? 'disabled' : ''} data-main-break="${shift.id}|paid">Paid break</button>
-      </div>
+
+  function clockText() {
+    return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  function homeClockCard(data) {
+    const n = nextShift(data, currentUserId());
+    return `<div class="homeClockCard">
+      <div class="homeClockTime">${esc(clockText())}</div>
+      <div class="homeCountdown">${esc(countdownText(n))}</div>
+      ${n ? `<div class="homeNextShiftLine">${esc(n.section)} · ${esc(n.start)} – ${esc(n.end)}</div>` : ''}
     </div>`;
   }
 
-  const oldDashboard = dashboard;
-  dashboard = function dashboardWithRotaHome() {
-    return rotaHomeBlock() + oldDashboard();
-  };
+  function hasShiftToday(data) {
+    return todaysShifts(data, currentUserId()).length > 0;
+  }
+
+  function unscheduledBox(data, live) {
+    if (hasShiftToday(data)) return '';
+    return `<div class="workCard unscheduledHomeBox">
+      <h3>Start unscheduled shift</h3>
+      <p class="muted">Use this if no shift has been added for you today.</p>
+      <label>Section<select id="mainUnscheduledSection">${data.sections.map(section => `<option>${esc(section)}</option>`).join('')}</select></label>
+      <label>Note<input id="mainUnscheduledNote" placeholder="Optional duty note"></label>
+      <button class="startShiftBtn unscheduledStartBtn" ${live ? 'disabled' : ''} data-main-unscheduled-clock>Start Unscheduled Shift</button>
+    </div>`;
+  }
+
+  function shiftButtons(data, shift) {
+    const log = rotaLog(data, shift.id);
+    const live = activeShift(data, currentUserId());
+    const isThisLive = live && live.id === shift.id;
+    if (isThisLive) {
+      return `<button class="endShiftBtn" data-main-clock-out="${shift.id}">End Shift</button>
+        <button class="breakUnpaidBtn secondary" data-main-break="${shift.id}|unpaid">Start Unpaid Break</button>
+        <button class="breakPaidBtn secondary" data-main-break="${shift.id}|paid">Start Paid Break</button>`;
+    }
+    if (!live && shift.date === today() && !log.out) return `<button class="startShiftBtn" data-main-clock-in="${shift.id}">Start Shift</button>`;
+    return '';
+  }
+
+  function shiftCard(data, shift) {
+    const log = rotaLog(data, shift.id);
+    const status = log.in && !log.out ? 'On shift' : log.out ? 'Completed' : shift.date === today() ? 'Today' : 'Upcoming';
+    return `<div class="homeShiftCard mainClockCard">
+      <div>
+        <strong>${esc(niceDate(shift.date))}</strong>
+        <h3>${esc(shift.start)} – ${esc(shift.end)}</h3>
+        <p>${esc(shift.section)}</p>
+        <p class="muted">${esc(status + (shift.notes ? ' · ' + shift.notes : ''))}</p>
+      </div>
+      <div class="homeShiftActions">${shiftButtons(data, shift)}</div>
+    </div>`;
+  }
+
+  function rotaHomeBlock() {
+    const data = safeRotaState();
+    const meUser = rotaUserById(currentUserId());
+    const live = activeShift(data, currentUserId());
+    const shifts = upcomingShifts(data, currentUserId());
+    return `<section class="panel homePanel rotaHomePanel">
+      <div class="rotaHomeIdentity">
+        <span class="avatarText big">${esc(userInitials(meUser.name || meUser.nickname || 'U'))}</span>
+        <div>
+          <p class="muted">Rota Home</p>
+          <h2>${esc(meUser.nickname || meUser.name || 'Current user')}</h2>
+          <p>${esc(meUser.jobArea || meUser.area || meUser.role || '')}</p>
+        </div>
+        ${live ? badge('On shift', 'ok') : badge('Ready')}
+      </div>
+      ${homeClockCard(data)}
+      ${unscheduledBox(data, live)}
+      <div class="quickActions rotaHomeActions">
+        <button data-route="rota">Open Schedule</button>
+        <button data-route="staff">Open Users</button>
+        <button data-route="documents">Open Docs</button>
+      </div>
+      <h2>Upcoming shifts</h2>
+      <div class="homeShiftList">${shifts.length ? shifts.map(shift => shiftCard(data, shift)).join('') : '<p class="muted">No upcoming shifts.</p>'}</div>
+    </section>`;
+  }
+
+  if (typeof dashboard === 'function' && !dashboard.__rotaHomeIntegratedV2) {
+    const oldDashboard = dashboard;
+    dashboard = function dashboardWithExactRotaHome() {
+      return rotaHomeBlock() + oldDashboard();
+    };
+    dashboard.__rotaHomeIntegratedV2 = true;
+  }
 
   function rotaAdminSettings() {
-    const data = rs();
+    const data = safeRotaState();
     return `<h2>Rota Admin</h2>
-      <p class="muted">Rota admin tools now live here instead of inside the Rota schedule tab.</p>
+      <p class="muted">Rota admin tools live here instead of inside the Rota schedule tab.</p>
       <section class="grid two">
         <article class="panel"><h3>Add shift</h3>${mainShiftForm()}</article>
         <article class="panel"><h3>Sections</h3><form id="mainRotaSectionForm" class="rowForm"><input name="section" placeholder="New section"><button>Add section</button></form><div class="sectionList">${data.sections.map(section => `<div class="sectionRow"><span>${esc(section)}</span><button class="iconBtn danger" data-main-delete-section="${esc(section)}">×</button></div>`).join('')}</div></article>
@@ -98,9 +166,10 @@
       <section class="panel"><h3>Existing shifts</h3><div class="tableWrap"><table><tr><th>Date</th><th>User</th><th>Shift</th><th>Section</th><th></th></tr>${data.shifts.sort((a,b)=>`${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`)).map(shift => { const u = rotaUserById(shift.userId) || {}; return `<tr><td>${esc(shift.date)}</td><td>${esc(u.name || '')}</td><td>${esc(shift.start)}-${esc(shift.end)}</td><td>${esc(shift.section)}</td><td><button class="small secondary" data-main-edit-shift="${shift.id}">Edit</button></td></tr>`; }).join('') || '<tr><td colspan="5">No shifts yet.</td></tr>'}</table></div></section>
       <section class="panel"><h3>Timesheets</h3>${mainTimesheetTable(data)}</section>`;
   }
-  function mainShiftForm(shift = null) {
-    const data = rs();
-    const s = shift || { id: '', userId: state.users.find(u => u.role !== 'Admin')?.id || state.users[0]?.id || '', section: data.sections[0] || 'FOH', date: today(), start: '09:00', end: '17:00', notes: '' };
+
+  function mainShiftForm(shift) {
+    const data = safeRotaState();
+    const s = shift || { id: '', userId: (state.users.find(u => u.role !== 'Admin') || state.users[0] || {}).id || '', section: data.sections[0] || 'FOH', date: today(), start: '09:00', end: '17:00', notes: '' };
     return `<form id="mainRotaShiftForm" class="formGrid">
       <input type="hidden" name="id" value="${esc(s.id || '')}">
       <label>Staff<select name="userId">${state.users.map(u => `<option value="${u.id}" ${u.id === s.userId ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></label>
@@ -112,6 +181,7 @@
       <div class="full formActions"><button>${s.id ? 'Save shift' : 'Add shift'}</button>${s.id ? `<button type="button" class="danger" data-main-delete-shift="${s.id}">Delete</button>` : ''}</div>
     </form>`;
   }
+
   function mainTimesheetTable(data) {
     const rows = data.shifts.map(shift => {
       const u = rotaUserById(shift.userId) || {};
@@ -125,14 +195,17 @@
     return `<div class="tableWrap"><table><tr><th>Date</th><th>User</th><th>Section</th><th>Clock in</th><th>Clock out</th><th>Payable</th></tr>${rows || '<tr><td colspan="6">No timesheets yet.</td></tr>'}</table></div>`;
   }
 
-  const oldSettingsContent = settingsContent;
-  settingsContent = function settingsContentWithRotaAdmin() {
-    if (settingsTab === 'rota') return rotaAdminSettings();
-    return oldSettingsContent();
-  };
+  if (typeof settingsContent === 'function' && !settingsContent.__rotaAdminIntegratedV2) {
+    const oldSettingsContent = settingsContent;
+    settingsContent = function settingsContentWithRotaAdmin() {
+      if (settingsTab === 'rota') return rotaAdminSettings();
+      return oldSettingsContent();
+    };
+    settingsContent.__rotaAdminIntegratedV2 = true;
+  }
 
   function openMainShiftEditor(id) {
-    const data = rs();
+    const data = safeRotaState();
     const shift = data.shifts.find(s => s.id === id);
     if (!shift) return;
     modalRoot.innerHTML = `<div class="modalCard"><button class="close" id="closeModal">×</button><h2>Edit shift</h2>${mainShiftForm(shift)}</div>`;
@@ -142,24 +215,45 @@
   }
 
   function bindRotaMainIntegration() {
-    document.querySelectorAll('[data-main-clock-in]').forEach(btn => btn.onclick = () => { const data = rs(); const log = rotaLog(data, btn.dataset.mainClockIn); log.in = new Date().toISOString(); log.out = null; saveRs(data); render(); });
-    document.querySelectorAll('[data-main-clock-out]').forEach(btn => btn.onclick = () => { const data = rs(); const log = rotaLog(data, btn.dataset.mainClockOut); log.out = new Date().toISOString(); const shift = data.shifts.find(s => s.id === btn.dataset.mainClockOut); if (shift?.unscheduled) shift.end = timeNowShort(); saveRs(data); render(); });
-    document.querySelectorAll('[data-main-break]').forEach(btn => btn.onclick = () => { const [id, paid] = btn.dataset.mainBreak.split('|'); const data = rs(); const log = rotaLog(data, id); log.breaks = log.breaks || []; log.breaks.push({ start: new Date().toISOString(), end: new Date().toISOString(), paid: paid === 'paid' }); saveRs(data); render(); });
-    document.querySelectorAll('[data-main-unscheduled-clock]').forEach(btn => btn.onclick = () => { const data = rs(); if (activeShift(data)) return alert('You are already clocked in.'); const id = uid(); const t = timeNowShort(); data.shifts.push({ id, userId: state.currentUser, section: document.getElementById('mainUnscheduledSection').value, date: today(), start: t, end: t, notes: document.getElementById('mainUnscheduledNote').value || 'Unscheduled shift', unscheduled: true }); data.logs[id] = { in: new Date().toISOString(), out: null, breaks: [] }; saveRs(data); render(); });
+    document.querySelectorAll('[data-main-clock-in]').forEach(btn => btn.onclick = () => { const data = safeRotaState(); const log = rotaLog(data, btn.dataset.mainClockIn); log.in = new Date().toISOString(); log.out = null; saveRotaStateLocal(data); render(); });
+    document.querySelectorAll('[data-main-clock-out]').forEach(btn => btn.onclick = () => { const data = safeRotaState(); const log = rotaLog(data, btn.dataset.mainClockOut); log.out = new Date().toISOString(); const shift = data.shifts.find(s => s.id === btn.dataset.mainClockOut); if (shift && shift.unscheduled) shift.end = timeNowShort(); saveRotaStateLocal(data); render(); });
+    document.querySelectorAll('[data-main-break]').forEach(btn => btn.onclick = () => { const bits = btn.dataset.mainBreak.split('|'); const data = safeRotaState(); const log = rotaLog(data, bits[0]); log.breaks = log.breaks || []; log.breaks.push({ start: new Date().toISOString(), end: null, paid: bits[1] === 'paid' }); saveRotaStateLocal(data); render(); });
+    document.querySelectorAll('[data-main-unscheduled-clock]').forEach(btn => btn.onclick = () => { const data = safeRotaState(); if (activeShift(data)) return alert('You are already clocked in.'); const id = makeShiftId(); const t = timeNowShort(); data.shifts.push({ id, userId: currentUserId(), section: document.getElementById('mainUnscheduledSection').value, date: today(), start: t, end: t, notes: document.getElementById('mainUnscheduledNote').value || 'Unscheduled shift', unscheduled: true, publishedAt: new Date().toISOString() }); data.logs[id] = { in: new Date().toISOString(), out: null, breaks: [] }; saveRotaStateLocal(data); render(); });
     const shiftForm = document.getElementById('mainRotaShiftForm');
-    if (shiftForm) shiftForm.onsubmit = event => { event.preventDefault(); const data = rs(); const formData = new FormData(shiftForm); const id = formData.get('id') || uid(); const shift = { id, userId: formData.get('userId'), section: formData.get('section'), date: formData.get('date'), start: formData.get('start'), end: formData.get('end'), notes: formData.get('notes') || '' }; const existing = data.shifts.find(s => s.id === id); if (existing) Object.assign(existing, shift); else data.shifts.push(shift); saveRs(data); modalRoot.classList.add('hidden'); render(); };
+    if (shiftForm) shiftForm.onsubmit = event => { event.preventDefault(); const data = safeRotaState(); const formData = new FormData(shiftForm); const id = formData.get('id') || makeShiftId(); const shift = { id, userId: formData.get('userId'), section: formData.get('section'), date: formData.get('date'), start: formData.get('start'), end: formData.get('end'), notes: formData.get('notes') || '', publishedAt: new Date().toISOString() }; const existing = data.shifts.find(s => s.id === id); if (existing) Object.assign(existing, shift); else data.shifts.push(shift); saveRotaStateLocal(data); modalRoot.classList.add('hidden'); render(); };
     const sectionForm = document.getElementById('mainRotaSectionForm');
-    if (sectionForm) sectionForm.onsubmit = event => { event.preventDefault(); const formData = new FormData(sectionForm); const name = String(formData.get('section') || '').trim(); if (!name) return; const data = rs(); if (!data.sections.includes(name)) data.sections.push(name); state.rotaSettings = state.rotaSettings || {}; state.rotaSettings.sections = data.sections; saveRs(data); save(); render(); };
-    document.querySelectorAll('[data-main-delete-section]').forEach(btn => btn.onclick = () => { const data = rs(); data.sections = data.sections.filter(s => s !== btn.dataset.mainDeleteSection); state.rotaSettings.sections = data.sections; saveRs(data); save(); render(); });
+    if (sectionForm) sectionForm.onsubmit = event => { event.preventDefault(); const formData = new FormData(sectionForm); const name = String(formData.get('section') || '').trim(); if (!name) return; const data = safeRotaState(); if (!data.sections.includes(name)) data.sections.push(name); state.rotaSettings = state.rotaSettings || {}; state.rotaSettings.sections = data.sections; saveRotaStateLocal(data); save(); render(); };
+    document.querySelectorAll('[data-main-delete-section]').forEach(btn => btn.onclick = () => { const data = safeRotaState(); data.sections = data.sections.filter(s => s !== btn.dataset.mainDeleteSection); state.rotaSettings.sections = data.sections; saveRotaStateLocal(data); save(); render(); });
     document.querySelectorAll('[data-main-edit-shift]').forEach(btn => btn.onclick = () => openMainShiftEditor(btn.dataset.mainEditShift));
-    document.querySelectorAll('[data-main-delete-shift]').forEach(btn => btn.onclick = () => { const data = rs(); data.shifts = data.shifts.filter(s => s.id !== btn.dataset.mainDeleteShift); delete data.logs[btn.dataset.mainDeleteShift]; saveRs(data); modalRoot.classList.add('hidden'); render(); });
+    document.querySelectorAll('[data-main-delete-shift]').forEach(btn => btn.onclick = () => { const data = safeRotaState(); data.shifts = data.shifts.filter(s => s.id !== btn.dataset.mainDeleteShift); delete data.logs[btn.dataset.mainDeleteShift]; saveRotaStateLocal(data); modalRoot.classList.add('hidden'); render(); });
   }
 
-  const oldBind = bind;
-  bind = function bindWithRotaMainIntegration() {
-    oldBind();
-    bindRotaMainIntegration();
-  };
+  if (typeof bind === 'function' && !bind.__rotaMainIntegrationV2) {
+    const oldBind = bind;
+    bind = function bindWithRotaMainIntegration() {
+      oldBind();
+      bindRotaMainIntegration();
+    };
+    bind.__rotaMainIntegrationV2 = true;
+  }
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .rotaHomePanel.homePanel { display: grid; gap: 16px; }
+    .rotaHomeIdentity { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+    .homeClockCard { padding: 20px; border-radius: 24px; background: radial-gradient(circle at 90% 20%, rgba(176,145,74,.22), transparent 28%), linear-gradient(135deg, #111820, #080a0d); border: 1px solid rgba(176,145,74,.28); box-shadow: 0 12px 30px rgba(0,0,0,.25); }
+    .homeClockTime { font-size: clamp(42px, 16vw, 72px); line-height: .95; font-weight: 900; letter-spacing: -.07em; color: #fff8ea; }
+    .homeCountdown { margin-top: 10px; color: #d0ad58; font-weight: 800; }
+    .homeNextShiftLine { margin-top: 6px; color: #a69e90; }
+    .homeShiftList { display: grid; gap: 12px; }
+    .homeShiftCard { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 16px; border-radius: 22px; background: linear-gradient(180deg, rgba(27,33,39,.96), rgba(17,22,27,.96)); border: 1px solid rgba(255,255,255,.08); }
+    .homeShiftCard strong { color: #d0ad58; }
+    .homeShiftCard h3 { margin: 4px 0; font-size: 24px; }
+    .homeShiftActions { display: grid; gap: 8px; }
+    .rotaHomeActions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    @media(max-width:430px){ .rotaHomeActions { grid-template-columns: 1fr; } .rotaHomeIdentity { grid-template-columns: auto 1fr; } .rotaHomeIdentity .badge { grid-column: 1 / -1; justify-self: start; } }
+  `;
+  document.head.appendChild(style);
 
   render();
 })();
