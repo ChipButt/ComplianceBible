@@ -1,7 +1,7 @@
 // Final shared document upload system. Single source of truth for all document upload UI.
 (function () {
-  if (window.__finalDocumentSystemClean) return;
-  window.__finalDocumentSystemClean = true;
+  if (window.__finalDocumentSystemClean2) return;
+  window.__finalDocumentSystemClean2 = true;
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
@@ -23,7 +23,7 @@
   function readFile(file, done) { const r = new FileReader(); r.onload = () => done(r.result || ''); r.readAsDataURL(file); }
   function image(record) { return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/'); }
   function confirmed(record) { return !!(record?.fileData && (record.noExpiry || record.expiryDate || record.expiry)); }
-  function status(record, required) { if (confirmed(record)) return ['Confirmed','ok']; if (record?.fileData) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
+  function status(record, required) { if (confirmed(record)) return ['', 'complete']; if (record?.fileData) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
   function expiryText(record) {
     if (record?.noExpiry) return 'Does not expire';
     const raw = record?.expiryDate || record?.expiry;
@@ -50,13 +50,14 @@
   function card(o) {
     const record = o.record || {};
     const s = status(record, o.required);
+    const badge = s[0] ? '<span class="fdocBadge ' + s[1] + '">' + esc(s[0]) + '</span>' : '<span class="fdocBadge fdocBadgeEmpty" aria-hidden="true"></span>';
     const cardKey = o.kind + ':' + o.key;
     const expanded = !!openCards[cardKey];
     return '<article class="fdoc" data-fdoc-kind="' + esc(o.kind) + '" data-fdoc-key="' + esc(o.key) + '">' +
       '<button type="button" class="fdocBar" data-fdoc-toggle="' + esc(cardKey) + '">' +
         '<span class="fdocIcon">' + icon.doc + '</span>' +
         '<span class="fdocName"><strong>' + esc(o.title) + '</strong><em>' + esc(o.cat || 'Document') + '</em></span>' +
-        '<span class="fdocBadge ' + s[1] + '">' + esc(s[0]) + '</span>' +
+        badge +
         '<span class="fdocDate">' + esc(expiryText(record)) + '</span>' +
         '<span class="fdocArrow">' + (expanded ? '⌃' : '⌄') + '</span>' +
       '</button>' +
@@ -69,8 +70,8 @@
               '<label>' + icon.camera + '<span>Take Photo</span><input type="file" data-fdoc-photo accept="image/*" capture="environment"></label>' +
             '</div>' +
             '<div class="fdocMeta">' +
-              '<label class="fdocSwitch"><span class="fdocSwitchText">Does Not Expire</span><input type="checkbox" data-fdoc-noexpiry ' + (record.noExpiry ? 'checked' : '') + '><span class="fdocSwitchTrack"></span></label>' +
-              '<label class="fdocExpiry"><span>Expiry Date</span><span class="fdocDateInputWrap">' + icon.calendar + '<input type="date" data-fdoc-expiry value="' + esc((record.expiryDate || record.expiry) || '') + '" ' + (record.noExpiry ? 'disabled' : '') + '></span></label>' +
+              '<label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input type="checkbox" data-fdoc-noexpiry ' + (record.noExpiry ? 'checked' : '') + '><span class="fdocSwitchTrack"></span></label>' +
+              '<label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input type="date" data-fdoc-expiry value="' + esc((record.expiryDate || record.expiry) || '') + '" ' + (record.noExpiry ? 'disabled' : '') + '></span></label>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -104,7 +105,7 @@
     reqs().forEach(r => { if (!common.some(c => c.toLowerCase() === String(r.title || '').toLowerCase())) buttons.push(filterButton(r.title, r.title)); });
     return '<div class="buttonRow docFinderButtons">' + buttons.join('') + '</div>';
   }
-  function addForm() { return '<section class="panel"><h2>Add premises document</h2><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span>Expiry Date</span><span class="fdocDateInputWrap">' + icon.calendar + '<input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></section>'; }
+  function addForm() { return '<section class="panel"><h2>Add premises document</h2><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></section>'; }
 
   documents = function () { return '<section class="hero card"><div><p class="eyebrow">Document Hub</p><h2>All documents and staff training</h2><p>Find, upload, photograph and confirm required documents.</p></div>' + badge('Central vault','ok') + '</section><section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section><section class="fdocSection"><h2>Premises documents</h2>' + premisesList() + '</section><section class="fdocSection"><h2>Staff documents</h2>' + staffList() + '</section><section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm(); };
 
@@ -145,15 +146,9 @@
 
   const css = document.createElement('style');
   css.id = 'final-document-system-neutral-styles';
-  css.textContent = `
-    :root{--fdoc-accent:#f8f1e5;--fdoc-accent2:#d7d0c4;--fdoc-line:rgba(255,255,255,.24);--fdoc-text:#f8f1e5;--fdoc-muted:#aaa298}
-    .fdocSection{display:grid;gap:10px;margin:14px 0}.fdocSection>h2{margin:6px 4px!important}.fdoc{background:#030405;border:1px solid var(--fdoc-line);border-radius:18px;overflow:hidden;box-shadow:0 14px 28px rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.025)}
-    .fdocBar{width:100%;display:grid;grid-template-columns:42px minmax(0,1fr) auto auto 26px;gap:10px;align-items:center;min-height:62px!important;padding:8px 11px!important;background:linear-gradient(180deg,rgba(18,19,20,.96),rgba(9,9,10,.99))!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.18)!important;border-radius:0!important;color:var(--fdoc-text)!important;text-align:left!important;box-shadow:none!important}.fdocIcon{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;color:var(--fdoc-accent);background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(0,0,0,.38)}.fdocIcon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.fdocName{display:grid;min-width:0}.fdocName strong{font-size:15px;line-height:1.06;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:850;color:var(--fdoc-text)}.fdocName em{font-style:normal;color:var(--fdoc-accent2);font-size:12px;margin-top:3px}.fdocBadge{border:1px solid rgba(255,255,255,.30);border-radius:8px;padding:6px 9px;color:var(--fdoc-text);font-size:12px;font-weight:820;background:rgba(0,0,0,.28)}.fdocBadge.ok{color:#68df8a;border-color:rgba(104,223,138,.5)}.fdocBadge.warn,.fdocBadge.danger{color:var(--fdoc-text)}.fdocDate{color:#d7d0c4;font-size:13px;white-space:nowrap}.fdocArrow{color:var(--fdoc-accent);font-size:19px;text-align:right;line-height:1}
-    .fdocPanel{padding:9px 10px 11px;background:linear-gradient(180deg,#090a0b,#050607)}.fdocPanel.closed{display:none}.fdocInstruction{margin:0 0 9px!important;color:var(--fdoc-muted)!important;font-size:12.5px!important;line-height:1.35!important}.fdocBody{display:grid;grid-template-columns:86px 1fr;gap:11px;align-items:stretch}.fdocThumb{width:82px;height:108px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.025));display:flex;align-items:center;justify-content:center;overflow:hidden;color:#d9d0c2;font-weight:850;text-align:center;padding:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.76),0 8px 15px rgba(0,0,0,.24)}.fdocThumb img{width:100%;height:100%;object-fit:cover}.fdocThumb.empty{font-size:11px;background:linear-gradient(180deg,#17191b,#101113);color:#bcb3a5}.fdocControls{display:grid;gap:8px}.fdocUploads,.fdocMeta{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:stretch}.fdocUploads label,.fdocSwitch,.fdocExpiry{height:46px;min-height:46px;border-radius:11px;background:linear-gradient(180deg,#181a1c,#101113);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:var(--fdoc-text);font-weight:720;font-size:13px;padding:7px 10px;box-sizing:border-box}.fdocUploads label{gap:8px;white-space:nowrap}.fdocUploads svg,.fdocDateInputWrap svg{width:19px;height:19px;fill:none;stroke:var(--fdoc-accent);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.fdocUploads input{position:absolute;opacity:0;width:1px;height:1px}.fdocSwitch{display:grid;grid-template-columns:minmax(0,1fr) auto;justify-content:normal;gap:8px;overflow:hidden;text-align:left}.fdocSwitchText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--fdoc-text)}.fdocSwitch input{position:absolute;opacity:0}.fdocSwitchTrack{justify-self:end;width:38px;height:22px;border-radius:999px;background:#242526;position:relative;box-shadow:inset 0 0 0 1px rgba(255,255,255,.11);flex:0 0 auto}.fdocSwitchTrack:after{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;border-radius:50%;background:#8c8c8c;transition:left .15s ease,background .15s ease}.fdocSwitch input:checked+.fdocSwitchTrack{background:rgba(255,255,255,.20)}.fdocSwitch input:checked+.fdocSwitchTrack:after{left:18px;background:var(--fdoc-accent);box-shadow:0 0 10px rgba(255,255,255,.22)}.fdocExpiry{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;justify-content:stretch;text-align:left;overflow:hidden}.fdocExpiry>span:first-child{color:var(--fdoc-text);white-space:nowrap}.fdocDateInputWrap{display:flex;align-items:center;gap:6px;min-width:0}.fdocExpiry input{min-height:28px!important;height:28px!important;padding:0!important;font-size:12.5px!important;border:0!important;background:transparent!important;color:var(--fdoc-text)!important;width:100%;min-width:0}.fdocFull{width:100%;height:auto;border-radius:18px;background:#fff}.fdocFileBig{padding:40px;text-align:center;background:rgba(255,255,255,.06);border-radius:18px;color:var(--fdoc-text);font-weight:850}.evidenceViewerModal{max-height:88vh;overflow:auto}
-    @media(max-width:430px){.fdocBar{grid-template-columns:34px minmax(0,1fr) auto 22px;min-height:58px!important;padding:7px 9px!important;gap:8px}.fdocDate{display:none}.fdocIcon{width:30px;height:30px}.fdocIcon svg{width:17px;height:17px}.fdocBadge{font-size:10.5px;padding:5px 7px}.fdocName strong{font-size:14px}.fdocName em{font-size:11.5px}.fdocPanel{padding:8px 9px 10px}.fdocInstruction{font-size:12px!important;margin-bottom:8px!important}.fdocBody{grid-template-columns:70px 1fr;gap:8px}.fdocThumb{width:66px;height:86px;font-size:10px}.fdocUploads,.fdocMeta{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px}.fdocUploads label,.fdocSwitch,.fdocExpiry{height:38px;min-height:38px;padding:5px 7px;font-size:11px;border-radius:10px}.fdocSwitchText,.fdocExpiry>span:first-child{font-size:11px;white-space:nowrap}.fdocSwitchTrack{width:34px;height:20px}.fdocSwitchTrack:after{width:16px;height:16px}.fdocSwitch input:checked+.fdocSwitchTrack:after{left:16px}.fdocUploads svg,.fdocDateInputWrap svg{width:16px;height:16px}.fdocExpiry input{font-size:11px!important;height:24px!important;min-height:24px!important}}
-  `;
+  css.textContent = '';
   document.head.appendChild(css);
 
-  if (typeof bind === 'function' && !bind.__finalDocumentSystemClean) { const oldBind = bind; bind = function () { oldBind(); bindFinal(); }; bind.__finalDocumentSystemClean = true; }
+  if (typeof bind === 'function' && !bind.__finalDocumentSystemClean2) { const oldBind = bind; bind = function () { oldBind(); bindFinal(); }; bind.__finalDocumentSystemClean2 = true; }
   render();
 })();
