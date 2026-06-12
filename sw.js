@@ -1,4 +1,4 @@
-const CACHE = 'compliance-bible-v20260612-5';
+const CACHE = 'compliance-bible-v20260612-6';
 const ASSETS = [
   './',
   './index.html',
@@ -16,7 +16,9 @@ const ASSETS = [
   './app-add-premises-fix.css',
   './app-fire-safety-system.js',
   './app-fire-safety-system.css',
-  './app-unified-expanders.css'
+  './app-unified-expanders.css',
+  './app-check-expanders.js',
+  './app-check-expanders.css'
 ];
 
 self.addEventListener('install', event => {
