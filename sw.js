@@ -1,4 +1,4 @@
-const CACHE = 'compliance-bible-v20260612-8';
+const CACHE = 'compliance-bible-v20260612-9';
 const ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,8 @@ const ASSETS = [
   './app-add-premises-fix.css',
   './app-fire-safety-system.js',
   './app-fire-safety-system.css',
+  './app-kitchen-safety-system.js',
+  './app-kitchen-safety-system.css',
   './app-unified-expanders.css',
   './app-check-expanders.js',
   './app-check-expanders.css',
