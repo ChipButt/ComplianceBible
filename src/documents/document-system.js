@@ -1,7 +1,7 @@
 // Final shared document upload system. Single source of truth for all document upload UI.
 (function () {
-  if (window.__finalDocumentSystemClean3) return;
-  window.__finalDocumentSystemClean3 = true;
+  if (window.__finalDocumentSystemClean4) return;
+  window.__finalDocumentSystemClean4 = true;
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
@@ -119,7 +119,16 @@
   bind = function () {
     oldBind();
     document.querySelectorAll('[data-final-filter]').forEach(b => b.onclick = () => { filter = b.dataset.finalFilter; render(); });
-    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => { const k = btn.dataset.fdocToggle; openCards[k] = !openCards[k]; render(); });
+    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => {
+      const k = btn.dataset.fdocToggle;
+      const article = btn.closest('.fdoc');
+      const panel = article && article.querySelector('.fdocPanel');
+      const isOpen = !(article && article.classList.contains('open'));
+      openCards[k] = isOpen;
+      if (article) article.classList.toggle('open', isOpen);
+      if (panel) panel.classList.toggle('closed', !isOpen);
+      btn.setAttribute('aria-expanded', String(isOpen));
+    });
     document.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
       const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
       readFile(file, data => { r.fileData = data; r.fileName = file.name; r.fileType = file.type; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
