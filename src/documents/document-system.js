@@ -107,7 +107,7 @@
   }
   function addForm() { return '<section class="panel"><h2>Add premises document</h2><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></section>'; }
 
-  documents = function () { return '<section class="hero card"><div><p class="eyebrow">Document Hub</p><h2>All documents and staff training</h2><p>Find, upload, photograph and confirm required documents.</p></div>' + badge('Central vault','ok') + '</section><section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section><section class="fdocSection"><h2>Premises documents</h2>' + premisesList() + '</section><section class="fdocSection"><h2>Staff documents</h2>' + staffList() + '</section><section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm(); };
+  documents = function () { return '<section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section><section class="fdocSection"><h2>Premises documents</h2>' + premisesList() + '</section><section class="fdocSection"><h2>Staff documents</h2>' + staffList() + '</section><section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm(); };
 
   if (typeof centralProfileDetail === 'function') {
     const oldDetail = centralProfileDetail;
@@ -123,10 +123,22 @@
     modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2>' + (image(record) ? '<img class="fdocFull" src="' + record.fileData + '" alt="Document preview">' : '<div class="fdocFileBig">Document file</div><a class="ghost evidenceOpenLink" href="' + record.fileData + '" download="' + esc(record.fileName || 'document') + '">Open / Download</a>') + '</div>'; modalRoot.classList.remove('hidden'); document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
   }
 
+  function toggleCard(btn) {
+    const key = btn.dataset.fdocToggle;
+    openCards[key] = !openCards[key];
+    const article = btn.closest('.fdoc');
+    if (!article) return;
+    const panel = article.querySelector('.fdocPanel');
+    const arrow = btn.querySelector('.fdocArrow');
+    if (panel) panel.classList.toggle('closed', !openCards[key]);
+    if (arrow) arrow.textContent = openCards[key] ? '⌃' : '⌄';
+    btn.setAttribute('aria-expanded', openCards[key] ? 'true' : 'false');
+  }
+
   function bindFinal() {
     document.querySelectorAll('[data-final-filter]').forEach(btn => btn.onclick = () => { filter = btn.dataset.finalFilter; render(); });
-    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => { openCards[btn.dataset.fdocToggle] = !openCards[btn.dataset.fdocToggle]; render(); });
-    document.querySelectorAll('.fdoc').forEach(cardEl => {
+    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = ev => { ev.preventDefault(); toggleCard(btn); });
+    document.querySelectorAll('.fdoc[data-fdoc-kind][data-fdoc-key]').forEach(cardEl => {
       if (cardEl.dataset.bound) return; cardEl.dataset.bound = '1';
       const kind = cardEl.dataset.fdocKind, key = cardEl.dataset.fdocKey;
       let record = getRecord(kind, key);
