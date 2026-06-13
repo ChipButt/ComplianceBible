@@ -6,18 +6,37 @@
     try { return typeof me === 'function' ? me() : null; } catch (e) { return null; }
   }
 
-  function canSeeSharedAlerts() {
+  function userPermissionSet() {
     var u = currentUser();
-    var role = String(u && u.role ? u.role : '').toLowerCase();
-    return role.indexOf('admin') !== -1 || role.indexOf('manager') !== -1 || role.indexOf('supervisor') !== -1;
+    if (!u) return null;
+    return u.permissionSetId || u.role || 'Staff';
+  }
+
+  function hasPermission(key) {
+    var u = currentUser();
+    if (!u) return false;
+    var role = String(u.role || '').toLowerCase();
+    if (role.indexOf('admin') !== -1 || role.indexOf('manager') !== -1 || role.indexOf('supervisor') !== -1) return true;
+    var setName = userPermissionSet();
+    var matrix = state && state.permissionMatrix && state.permissionMatrix[setName];
+    if (matrix && typeof matrix[key] === 'boolean') return !!matrix[key];
+    if (setName) {
+      var lower = String(setName).toLowerCase();
+      if (lower.indexOf('admin') !== -1 || lower.indexOf('manager') !== -1 || lower.indexOf('supervisor') !== -1) return true;
+    }
+    return false;
+  }
+
+  function canSeeSharedAlerts() {
+    return hasPermission('documents') || hasPermission('checks') || hasPermission('logs') || hasPermission('settings') || hasPermission('users');
   }
 
   function countDocs() {
     try {
       var u = currentUser();
-      var shared = canSeeSharedAlerts() ? (state.docs || []).filter(function (d) { return d.status !== 'Stored' && !d.fileData; }).length : 0;
+      var shared = hasPermission('documents') ? (state.docs || []).filter(function (d) { return d.status !== 'Stored' && !d.fileData; }).length : 0;
       var personal = (state.userRequiredDocuments || []).filter(function (d) {
-        if (!canSeeSharedAlerts() && u && d.userId !== u.id) return false;
+        if (!hasPermission('documents') && u && d.userId !== u.id) return false;
         return !(d.fileData && (d.noExpiry || d.expiryDate || d.expiry));
       }).length;
       return shared + personal;
@@ -26,14 +45,14 @@
 
   function countChecks() {
     try {
-      if (!canSeeSharedAlerts()) return 0;
+      if (!hasPermission('checks')) return 0;
       return (state.checks || []).filter(function (c) { return typeof overdue === 'function' && overdue(c); }).length;
     } catch (e) { return 0; }
   }
 
   function countIssues() {
     try {
-      if (!canSeeSharedAlerts()) return 0;
+      if (!hasPermission('logs')) return 0;
       return (state.issues || []).filter(function (i) { return i.status !== 'Resolved'; }).length;
     } catch (e) { return 0; }
   }
