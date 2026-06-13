@@ -1,3 +1,10 @@
 # Compliance Bible / Pub Compliance Hub
 
-Active files are being cleaned.
+Active runtime files:
+- index.html
+- app.js
+- styles.css
+- manifest.json
+- sw.js
+
+Cleanup in progress.
