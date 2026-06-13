@@ -169,7 +169,7 @@
     '</article>';
   }
 
-  window.checks = function checksPage() {
+  checks = window.checks = function checksPage() {
     var list = dueChecks();
     var groups = grouped(list);
     var keys = Object.keys(groups).sort();
