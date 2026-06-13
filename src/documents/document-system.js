@@ -1,7 +1,7 @@
 // Final shared document upload system. Single source of truth for all document upload UI.
 (function () {
-  if (window.__finalDocumentSystemClean2) return;
-  window.__finalDocumentSystemClean2 = true;
+  if (window.__finalDocumentSystemClean3) return;
+  window.__finalDocumentSystemClean3 = true;
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
@@ -39,8 +39,6 @@
     if (kind === 'premises') return (state.docs || []).find(d => d.id === key);
     const parts = key.split('|'); return getUserRecord(parts[0], parts[1]);
   }
-  function allRecords() { return (state.docs || []).concat(state.userRequiredDocuments || []); }
-
   function thumb(record) {
     if (!record?.fileData) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
     if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(record.id) + '"><img src="' + record.fileData + '" alt="Document preview"></button>';
@@ -53,13 +51,13 @@
     const badge = s[0] ? '<span class="fdocBadge ' + s[1] + '">' + esc(s[0]) + '</span>' : '<span class="fdocBadge fdocBadgeEmpty" aria-hidden="true"></span>';
     const cardKey = o.kind + ':' + o.key;
     const expanded = !!openCards[cardKey];
-    return '<article class="fdoc" data-fdoc-kind="' + esc(o.kind) + '" data-fdoc-key="' + esc(o.key) + '">' +
+    return '<article class="fdoc ' + (expanded ? 'open' : '') + '" data-fdoc-kind="' + esc(o.kind) + '" data-fdoc-key="' + esc(o.key) + '">' +
       '<button type="button" class="fdocBar" data-fdoc-toggle="' + esc(cardKey) + '">' +
         '<span class="fdocIcon">' + icon.doc + '</span>' +
         '<span class="fdocName"><strong>' + esc(o.title) + '</strong><em>' + esc(o.cat || 'Document') + '</em></span>' +
         badge +
         '<span class="fdocDate">' + esc(expiryText(record)) + '</span>' +
-        '<span class="fdocArrow">' + (expanded ? '⌃' : '⌄') + '</span>' +
+        '<span class="fdocArrow">⌄</span>' +
       '</button>' +
       '<div class="fdocPanel ' + (expanded ? '' : 'closed') + '">' +
         '<p class="fdocInstruction">' + esc(o.note || 'Upload a clear, current copy of this document.') + '</p>' +
@@ -106,7 +104,6 @@
     return '<div class="buttonRow docFinderButtons">' + buttons.join('') + '</div>';
   }
   function addForm() { return '<section class="panel"><h2>Add premises document</h2><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></section>'; }
-
   documents = function () { return '<section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section><section class="fdocSection"><h2>Premises documents</h2>' + premisesList() + '</section><section class="fdocSection"><h2>Staff documents</h2>' + staffList() + '</section><section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm(); };
 
   if (typeof centralProfileDetail === 'function') {
@@ -118,49 +115,17 @@
     };
   }
 
-  function viewer(record) {
-    if (!record?.fileData) return;
-    modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2>' + (image(record) ? '<img class="fdocFull" src="' + record.fileData + '" alt="Document preview">' : '<div class="fdocFileBig">Document file</div><a class="ghost evidenceOpenLink" href="' + record.fileData + '" download="' + esc(record.fileName || 'document') + '">Open / Download</a>') + '</div>'; modalRoot.classList.remove('hidden'); document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
-  }
-
-  function toggleCard(btn) {
-    const key = btn.dataset.fdocToggle;
-    openCards[key] = !openCards[key];
-    const article = btn.closest('.fdoc');
-    if (!article) return;
-    const panel = article.querySelector('.fdocPanel');
-    const arrow = btn.querySelector('.fdocArrow');
-    if (panel) panel.classList.toggle('closed', !openCards[key]);
-    if (arrow) arrow.textContent = openCards[key] ? '⌃' : '⌄';
-    btn.setAttribute('aria-expanded', openCards[key] ? 'true' : 'false');
-  }
-
-  function bindFinal() {
-    document.querySelectorAll('[data-final-filter]').forEach(btn => btn.onclick = () => { filter = btn.dataset.finalFilter; render(); });
-    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = ev => { ev.preventDefault(); toggleCard(btn); });
-    document.querySelectorAll('.fdoc[data-fdoc-kind][data-fdoc-key]').forEach(cardEl => {
-      if (cardEl.dataset.bound) return; cardEl.dataset.bound = '1';
-      const kind = cardEl.dataset.fdocKind, key = cardEl.dataset.fdocKey;
-      let record = getRecord(kind, key);
-      const noExpiry = cardEl.querySelector('[data-fdoc-noexpiry]');
-      const expiryInput = cardEl.querySelector('[data-fdoc-expiry]');
-      function saveMeta() { record = getRecord(kind, key); record.noExpiry = !!noExpiry.checked; record.expiryDate = noExpiry.checked ? '' : expiryInput.value; record.expiry = noExpiry.checked ? '' : expiryInput.value; saveNow(); render(); }
-      noExpiry.onchange = () => { expiryInput.disabled = noExpiry.checked; if (noExpiry.checked) expiryInput.value = ''; saveMeta(); };
-      expiryInput.onchange = saveMeta;
-      function saveFile(file) { if (!file) return; readFile(file, data => { record = getRecord(kind, key); record.fileName = file.name || 'Photo'; record.fileType = file.type || 'image/jpeg'; record.fileData = data; record.uploadedAt = new Date().toISOString(); record.noExpiry = !!noExpiry.checked; record.expiryDate = noExpiry.checked ? '' : expiryInput.value; record.expiry = noExpiry.checked ? '' : expiryInput.value; saveNow(); render(); }); }
-      cardEl.querySelector('[data-fdoc-file]').onchange = function () { saveFile(this.files[0]); };
-      cardEl.querySelector('[data-fdoc-photo]').onchange = function () { saveFile(this.files[0]); };
+  const oldBind = bind;
+  bind = function () {
+    oldBind();
+    document.querySelectorAll('[data-final-filter]').forEach(b => b.onclick = () => { filter = b.dataset.finalFilter; render(); });
+    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => { const k = btn.dataset.fdocToggle; openCards[k] = !openCards[k]; render(); });
+    document.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
+      const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
+      readFile(file, data => { r.fileData = data; r.fileName = file.name; r.fileType = file.type; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
     });
-    document.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => { e.stopPropagation(); viewer(allRecords().find(r => r.id === btn.dataset.fdocThumb)); });
-    const add = document.getElementById('finalDocAdd');
-    if (add && !add.dataset.bound) { add.dataset.bound = '1'; add.onsubmit = ev => { ev.preventDefault(); const fd = new FormData(add); const file = (add.querySelector('[name=file]').files || [])[0] || (add.querySelector('[name=photo]').files || [])[0]; function done(data) { const record = { id:uidx(), title:fd.get('title'), cat:fd.get('cat'), notes:fd.get('notes') || '', fileName:file ? file.name : '', fileType:file ? file.type : '', fileData:data || '', noExpiry:fd.get('noExpiry') === 'on', expiryDate:fd.get('noExpiry') === 'on' ? '' : fd.get('expiry'), expiry:fd.get('noExpiry') === 'on' ? '' : fd.get('expiry'), uploadedAt:file ? new Date().toISOString() : '' }; state.docs.push(record); saveNow(); render(); } file ? readFile(file, done) : done(''); }; }
-  }
-
-  const css = document.createElement('style');
-  css.id = 'final-document-system-neutral-styles';
-  css.textContent = '';
-  document.head.appendChild(css);
-
-  if (typeof bind === 'function' && !bind.__finalDocumentSystemClean2) { const oldBind = bind; bind = function () { oldBind(); bindFinal(); }; bind.__finalDocumentSystemClean2 = true; }
-  render();
+    document.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
+    document.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
+  };
+  setTimeout(() => { try { render(); } catch {} }, 0);
 })();
