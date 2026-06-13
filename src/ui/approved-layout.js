@@ -62,6 +62,34 @@
     if (routeName) document.body.classList.add('is-' + routeName + '-route');
   }
 
+  function cleanupDashboard() {
+    var app = document.querySelector('#app');
+    if (!app) return;
+
+    var countdown = app.querySelector('.homeCountdown');
+    if (countdown && countdown.textContent.trim() === 'No upcoming shift.') countdown.textContent = 'No upcoming shift';
+
+    var unscheduled = app.querySelector('.unscheduledHomeBox');
+    if (unscheduled) {
+      unscheduled.querySelectorAll('h3,.muted').forEach(function (el) { el.remove(); });
+      var startButton = unscheduled.querySelector('[data-main-unscheduled-clock]');
+      if (startButton && unscheduled.firstElementChild !== startButton) unscheduled.insertBefore(startButton, unscheduled.firstElementChild);
+    }
+
+    app.querySelectorAll('.rotaHomeActions button').forEach(function (btn) {
+      if (btn.getAttribute('data-route') !== 'rota') btn.remove();
+    });
+
+    app.querySelectorAll('#app > .hero.card').forEach(function (hero) {
+      if (!hero.classList.contains('documentTopBanner')) hero.remove();
+    });
+
+    app.querySelectorAll('#app > .grid.two').forEach(function (grid) {
+      var text = grid.textContent || '';
+      if (text.indexOf('Urgent actions') !== -1 || text.indexOf('Recent activity') !== -1) grid.remove();
+    });
+  }
+
   function apply() {
     document.querySelectorAll('.statusStrip').forEach(function (el) { el.remove(); });
     setBadge('checks', countChecks());
@@ -79,6 +107,8 @@
         hero.querySelectorAll('.badge,button').forEach(function (b) { b.remove(); });
       }
     }
+
+    if (routeName === 'dashboard') cleanupDashboard();
   }
 
   var css = document.createElement('style');
@@ -107,7 +137,16 @@
     'body.is-documents-route #app > .documentTopBanner .eyebrow{display:block!important;font-size:10px!important;line-height:1.15!important;margin:0 0 2px!important;letter-spacing:.32em!important;color:#b0914a!important;overflow:visible!important}',
     'body.is-documents-route #app > .documentTopBanner h2{display:none!important}',
     'body.is-documents-route #app > .documentTopBanner p{display:block!important;margin:0!important;font-size:12px!important;line-height:1.15!important;color:#aaa194!important;max-width:32em!important;overflow:visible!important}',
-    'body.is-documents-route #app > .documentTopBanner button,body.is-documents-route #app > .documentTopBanner .badge{display:none!important}'
+    'body.is-documents-route #app > .documentTopBanner button,body.is-documents-route #app > .documentTopBanner .badge{display:none!important}',
+    '.homeClockCard{text-align:center!important;padding:24px 20px!important}',
+    '.homeClockTime,.homeCountdown,.homeNextShiftLine{text-align:center!important;display:block!important;width:100%!important}',
+    '.homeCountdown{font-weight:900!important}',
+    '.unscheduledHomeBox{display:grid!important;gap:12px!important}',
+    '.unscheduledHomeBox .unscheduledStartBtn{width:100%!important;max-width:none!important;justify-self:stretch!important;text-align:center!important;background:linear-gradient(180deg,#3fbf68,#238a46)!important;color:#071009!important;border-color:rgba(255,255,255,.22)!important}',
+    '.unscheduledHomeBox label{display:grid!important;gap:6px!important}',
+    '.rotaHomeActions{grid-template-columns:1fr!important}',
+    '.rotaHomeActions button{width:100%!important}',
+    'body.is-dashboard-route #app > .sectionTitle,body.is-dashboard-route #app > .grid.cards{display:none!important}'
   ].join('');
   document.head.appendChild(css);
 
