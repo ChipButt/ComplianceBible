@@ -1,0 +1,99 @@
+/* Final mobile UI fixes layered after the existing stylesheet bundle. */
+.bottomNav {
+  background: #b0914a !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  outline: 0 !important;
+}
+
+.bottomNav::before,
+.bottomNav::after {
+  display: none !important;
+  content: none !important;
+}
+
+.bottomNav .navBtn {
+  border-bottom-color: #b0914a !important;
+  margin-bottom: 0 !important;
+}
+
+.bottomNav .navBtn:nth-child(n+5) {
+  border-bottom: 0 !important;
+}
+
+body.is-rota-route .topbar {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.is-rota-route .bottomNav {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.checksPage .checkAreaDetails {
+  margin: 12px 0 !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  background: #10161c !important;
+}
+
+.checksPage .checkAreaDetails summary {
+  min-height: 60px !important;
+  padding: 14px 16px !important;
+  cursor: pointer !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  list-style: none !important;
+  background: linear-gradient(180deg,#1b2229,#11161c) !important;
+}
+
+.checksPage .checkAreaDetails summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.checksPage .checkAreaDetails summary::after {
+  content: '⌄' !important;
+  color: #f0b84a !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+}
+
+.checksPage .checkAreaDetails[open] summary::after {
+  content: '⌃' !important;
+}
+
+.checksPage .checkAreaDetails strong {
+  display: block !important;
+  color: #fff8ea !important;
+}
+
+.checksPage .checkAreaDetails small {
+  display: block !important;
+  margin-top: 3px !important;
+  color: #aaa194 !important;
+}
+
+.checksPage .checkAreaBody {
+  padding: 12px !important;
+  display: grid !important;
+  gap: 10px !important;
+}
+
+.checksPage .checkDueButton {
+  width: 100% !important;
+  text-align: left !important;
+  justify-content: space-between !important;
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 10px !important;
+  align-items: center !important;
+  min-height: 58px !important;
+  border-radius: 16px !important;
+  padding: 12px 14px !important;
+}
