@@ -90,6 +90,14 @@
     });
   }
 
+  function applyPageSpacing() {
+    var app = document.querySelector('#app');
+    if (!app) return;
+    app.style.setProperty('position', 'relative', 'important');
+    app.style.setProperty('z-index', '1', 'important');
+    app.style.setProperty('padding-top', 'calc(var(--fixed-topbar-height,74px) + var(--fixed-mainnav-height,80px) + 28px)', 'important');
+  }
+
   function apply() {
     document.querySelectorAll('.statusStrip').forEach(function (el) { el.remove(); });
     setBadge('checks', countChecks());
@@ -99,6 +107,7 @@
 
     var routeName = routeFromActiveNav();
     applyRouteClasses(routeName);
+    applyPageSpacing();
 
     if (routeName === 'documents') {
       var hero = document.querySelector('#app > .hero.card');
@@ -133,9 +142,7 @@
     '.bottomNav .navBtn[data-route="inspection"]:before{content:"◇"}',
     '.bottomNav .navBtn[data-route="settings"]:before{content:"⚙"}',
     '.bottomNav .navBtn[data-alert-count]::after{content:attr(data-alert-count)!important;position:absolute!important;right:5px!important;top:3px!important;min-width:16px!important;height:16px!important;padding:0 4px!important;border-radius:999px!important;background:#d90808!important;color:#fff!important;font-size:10px!important;font-weight:900!important;line-height:16px!important;text-align:center!important;box-shadow:0 0 0 2px rgba(8,9,10,.96)!important;z-index:3!important}',
-    '#app{position:relative!important;z-index:1!important}',
-    '#app{padding-top:calc(var(--fixed-topbar-height,74px) + 80px + 18px)!important}',
-    'body.is-documents-route #app{padding-top:calc(var(--fixed-topbar-height,74px) + 80px + 18px)!important}',
+    '#app{position:relative!important;z-index:1!important;padding-top:calc(var(--fixed-topbar-height,74px) + var(--fixed-mainnav-height,80px) + 28px)!important}',
     'body.is-documents-route #app > .documentTopBanner{position:static!important;width:auto!important;margin:0 0 18px!important;padding:0!important;border-radius:0!important;min-height:0!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}',
     'body.is-documents-route #app > .documentTopBanner .eyebrow{display:block!important;font-size:10px!important;line-height:1.15!important;margin:0 0 2px!important;letter-spacing:.32em!important;color:#b0914a!important;overflow:visible!important}',
     'body.is-documents-route #app > .documentTopBanner h2{display:none!important}',
