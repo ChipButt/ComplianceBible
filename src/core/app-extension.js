@@ -1,9 +1,16 @@
 // Compliance Bible UX restructuring: admin settings, shared users, training documents, and rota integration placeholder.
 let settingsTab = 'checks';
+let lastPermittedRoute = 'dashboard';
+
+function isNamedAdminUserForCore(u) {
+  const text = String((u && u.name || '') + ' ' + (u && u.nickname || '') + ' ' + (u && u.email || '')).toLowerCase();
+  return text.includes('chip') || text.includes('vicky') || text.includes('rihanna');
+}
 
 function isAdminUser() {
   try {
     const u = me();
+    if (isNamedAdminUserForCore(u)) return true;
     const role = String(u.role || '').toLowerCase();
     if (role.includes('admin') || role.includes('supervisor') || role.includes('manager')) return true;
     const setName = u.permissionSetId || u.role || 'Staff';
@@ -23,6 +30,16 @@ function ensureExtendedState() {
     sections: ['Kitchen', 'FOH', 'Office', 'WFH', 'Housekeeping', 'KP']
   };
   state.documentCategories = state.documentCategories || ['Licensing', 'Food Safety', 'Fire Safety', 'Health & Safety', 'Staff', 'Equipment'];
+  state.permissionMatrix = state.permissionMatrix || {};
+  state.permissionMatrix.Admin = state.permissionMatrix.Admin || { checks:true, documents:true, logs:true, users:true, rota:true, inspection:true, settings:true };
+  state.permissionMatrix.Supervisor = state.permissionMatrix.Supervisor || { checks:true, documents:true, logs:true, users:true, rota:true, inspection:true, settings:true };
+  state.permissionMatrix.Staff = state.permissionMatrix.Staff || { checks:true, documents:false, logs:true, users:false, rota:true, inspection:false, settings:false };
+  state.users.forEach(u => {
+    if (isNamedAdminUserForCore(u)) {
+      u.role = 'Admin';
+      u.permissionSetId = 'Admin';
+    }
+  });
 }
 
 function extendedNav(id, label) {
@@ -61,7 +78,11 @@ shell = function extendedShell(content) {
 render = function extendedRender() {
   ensureExtendedState();
   const pages = { dashboard, checks, documents, logs, staff, rota, inspection, settings };
-  if (route === 'settings' && !isAdminUser()) route = 'dashboard';
+  if (route === 'settings' && !isAdminUser()) {
+    route = lastPermittedRoute || 'dashboard';
+  }
+  if (!pages[route]) route = lastPermittedRoute || 'dashboard';
+  if (route !== 'settings' || isAdminUser()) lastPermittedRoute = route;
   appRoot.innerHTML = shell((pages[route] || dashboard)());
   bind();
 };
@@ -225,4 +246,5 @@ bind = function extendedBind() {
 };
 
 ensureExtendedState();
+save();
 render();
