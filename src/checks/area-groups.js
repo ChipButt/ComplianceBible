@@ -9,7 +9,6 @@
     check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
     camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-3h4l2 3h4v11H4z"/><circle cx="12" cy="13" r="4"/></svg>',
     temp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0z"/><path d="M12 7v8"/></svg>',
-    save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4"/><path d="M8 17h8"/></svg>',
     group: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM4 10h16v4H4zM4 15h16v4H4z"/></svg>'
   };
 
@@ -59,14 +58,57 @@
     });
   }
 
-  function extractTemp(text) { var match = String(text || '').match(/-?\d+(?:\.\d+)?\s*(?:°\s*)?[cC]?/); return match ? match[0].replace(/\s+/g, '').replace(/c$/, '°C').replace(/C$/, '°C') : ''; }
+  function preprocessImage(file) {
+    return new Promise(function(resolve) {
+      if (!file) return resolve(null);
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function() {
+        try {
+          var maxW = 1200;
+          var scale = Math.min(1, maxW / img.width);
+          var w = Math.max(1, Math.round(img.width * scale));
+          var h = Math.max(1, Math.round(img.height * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, w, h);
+          var data = ctx.getImageData(0, 0, w, h);
+          for (var i = 0; i < data.data.length; i += 4) {
+            var r = data.data[i], g = data.data[i+1], b = data.data[i+2];
+            var grey = (r * 0.299 + g * 0.587 + b * 0.114);
+            var v = grey > 130 ? 255 : 0;
+            data.data[i] = data.data[i+1] = data.data[i+2] = v;
+          }
+          ctx.putImageData(data, 0, 0);
+          URL.revokeObjectURL(url);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (_) {
+          URL.revokeObjectURL(url);
+          resolve(file);
+        }
+      };
+      img.onerror = function() { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  function extractTemp(text) {
+    var cleaned = String(text || '').replace(/[Oo]/g, '0').replace(/[lI|]/g, '1');
+    var match = cleaned.match(/-?\d+(?:[\.,]\d+)?/);
+    return match ? match[0].replace(',', '.') : '';
+  }
+
   function maybeReadTemperature(file, input, status) {
     if (!file || !input) return;
     var fromName = extractTemp(file.name || '');
     if (fromName && !input.value) input.value = fromName;
     if (!window.Tesseract || input.value) return;
     if (status) status.textContent = 'Reading temperature from photo...';
-    window.Tesseract.recognize(file, 'eng').then(function(result) {
+    preprocessImage(file).then(function(imageForOcr) {
+      return window.Tesseract.recognize(imageForOcr || file, 'eng', { tessedit_char_whitelist: '0123456789.-,', tessedit_pageseg_mode: '7' });
+    }).then(function(result) {
       var found = extractTemp(result && result.data && result.data.text);
       if (found && !input.value) input.value = found;
       if (status) status.textContent = found ? 'Temperature auto-filled. Check it before saving.' : 'Could not read temperature. Please type it manually.';
@@ -83,12 +125,12 @@
             '<label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment" required></label>' +
           '</div>' +
           '<div class="fdocMeta checkTempMeta">' +
-            '<label class="fdocExpiry checkTempInput"><span class="fdocDateInputWrap">' + icon.temp + '<span class="fdocExpiryText">Temperature °C</span><input name="temperature" inputmode="decimal" placeholder="3°C" required></span></label>' +
-            '<button type="submit" class="fdocExpiry checkSaveButton">' + icon.save + '<span class="fdocExpiryText">Save</span></button>' +
+            '<label class="fdocExpiry checkTempInput"><span class="fdocDateInputWrap"><span class="tempInputLabel">Temp</span><span class="tempEntryWrap"><input name="temperature" inputmode="decimal" placeholder="Temp" required><span class="tempUnit">°C</span></span></span></label>' +
+            '<button type="submit" class="fdocExpiry checkSaveButton"><span class="fdocExpiryText">Save</span></button>' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<label class="checkDocTick actionRequiredTick"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
+      '<label class="actionRequiredInline"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
       '<div class="correctiveActionBox"><label><span>Corrective action taken</span><textarea name="correctiveAction" placeholder="Example: moved food to another fridge and reported unit for repair"></textarea></label></div>' +
       '<small class="tempReadStatus">Photo OCR will try to auto-fill the temperature. Check it before saving.</small>';
   }
@@ -96,23 +138,21 @@
   function generalPanel(check) {
     var items = check.items && check.items.length ? check.items : ['Completed'];
     return '<div class="checkDocItems">' + items.map(function(item, index) { return '<label class="checkDocTick"><input type="checkbox" name="task_' + index + '" required><span>' + escx(item) + '</span></label>'; }).join('') + '</div>' +
-    '<label class="checkDocTick actionRequiredTick"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
+    '<label class="actionRequiredInline"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
     '<div class="correctiveActionBox"><label><span>Corrective action taken</span><textarea name="correctiveAction" placeholder="Write what was wrong and what was done to fix it"></textarea></label></div>' +
     '<div class="checkSaveRow"><label><span>Notes</span><input name="notes" placeholder="Optional note"></label><button class="primary checkSavePrimary" type="submit">Save</button></div>';
   }
 
   function checkCard(check) {
     var open = !!openChecks[check.id];
-    var temp = isTempCheck(check);
     var subtitle = (check.equipmentUnit ? check.equipmentUnit + ' · ' : '') + (check.freq || '') + ' · Due ' + (check.due || '');
     return '<article class="fdoc areaCheckCard ' + (open ? 'open' : '') + '" data-area-check="' + escx(check.id) + '">' +
       '<button type="button" class="fdocBar areaCheckToggle" data-toggle-check="' + escx(check.id) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
         '<span class="fdocIcon">' + icon.check + '</span>' +
         '<span class="fdocName"><strong>' + escx(check.title) + '</strong><em>' + escx(subtitle) + '</em></span>' +
-        '<span class="fdocBadge ' + (temp ? 'warn' : 'danger') + '">' + (temp ? 'Temperature' : 'To do') + '</span>' +
-        '<span class="fdocArrow">' + (open ? '⌃' : '⌄') + '</span>' +
+        '<span class="fdocArrow">⌄</span>' +
       '</button>' +
-      '<div class="fdocPanel ' + (open ? '' : 'closed') + '"><form class="areaCheckForm" data-check-form="' + escx(check.id) + '">' + (temp ? tempPanel(check) : generalPanel(check)) + '</form></div>' +
+      '<div class="fdocPanel ' + (open ? '' : 'closed') + '"><form class="areaCheckForm" data-check-form="' + escx(check.id) + '">' + (isTempCheck(check) ? tempPanel(check) : generalPanel(check)) + '</form></div>' +
     '</article>';
   }
 
@@ -126,7 +166,7 @@
         var open = openAreas[area] !== false;
         return '<section class="areaGroup ' + (open ? 'open' : '') + '" data-area-group="' + escx(area) + '">' +
           '<button type="button" class="fdocBar areaGroupButton" data-toggle-area="' + escx(area) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
-            '<span class="fdocIcon">' + icon.group + '</span><span class="fdocName"><strong>' + escx(area) + '</strong><em>' + groups[area].length + ' checks to complete</em></span><span class="fdocArrow">' + (open ? '⌃' : '⌄') + '</span>' +
+            '<span class="fdocIcon">' + icon.group + '</span><span class="fdocName"><strong>' + escx(area) + '</strong><em>' + groups[area].length + ' checks to complete</em></span><span class="fdocArrow">⌄</span>' +
           '</button>' +
           '<div class="areaGroupBody ' + (open ? '' : 'closed') + '">' + groups[area].map(checkCard).join('') + '</div>' +
         '</section>';
