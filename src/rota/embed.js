@@ -1,18 +1,16 @@
-// Exact Rota route: only the Compliance Bible bottom bar remains.
-// Everything above the bottom bar becomes the real Rota App screen.
+// Exact Rota route: keep the Compliance Bible header and icon navigation visible.
 (function installExactRotaRoute() {
   const style = document.createElement('style');
   style.textContent = `
     body.is-rota-route { background: #eef3ee; padding: 0; }
-    body.is-rota-route .topbar { display: none !important; }
-    body.is-rota-route #appShell { padding-bottom: 76px; min-height: 100vh; }
-    body.is-rota-route #app { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100vw; height: calc(100vh - 76px); overflow: hidden; }
-    body.is-rota-route .bottomNav { z-index: 9999; }
-    .rotaExactShell { width: 100vw; height: calc(100vh - 76px); margin: 0; padding: 0; overflow: hidden; background: #eef3ee; }
-    .rotaExactFrame { display: block; width: 100vw; height: calc(100vh - 76px); border: 0; margin: 0; padding: 0; background: #eef3ee; }
+    body.is-rota-route .topbar { display: flex !important; }
+    body.is-rota-route #appShell { padding-bottom: 0; min-height: 100vh; }
+    body.is-rota-route #app { padding-top: calc(var(--fixed-topbar-height,74px) + var(--fixed-mainnav-height,80px) + 18px) !important; margin: 0 auto !important; max-width: 900px !important; width: 100% !important; min-height: 100vh; overflow: visible; }
+    body.is-rota-route .bottomNav { z-index: 119; }
+    .rotaExactShell { width: 100%; min-height: calc(100vh - var(--fixed-topbar-height,74px) - var(--fixed-mainnav-height,80px)); margin: 0; padding: 0; overflow: hidden; background: #eef3ee; border-radius: 24px; }
+    .rotaExactFrame { display: block; width: 100%; height: calc(100vh - var(--fixed-topbar-height,74px) - var(--fixed-mainnav-height,80px) - 28px); min-height: 620px; border: 0; margin: 0; padding: 0; background: #eef3ee; border-radius: 24px; }
     @supports (height: 100dvh) {
-      body.is-rota-route #app { height: calc(100dvh - 76px); }
-      .rotaExactShell, .rotaExactFrame { height: calc(100dvh - 76px); }
+      .rotaExactFrame { height: calc(100dvh - var(--fixed-topbar-height,74px) - var(--fixed-mainnav-height,80px) - 28px); }
     }
   `;
   document.head.appendChild(style);
@@ -24,11 +22,6 @@
   const previousRender = render;
   render = function renderWithExactRotaRoute() {
     document.body.classList.toggle('is-rota-route', route === 'rota');
-    if (route === 'rota') {
-      appRoot.innerHTML = rota();
-      bind();
-      return;
-    }
     previousRender();
     document.body.classList.toggle('is-rota-route', route === 'rota');
   };
