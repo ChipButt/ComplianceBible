@@ -2,7 +2,18 @@
 let settingsTab = 'checks';
 
 function isAdminUser() {
-  return me().role === 'Admin' || me().role === 'Supervisor';
+  try {
+    const u = me();
+    const role = String(u.role || '').toLowerCase();
+    if (role.includes('admin') || role.includes('supervisor') || role.includes('manager')) return true;
+    const setName = u.permissionSetId || u.role || 'Staff';
+    const matrix = state.permissionMatrix && state.permissionMatrix[setName];
+    if (matrix && matrix.settings === true) return true;
+    const setLower = String(setName || '').toLowerCase();
+    return setLower.includes('admin') || setLower.includes('supervisor') || setLower.includes('manager');
+  } catch (error) {
+    return false;
+  }
 }
 
 function ensureExtendedState() {
