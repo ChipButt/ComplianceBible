@@ -104,18 +104,22 @@
     if (!file || !input) return;
     var fromName = extractTemp(file.name || '');
     if (fromName && !input.value) input.value = fromName;
-    if (!window.Tesseract || input.value) return;
-    if (status) status.textContent = 'Reading temperature from photo...';
+    if (!window.Tesseract || input.value) {
+      if (status) status.textContent = 'Image uploaded. Check the temperature before saving.';
+      return;
+    }
+    if (status) status.textContent = 'Analysing image...';
     preprocessImage(file).then(function(imageForOcr) {
       return window.Tesseract.recognize(imageForOcr || file, 'eng', { tessedit_char_whitelist: '0123456789.-,', tessedit_pageseg_mode: '7' });
     }).then(function(result) {
       var found = extractTemp(result && result.data && result.data.text);
       if (found && !input.value) input.value = found;
-      if (status) status.textContent = found ? 'Temperature auto-filled. Check it before saving.' : 'Could not read temperature. Please type it manually.';
-    }).catch(function() { if (status) status.textContent = 'Could not read temperature. Please type it manually.'; });
+      if (status) status.textContent = found ? 'Image uploaded. Temperature auto-filled — check it before saving.' : 'Image uploaded. Could not read temperature — type it manually before saving.';
+    }).catch(function() { if (status) status.textContent = 'Image uploaded. Could not read temperature — type it manually before saving.'; });
   }
 
-  function thumb(checkId) { return '<button type="button" class="fdocThumb empty checkPhotoThumb" data-check-thumb="' + escx(checkId) + '">No photo</button>'; }
+  function thumb(checkId) { return '<div class="fdocThumb empty checkPhotoThumb" data-check-thumb="' + escx(checkId) + '">No photo</div>'; }
+  function photoPreviewHtml(dataUrl) { return '<img src="' + dataUrl + '" alt="Temperature evidence"><button type="button" class="checkPhotoRemove" data-remove-check-photo="true" aria-label="Remove image">×</button>'; }
 
   function tempPanel(check) {
     return '<p class="fdocInstruction">Take a clear photo of this unit’s temperature display, confirm the reading, then save.</p>' +
@@ -125,14 +129,14 @@
             '<label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment" required></label>' +
           '</div>' +
           '<div class="fdocMeta checkTempMeta">' +
-            '<label class="fdocExpiry checkTempInput"><span class="fdocDateInputWrap"><span class="tempInputLabel">Temp</span><span class="tempEntryWrap"><input name="temperature" inputmode="decimal" placeholder="Temp" required><span class="tempUnit">°C</span></span></span></label>' +
+            '<label class="fdocExpiry checkTempInput"><span class="fdocDateInputWrap"><span class="tempEntryWrap"><input name="temperature" inputmode="decimal" placeholder="Temp" required><span class="tempUnit">°C</span></span></span></label>' +
             '<button type="submit" class="fdocExpiry checkSaveButton"><span class="fdocExpiryText">Save</span></button>' +
           '</div>' +
         '</div>' +
       '</div>' +
       '<label class="actionRequiredInline"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
       '<div class="correctiveActionBox"><label><span>Corrective action taken</span><textarea name="correctiveAction" placeholder="Example: moved food to another fridge and reported unit for repair"></textarea></label></div>' +
-      '<small class="tempReadStatus">Photo OCR will try to auto-fill the temperature. Check it before saving.</small>';
+      '<small class="tempReadStatus" aria-live="polite"></small>';
   }
 
   function generalPanel(check) {
@@ -195,14 +199,43 @@
     });
   }
 
+  function removePhotoFromForm(form) {
+    if (!form) return;
+    if (!confirm('Remove image?')) return;
+    var photo = form.querySelector('input[name="photo"]');
+    var thumbEl = form.querySelector('.checkPhotoThumb');
+    var status = form.querySelector('.tempReadStatus');
+    if (photo) photo.value = '';
+    if (thumbEl) { thumbEl.classList.add('empty'); thumbEl.innerHTML = 'No photo'; }
+    if (status) status.textContent = '';
+  }
+
+  function handlePhotoSelected(form, file) {
+    var thumbEl = form && form.querySelector('.checkPhotoThumb');
+    var tempInput = form && form.querySelector('input[name="temperature"]');
+    var status = form && form.querySelector('.tempReadStatus');
+    if (!file || !thumbEl) return;
+    if (status) status.textContent = 'Uploading image...';
+    readFile(file).then(function(data) {
+      if (data && data.fileData) {
+        thumbEl.classList.remove('empty');
+        thumbEl.innerHTML = photoPreviewHtml(data.fileData);
+        if (status) status.textContent = 'Image uploaded. Analysing image...';
+      }
+    });
+    maybeReadTemperature(file, tempInput, status);
+  }
+
   function bindAreaGroups() {
     document.querySelectorAll('[data-toggle-area]').forEach(function(btn) { btn.onclick = function(event) { event.preventDefault(); var area = btn.getAttribute('data-toggle-area'); openAreas[area] = !(openAreas[area] !== false); render(); }; });
     document.querySelectorAll('[data-toggle-check]').forEach(function(btn) { btn.onclick = function(event) { event.preventDefault(); var id = btn.getAttribute('data-toggle-check'); openChecks[id] = !openChecks[id]; render(); }; });
     document.querySelectorAll('[name="actionRequired"]').forEach(function(input) { var form = input.closest('form'); var box = form && form.querySelector('.correctiveActionBox'); var textarea = box && box.querySelector('textarea'); function sync() { if (!box) return; box.classList.toggle('open', input.checked); if (textarea) textarea.required = input.checked; } input.onchange = sync; sync(); });
-    document.querySelectorAll('.areaCheckForm').forEach(function(form) { var photo = form.querySelector('input[name="photo"]'); if (photo) photo.onchange = function() { var file = photo.files && photo.files[0]; var thumbEl = form.querySelector('.checkPhotoThumb'); var tempInput = form.querySelector('input[name="temperature"]'); var status = form.querySelector('.tempReadStatus'); if (file && thumbEl) { readFile(file).then(function(data) { if (data && data.fileData) { thumbEl.classList.remove('empty'); thumbEl.innerHTML = '<img src="' + data.fileData + '" alt="Temperature evidence">'; } }); maybeReadTemperature(file, tempInput, status); } }; form.onsubmit = function(event) { event.preventDefault(); completeForm(form); }; });
+    document.querySelectorAll('.areaCheckForm').forEach(function(form) { var photo = form.querySelector('input[name="photo"]'); if (photo) photo.onchange = function() { handlePhotoSelected(form, photo.files && photo.files[0]); }; form.onsubmit = function(event) { event.preventDefault(); completeForm(form); }; });
   }
 
   document.addEventListener('click', function(event) {
+    var removeBtn = event.target.closest && event.target.closest('[data-remove-check-photo]');
+    if (removeBtn && removeBtn.closest('.checksPage')) { event.preventDefault(); event.stopPropagation(); removePhotoFromForm(removeBtn.closest('form')); return; }
     var areaBtn = event.target.closest && event.target.closest('[data-toggle-area]');
     if (areaBtn && areaBtn.closest('.checksPage')) { event.preventDefault(); event.stopPropagation(); var area = areaBtn.getAttribute('data-toggle-area'); openAreas[area] = !(openAreas[area] !== false); render(); return; }
     var checkBtn = event.target.closest && event.target.closest('[data-toggle-check]');
@@ -213,7 +246,7 @@
     var action = event.target.closest && event.target.closest('.checksPage input[name="actionRequired"]');
     if (action) { var form = action.closest('form'); var box = form && form.querySelector('.correctiveActionBox'); var textarea = box && box.querySelector('textarea'); if (box) box.classList.toggle('open', action.checked); if (textarea) textarea.required = action.checked; return; }
     var photo = event.target.closest && event.target.closest('.checksPage input[name="photo"]');
-    if (photo) { var file = photo.files && photo.files[0]; var form2 = photo.closest('form'); var thumbEl = form2 && form2.querySelector('.checkPhotoThumb'); var tempInput = form2 && form2.querySelector('input[name="temperature"]'); var status = form2 && form2.querySelector('.tempReadStatus'); if (file && thumbEl) { readFile(file).then(function(data) { if (data && data.fileData) { thumbEl.classList.remove('empty'); thumbEl.innerHTML = '<img src="' + data.fileData + '" alt="Temperature evidence">'; } }); maybeReadTemperature(file, tempInput, status); } }
+    if (photo) { handlePhotoSelected(photo.closest('form'), photo.files && photo.files[0]); }
   }, true);
 
   document.addEventListener('submit', function(event) {
