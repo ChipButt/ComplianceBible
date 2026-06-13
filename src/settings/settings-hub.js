@@ -1,16 +1,16 @@
 (function(){
-  if(window.__completeSettingsHub) return;
-  window.__completeSettingsHub=true;
+  if(window.__completeSettingsHubFixed) return;
+  window.__completeSettingsHubFixed=true;
 
   var openPermissionGroups = {};
   var openCreatePermission = false;
+  var PERMISSION_KEYS = ['checks','documents','logs','users','rota','inspection','settings'];
 
   function h(v){try{return esc(v);}catch(_){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}}
   function id(){try{return uid();}catch(_){return 'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}}
   function saveSafe(){try{save();}catch(_){}}
-
-  var PERMISSION_KEYS = ['checks','documents','logs','users','rota','inspection','settings'];
-  function permLabel(key){return {checks:'Checks',documents:'Documents',logs:'Logs',users:'Users',rota:'Rota',inspection:'Inspection',settings:'Settings'}[key]||key;}
+  function permLabel(key){var labels={checks:'Checks',documents:'Documents',logs:'Logs',users:'Users',rota:'Rota',inspection:'Inspection',settings:'Settings'};return labels[key]||key;}
+  function fieldChecked(form,name){return !!(form && form.elements && form.elements[name] && form.elements[name].checked);}
 
   function ensureSettingsState(){
     state.permissionMatrix=state.permissionMatrix||{};
@@ -24,9 +24,9 @@
       PERMISSION_KEYS.forEach(function(key){if(typeof state.permissionMatrix[group][key]!=='boolean') state.permissionMatrix[group][key]=!!defaults[group][key];});
     });
     (state.users||[]).forEach(function(user){
-      if(!user.permissionSetId) user.permissionSetId = user.role || 'Staff';
-      if(!state.permissionMatrix[user.permissionSetId]) user.permissionSetId = 'Staff';
-      user.role = user.permissionSetId;
+      if(!user.permissionSetId) user.permissionSetId=user.role||'Staff';
+      if(!state.permissionMatrix[user.permissionSetId]) user.permissionSetId='Staff';
+      user.role=user.permissionSetId;
     });
     state.staffDocRequirements=state.staffDocRequirements||[
       {id:id(),group:'All staff',title:'Right to Work evidence',requiresExpiry:false,notes:'Required before employment begins.'},
@@ -36,7 +36,6 @@
   }
 
   function actionRow(title,meta,count,actions){return '<article class="settingsActionRow"><div class="settingsActionMain"><strong>'+h(title)+'</strong><em>'+h(meta||'')+'</em>'+(count?'<span>'+h(count)+'</span>':'')+'</div><div class="settingsActionButtons">'+actions+'</div></article>';}
-
   function groupUsers(group){return (state.users||[]).filter(function(user){return (user.permissionSetId||user.role||'Staff')===group;});}
 
   function permissionButton(group){
@@ -72,9 +71,7 @@
     '</article>';
   }
 
-  function checkSetup(){
-    return '<section class="settingsBlock"><h2>Checklist setup</h2><p class="muted">Edit built-in checks here. Staff see the clean completion version.</p><div class="settingsActionList">'+(state.checks||[]).map(function(c){return actionRow(c.title,(c.area||'')+' · '+(c.freq||'')+' · Due '+(c.due||''),(c.items||[]).length+' checklist items','<button class="secondary settingsSmallButton" data-edit-check="'+h(c.id)+'">Edit</button><button class="primary settingsSmallButton" data-complete="'+h(c.id)+'">Test</button>');}).join('')+'</div>'+addCheckForm()+'</section>';
-  }
+  function checkSetup(){return '<section class="settingsBlock"><h2>Checklist setup</h2><p class="muted">Edit built-in checks here. Staff see the clean completion version.</p><div class="settingsActionList">'+(state.checks||[]).map(function(c){return actionRow(c.title,(c.area||'')+' · '+(c.freq||'')+' · Due '+(c.due||''),(c.items||[]).length+' checklist items','<button class="secondary settingsSmallButton" data-edit-check="'+h(c.id)+'">Edit</button><button class="primary settingsSmallButton" data-complete="'+h(c.id)+'">Test</button>');}).join('')+'</div>'+addCheckForm()+'</section>';}
   function addCheckForm(){return '<details class="settingsExpander"><summary><span>Add new checklist</span><small>Create a new recurring check for staff to complete</small></summary><form id="checkForm" class="stack settingsExpanderBody"><input name="title" placeholder="Check title" required><select name="area">'+(state.areas||[]).map(function(a){return '<option>'+h(a)+'</option>';}).join('')+'</select><select name="freq"><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Yearly</option></select><input name="due" type="time" value="12:00" required><textarea name="items" placeholder="One checklist item per line" required></textarea><label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label><button class="primary">Add checklist</button></form></details>';}
   function pubDetails(){return '<section class="settingsBlock"><h2>Pub details</h2><p class="muted">Core premises information used in reports and inspection mode.</p><form id="pubForm" class="stack settingsForm"><input name="name" value="'+h(state.pub&&state.pub.name)+'" placeholder="Pub name"><input name="licence" value="'+h(state.pub&&state.pub.licence)+'" placeholder="Premises licence"><input name="dps" value="'+h(state.pub&&state.pub.dps)+'" placeholder="DPS"><textarea name="address" placeholder="Address">'+h(state.pub&&state.pub.address)+'</textarea><button class="primary">Save pub details</button></form></section>';}
   function permissions(){var roles=Object.keys(state.permissionMatrix||{}).sort(function(a,b){var order={Admin:1,Supervisor:2,Staff:3};return (order[a]||99)-(order[b]||99)||a.localeCompare(b);});return '<section class="settingsBlock permissionSettingsBlock"><h2>Permissions</h2><p class="muted">Each group opens like a check button. Users can only belong to one permissions group at a time.</p><div class="permissionGroupList">'+roles.map(permissionButton).join('')+createPermissionGroup()+'</div></section>';}
@@ -91,20 +88,23 @@
 
   function injectSettingsStyles(){
     if(document.getElementById('settings-permission-styles')) return;
-    var style=document.createElement('style');style.id='settings-permission-styles';style.textContent='.permissionGroupList{display:grid;gap:12px}.permissionGroupCard{background:transparent;border:0;margin:0}.permissionGroupButton{width:100%;display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center!important;gap:12px!important;min-height:58px!important;padding:12px 14px!important;border-radius:18px!important;background:linear-gradient(180deg,#1b2229,#11161c)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;text-align:left!important}.permissionGroupButton .fdocIcon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(176,145,74,.16);color:#f0b84a;font-weight:900}.permissionGroupButton .fdocName strong{display:block;font-weight:900}.permissionGroupButton .fdocName em{display:block;color:#f0b84a;font-style:normal;font-size:12px;font-weight:800;margin-top:4px}.permissionGroupButton .fdocArrow{color:#f0b84a;font-weight:900;font-size:20px}.permissionGroupCard.open>.permissionGroupButton .fdocArrow{transform:rotate(180deg)}.permissionGroupPanel{margin:-10px 0 0;padding:22px 12px 14px;border-radius:0 0 18px 18px;background:#0c1015;border:1px solid rgba(255,255,255,.08);border-top:0;display:grid;gap:12px}.permissionGroupPanel.closed{display:none}.permissionGroupForm{display:grid;gap:14px}.permissionTickList,.permissionUserList{display:grid;gap:8px}.permissionTickList h3{margin:0;color:#fff8ea}.settingsTick{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;align-items:start;color:#fff8ea}.settingsTick input{width:18px;height:18px;margin:0}.permissionUserTick span strong{display:block}.permissionUserTick span em{display:block;color:#aaa194;font-size:12px;font-style:normal}.permissionUsersDrop{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;background:rgba(255,255,255,.035)}.permissionUsersDrop summary{cursor:pointer;color:#fff8ea;font-weight:900}.permissionUsersDrop summary span{float:right;color:#f0b84a}.permissionActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.settingsField{display:grid;gap:6px}.settingsField span{color:#aaa194;font-size:12px;font-weight:800}@media(max-width:520px){.permissionActions{grid-template-columns:1fr}}';document.head.appendChild(style);
+    var style=document.createElement('style');
+    style.id='settings-permission-styles';
+    style.textContent='.permissionGroupList{display:grid;gap:12px}.permissionGroupCard{background:transparent;border:0;margin:0}.permissionGroupButton{width:100%;display:grid!important;grid-template-columns:auto minmax(0,1fr) auto!important;align-items:center!important;gap:12px!important;min-height:58px!important;padding:12px 14px!important;border-radius:18px!important;background:linear-gradient(180deg,#1b2229,#11161c)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;text-align:left!important}.permissionGroupButton .fdocIcon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:rgba(176,145,74,.16);color:#f0b84a;font-weight:900}.permissionGroupButton .fdocName strong{display:block;font-weight:900}.permissionGroupButton .fdocName em{display:block;color:#f0b84a;font-style:normal;font-size:12px;font-weight:800;margin-top:4px}.permissionGroupButton .fdocArrow{color:#f0b84a;font-weight:900;font-size:20px}.permissionGroupCard.open>.permissionGroupButton .fdocArrow{transform:rotate(180deg)}.permissionGroupPanel{margin:-10px 0 0;padding:22px 12px 14px;border-radius:0 0 18px 18px;background:#0c1015;border:1px solid rgba(255,255,255,.08);border-top:0;display:grid;gap:12px}.permissionGroupPanel.closed{display:none}.permissionGroupForm{display:grid;gap:14px}.permissionTickList,.permissionUserList{display:grid;gap:8px}.permissionTickList h3{margin:0;color:#fff8ea}.settingsTick{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;align-items:start;color:#fff8ea}.settingsTick input{width:18px;height:18px;margin:0}.permissionUserTick span strong{display:block}.permissionUserTick span em{display:block;color:#aaa194;font-size:12px;font-style:normal}.permissionUsersDrop{border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;background:rgba(255,255,255,.035)}.permissionUsersDrop summary{cursor:pointer;color:#fff8ea;font-weight:900}.permissionUsersDrop summary span{float:right;color:#f0b84a}.permissionActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.settingsField{display:grid;gap:6px}.settingsField span{color:#aaa194;font-size:12px;font-weight:800}@media(max-width:520px){.permissionActions{grid-template-columns:1fr}}';
+    document.head.appendChild(style);
   }
 
-  if(typeof bind==='function'&&!bind.__completeSettingsHub){var old=bind;bind=function(){old();bindCompleteSettings();};bind.__completeSettingsHub=true;}
+  if(typeof bind==='function'&&!bind.__completeSettingsHubFixed){var old=bind;bind=function(){old();bindCompleteSettings();};bind.__completeSettingsHubFixed=true;}
   function bindCompleteSettings(){
     injectSettingsStyles();
     document.querySelectorAll('[data-toggle-permission-group]').forEach(function(btn){btn.onclick=function(){var group=btn.getAttribute('data-toggle-permission-group');openPermissionGroups[group]=!openPermissionGroups[group];render();};});
     document.querySelectorAll('[data-toggle-create-permission]').forEach(function(btn){btn.onclick=function(){openCreatePermission=!openCreatePermission;render();};});
     document.querySelectorAll('[data-open-users-tab]').forEach(function(btn){btn.onclick=function(){route='staff';render();};});
-    document.querySelectorAll('[data-permission-group-form]').forEach(function(form){form.onsubmit=function(ev){ev.preventDefault();var group=form.getAttribute('data-permission-group-form');state.permissionMatrix[group]=state.permissionMatrix[group]||{};PERMISSION_KEYS.forEach(function(key){state.permissionMatrix[group][key]=!!form.elements['perm__'+key]?.checked;});(state.users||[]).forEach(function(user){if(form.elements['user__'+user.id]?.checked){user.permissionSetId=group;user.role=group;}else if((user.permissionSetId||user.role)===group){user.permissionSetId='Staff';user.role='Staff';}});saveSafe();render();};});
-    var create=document.getElementById('createPermissionGroupForm');if(create)create.onsubmit=function(ev){ev.preventDefault();var title=String(create.elements.title.value||'').trim();if(!title){return;}if(state.permissionMatrix[title]){alert('A permissions group with that title already exists.');return;}state.permissionMatrix[title]={};PERMISSION_KEYS.forEach(function(key){state.permissionMatrix[title][key]=!!create.elements['perm__'+key]?.checked;});(state.users||[]).forEach(function(user){if(create.elements['user__'+user.id]?.checked){user.permissionSetId=title;user.role=title;}});openPermissionGroups[title]=true;openCreatePermission=false;saveSafe();render();};
-    var sf=document.getElementById('staffDocReqForm');if(sf)sf.onsubmit=function(ev){ev.preventDefault();var d=Object.fromEntries(new FormData(sf).entries());state.staffDocRequirements=state.staffDocRequirements||[];state.staffDocRequirements.push({id:id(),group:d.group,title:d.title,requiresExpiry:!!sf.elements.requiresExpiry.checked,notes:d.notes||''});save();render();};
-    document.querySelectorAll('[data-delete-staff-doc-req]').forEach(function(btn){btn.onclick=function(){state.staffDocRequirements=(state.staffDocRequirements||[]).filter(function(r){return r.id!==btn.getAttribute('data-delete-staff-doc-req');});save();render();};});
-    var cf=document.getElementById('documentCategoryForm');if(cf)cf.onsubmit=function(ev){ev.preventDefault();var d=Object.fromEntries(new FormData(cf).entries());if(d.category&&!(state.documentCategories||[]).includes(d.category)){state.documentCategories.push(d.category);}save();render();};
+    document.querySelectorAll('[data-permission-group-form]').forEach(function(form){form.onsubmit=function(ev){ev.preventDefault();var group=form.getAttribute('data-permission-group-form');state.permissionMatrix[group]=state.permissionMatrix[group]||{};PERMISSION_KEYS.forEach(function(key){state.permissionMatrix[group][key]=fieldChecked(form,'perm__'+key);});(state.users||[]).forEach(function(user){if(fieldChecked(form,'user__'+user.id)){user.permissionSetId=group;user.role=group;}else if((user.permissionSetId||user.role)===group){user.permissionSetId='Staff';user.role='Staff';}});saveSafe();render();};});
+    var create=document.getElementById('createPermissionGroupForm');if(create)create.onsubmit=function(ev){ev.preventDefault();var title=String(create.elements.title.value||'').trim();if(!title){return;}if(state.permissionMatrix[title]){alert('A permissions group with that title already exists.');return;}state.permissionMatrix[title]={};PERMISSION_KEYS.forEach(function(key){state.permissionMatrix[title][key]=fieldChecked(create,'perm__'+key);});(state.users||[]).forEach(function(user){if(fieldChecked(create,'user__'+user.id)){user.permissionSetId=title;user.role=title;}});openPermissionGroups[title]=true;openCreatePermission=false;saveSafe();render();};
+    var sf=document.getElementById('staffDocReqForm');if(sf)sf.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(sf);state.staffDocRequirements=state.staffDocRequirements||[];state.staffDocRequirements.push({id:id(),group:fd.get('group'),title:fd.get('title'),requiresExpiry:!!(sf.elements.requiresExpiry&&sf.elements.requiresExpiry.checked),notes:fd.get('notes')||''});saveSafe();render();};
+    document.querySelectorAll('[data-delete-staff-doc-req]').forEach(function(btn){btn.onclick=function(){state.staffDocRequirements=(state.staffDocRequirements||[]).filter(function(r){return r.id!==btn.getAttribute('data-delete-staff-doc-req');});saveSafe();render();};});
+    var cf=document.getElementById('documentCategoryForm');if(cf)cf.onsubmit=function(ev){ev.preventDefault();var fd=new FormData(cf);var category=fd.get('category');if(category&&!(state.documentCategories||[]).includes(category)){state.documentCategories.push(category);}saveSafe();render();};
   }
-  setTimeout(function(){ensureSettingsState();try{save();}catch(_){}},0);
+  setTimeout(function(){ensureSettingsState();saveSafe();},0);
 })();
