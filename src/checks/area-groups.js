@@ -1,91 +1,294 @@
-(function(){
-  if(window.__areaCheckGroups) return;
-  window.__areaCheckGroups=true;
+(function installCoreCheckGroups(){
+  if (window.__coreCheckGroupsV4) return;
+  window.__coreCheckGroupsV4 = true;
 
-  var openAreas={};
-  var openChecks={};
+  var openAreas = {};
+  var openChecks = {};
 
-  function escx(v){try{return esc(v);}catch(_){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}}
-  function nowDate(){try{return today();}catch(_){return new Date().toISOString().slice(0,10);}}
-  function userId(){return state.currentUser||'unknown';}
-  function userName(){try{var u=me();return u.nickname||u.name||'Current user';}catch(_){return 'Current user';}}
-  function uidx(){try{return uid();}catch(_){return 'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}}
-  function saveSafe(){try{save();}catch(_){} }
-  function isDoneToday(id){return (state.done||[]).some(function(d){return d.checkId===id&&d.date===nowDate();});}
-  function isTempCheck(c){var t=String(c.title||'').toLowerCase();return /temp|temperature|fridge|freezer|hot held|cooked|reheated|cooling|delivery/.test(t);}
-  function dueChecks(){return (state.checks||[]).filter(function(c){return !isDoneToday(c.id);});}
-  function grouped(list){var g={};list.forEach(function(c){var a=c.area||'General';(g[a]=g[a]||[]).push(c);});return g;}
-
-  function readFile(file){return new Promise(function(resolve){if(!file)return resolve(null);var r=new FileReader();r.onload=function(){resolve({fileName:file.name||'Evidence',fileType:file.type||'',fileData:r.result||'',uploadedAt:new Date().toISOString()});};r.onerror=function(){resolve(null);};r.readAsDataURL(file);});}
-  function extractTemp(text){var m=String(text||'').match(/-?\d+(?:\.\d+)?\s*(?:°\s*)?[cC]?/g);if(!m||!m.length)return '';var vals=m.map(function(x){return x.replace(/[^0-9.\-]/g,'');}).filter(Boolean);return vals.length?vals[0]+'°C':'';}
-  function autoReadTemp(file,input,status){
-    if(!file||!input) return;
-    var fromName=extractTemp(file.name||'');
-    if(fromName&&!input.value){input.value=fromName;if(status)status.textContent='Temperature read from filename. Check and edit if needed.';}
-    if(!window.Tesseract){if(status)status.textContent='Photo uploaded. Enter temperature manually if it has not appeared.';return;}
-    if(status)status.textContent='Reading temperature from photo...';
-    window.Tesseract.recognize(file,'eng').then(function(res){var temp=extractTemp(res&&res.data&&res.data.text);if(temp){input.value=temp;if(status)status.textContent='Temperature auto-filled. Check and edit if needed.';}else if(status)status.textContent='Could not read temperature. Please type it manually.';}).catch(function(){if(status)status.textContent='Could not read temperature. Please type it manually.';});
-  }
-
-  function shouldSkipField(c,f){
-    var n=String((f&&f.name)||'').toLowerCase();
-    var l=String((f&&f.label)||'').toLowerCase();
-    if(/date|time|person|signature|signed/.test(n+' '+l)) return true;
-    if(isTempCheck(c) && /temperature|tempone|temptwo|reading/.test(n)) return true;
-    return false;
-  }
-
-  function taskRows(c){
-    var temp=isTempCheck(c);
-    var items=(c.items&&c.items.length?c.items:['Complete this check']);
-    return items.map(function(it,i){
-      return '<div class="checkTaskRow" data-task-row="'+i+'">'+
-        '<label class="checkTaskTick"><input type="checkbox" name="task_'+i+'" required><span>'+escx(it)+'</span></label>'+
-        '<div class="checkTaskBody">'+
-          '<div class="fdocUploads checkUploads">'+
-            '<label><span>Photo proof</span><input type="file" name="evidence_'+i+'" accept="image/*,.png,.jpg,.jpeg" capture="environment" '+(c.requiresEvidence?'required':'')+'></label>'+
-            '<label><span>Upload file</span><input type="file" name="file_'+i+'" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label>'+
-          '</div>'+
-          (temp?'<div class="checkTempSaveRow"><label class="checkTaskTemp"><span>Temperature</span><input type="text" name="temp_'+i+'" placeholder="e.g. 2°C"></label><button type="submit" class="primary saveCheckMini">Save</button></div><small class="tempReadStatus" data-temp-status="'+i+'">Upload a photo to try auto-reading the temperature. You can edit it.</small>':'')+
-        '</div>'+
-      '</div>';
-    }).join('');
-  }
-
-  function fieldRows(c){return (c.fields||[]).filter(function(f){return !shouldSkipField(c,f);}).map(function(f){var req=f.required?' required':'';if(f.type==='textarea')return '<label class="checkExtraField"><span>'+escx(f.label)+(f.required?' *':'')+'</span><textarea name="field_'+escx(f.name)+'" placeholder="'+escx(f.placeholder||'')+'"'+req+'></textarea></label>';if(f.type==='select')return '<label class="checkExtraField"><span>'+escx(f.label)+(f.required?' *':'')+'</span><select name="field_'+escx(f.name)+'"'+req+'><option value="">Select...</option>'+(f.options||[]).map(function(o){return '<option>'+escx(o)+'</option>';}).join('')+'</select></label>';return '<label class="checkExtraField"><span>'+escx(f.label)+(f.required?' *':'')+'</span><input type="text" name="field_'+escx(f.name)+'" placeholder="'+escx(f.placeholder||'')+'"'+req+'></label>';}).join('');}
-
-  function checkCard(c){
-    var expanded=!!openChecks[c.id];
-    return '<article class="fdoc areaCheckCard" data-area-check="'+escx(c.id)+'">'+
-      '<button type="button" class="fdocBar areaCheckToggle" data-toggle-check="'+escx(c.id)+'" aria-expanded="'+(expanded?'true':'false')+'">'+
-        '<span class="fdocIcon">✓</span><span class="fdocName"><strong>'+escx(c.title)+'</strong><em>'+escx(c.freq||'')+' · Due '+escx(c.due||'')+'</em></span><span class="fdocBadge danger">To do</span><span class="fdocArrow">'+(expanded?'⌄':'⌃')+'</span></button>'+
-      '<div class="fdocPanel '+(expanded?'':'closed')+'"><form class="areaCheckForm" data-check-form="'+escx(c.id)+'">'+
-        '<section class="autoLogStrip"><div><small>Date</small><strong>'+escx(nowDate())+'</strong></div><div><small>Time</small><strong>Auto on save</strong></div><div><small>User</small><strong>'+escx(userName())+'</strong></div></section>'+taskRows(c)+fieldRows(c)+
-        '<label class="checkExtraField"><span>Notes / corrective action</span><textarea name="notes" placeholder="Only add notes if something needs recording"></textarea></label>'+(!isTempCheck(c)?'<button class="primary saveCheckButton">Save completed check</button>':'')+
-      '</form></div></article>';
-  }
-
-  window.checks=function(){
-    var list=dueChecks();var groups=grouped(list);var keys=Object.keys(groups).sort();var doneCount=(state.done||[]).filter(function(d){return d.date===nowDate();}).length;
-    return '<section class="card checksPage"><h2>Checks to complete</h2><p class="muted">Open an area, complete the check, upload proof, then save. Completed checks disappear until due again.</p><section class="areaGroupList">'+(keys.length?keys.map(function(area){var open=!!openAreas[area];return '<section class="areaGroup '+(open?'open':'')+'" data-area-group="'+escx(area)+'"><button type="button" class="areaGroupButton" data-toggle-area="'+escx(area)+'" aria-expanded="'+(open?'true':'false')+'"><span><strong>'+escx(area)+'</strong><small>'+groups[area].length+' checks to complete</small></span><b class="areaGroupArrow">'+(open?'⌄':'⌃')+'</b></button><div class="areaGroupBody '+(open?'':'closed')+'">'+groups[area].map(checkCard).join('')+'</div></section>';}).join(''):'<div class="emptyState">No checks currently due.</div>')+'</section></section><section class="card"><h2>Completed today</h2><p class="muted">'+doneCount+' checks completed today.</p>'+history()+'</section>';
+  var icon = {
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+    camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-3h4l2 3h4v11H4z"/><circle cx="12" cy="13" r="4"/></svg>',
+    temp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0z"/><path d="M12 7v8"/></svg>',
+    save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4"/><path d="M8 17h8"/></svg>',
+    group: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v4H4zM4 10h16v4H4zM4 15h16v4H4z"/></svg>'
   };
 
-  function bindAreaGroups(){
-    document.querySelectorAll('[data-toggle-area]').forEach(function(btn){btn.onclick=function(e){e.preventDefault();var area=btn.getAttribute('data-toggle-area');openAreas[area]=!openAreas[area];render();};});
-    document.querySelectorAll('[data-toggle-check]').forEach(function(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();var id=btn.getAttribute('data-toggle-check');openChecks[id]=!openChecks[id];render();};});
-    document.querySelectorAll('[data-check-form]').forEach(function(form){
-      form.querySelectorAll('input[type=file]').forEach(function(inp){inp.onchange=function(){var row=inp.closest('.checkTaskRow');var temp=row&&row.querySelector('.checkTaskTemp input');var status=row&&row.querySelector('.tempReadStatus');if(temp)autoReadTemp(inp.files&&inp.files[0],temp,status);};});
-      form.onsubmit=function(e){
-        e.preventDefault();
-        if(!form.checkValidity()){form.reportValidity();return;}
-        var checkId=form.getAttribute('data-check-form');var c=(state.checks||[]).find(function(x){return x.id===checkId;});if(!c)return;
-        var fd=new FormData(form);var tasks=(c.items&&c.items.length?c.items:['Complete this check']);var promises=[];
-        var taskData=tasks.map(function(label,i){var fileInput=form.querySelector('[name=evidence_'+i+']');var extraFileInput=form.querySelector('[name=file_'+i+']');var file=fileInput&&fileInput.files?fileInput.files[0]:null;var extraFile=extraFileInput&&extraFileInput.files?extraFileInput.files[0]:null;promises.push(readFile(file));promises.push(readFile(extraFile));return {label:label,checked:!!fd.get('task_'+i),temperature:fd.get('temp_'+i)||'',evidence:null,file:null};});
-        Promise.all(promises).then(function(files){var p=0;taskData.forEach(function(t){t.evidence=files[p++]||null;t.file=files[p++]||null;});var fieldValues={};(c.fields||[]).forEach(function(f){if(!shouldSkipField(c,f))fieldValues[f.name]=fd.get('field_'+f.name)||'';});state.done=state.done||[];state.done.push({id:uidx(),checkId:checkId,title:c.title,userId:userId(),userName:userName(),date:nowDate(),at:new Date().toISOString(),result:'Completed',notes:fd.get('notes')||'',fields:fieldValues,tasks:taskData});saveSafe();openChecks[checkId]=false;render();});
+  function escx(value) {
+    try { return esc(value); }
+    catch (_) { return String(value == null ? '' : value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  }
+
+  function todaySafe() {
+    try { return today(); }
+    catch (_) { return new Date().toISOString().slice(0, 10); }
+  }
+
+  function uidSafe() {
+    try { return uid(); }
+    catch (_) { return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2); }
+  }
+
+  function currentUserId() { return state.currentUser || 'unknown'; }
+  function userName() { try { var u = me(); return u.nickname || u.name || 'Current user'; } catch (_) { return 'Current user'; } }
+  function saveSafe() { try { save(); } catch (_) {} }
+
+  function defaultTemperatureUnits() {
+    return ['Kitchen Fridge 1', 'Kitchen Fridge 2', 'Kitchen Freezer', 'Bar Bottle Fridge', 'Cellar Fridge'];
+  }
+
+  function genericFridgeCheck(check) {
+    var text = String((check.id || '') + ' ' + (check.title || '')).toLowerCase();
+    return !check.equipmentUnit && (/fridge.*freezer|freezer.*fridge|fridge-freezer/.test(text));
+  }
+
+  function ensureEquipmentChecks() {
+    state.temperatureUnits = Array.isArray(state.temperatureUnits) && state.temperatureUnits.length ? state.temperatureUnits : defaultTemperatureUnits();
+    state.checks = state.checks || [];
+    var generic = state.checks.find(genericFridgeCheck);
+    var template = generic || { area: 'Kitchen', freq: 'Daily', due: '11:00' };
+
+    state.temperatureUnits.forEach(function(unit) {
+      var id = 'temp-' + unit.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (!state.checks.some(function(check) { return check.id === id; })) {
+        state.checks.push({
+          id: id,
+          title: unit + ' Temperature Check',
+          area: template.area || 'Kitchen',
+          freq: template.freq || 'Daily',
+          due: template.due || '11:00',
+          equipmentUnit: unit,
+          checkType: 'temperature',
+          items: ['Temperature recorded', 'Photo evidence uploaded', 'Corrective action recorded if required']
+        });
+      }
+    });
+
+    state.checks.forEach(function(check) {
+      if (genericFridgeCheck(check)) check.hiddenFromChecksPage = true;
+    });
+    saveSafe();
+  }
+
+  function doneToday(checkId) {
+    return (state.done || []).some(function(done) { return done.checkId === checkId && done.date === todaySafe(); });
+  }
+
+  function isTempCheck(check) {
+    var text = String((check.checkType || '') + ' ' + (check.title || '') + ' ' + (check.items || []).join(' ')).toLowerCase();
+    return /temp|temperature|fridge|freezer|hot held|cooked|reheated|cooling|delivery/.test(text);
+  }
+
+  function dueChecks() {
+    ensureEquipmentChecks();
+    return (state.checks || []).filter(function(check) { return !check.hiddenFromChecksPage && !doneToday(check.id); });
+  }
+
+  function grouped(list) {
+    var groups = {};
+    list.forEach(function(check) {
+      var area = check.area || 'General';
+      (groups[area] = groups[area] || []).push(check);
+    });
+    return groups;
+  }
+
+  function readFile(file) {
+    return new Promise(function(resolve) {
+      if (!file) return resolve(null);
+      var reader = new FileReader();
+      reader.onload = function() { resolve({ fileName: file.name || 'Photo', fileType: file.type || '', fileSize: file.size || 0, fileData: reader.result || '', uploadedAt: new Date().toISOString() }); };
+      reader.onerror = function() { resolve(null); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function extractTemp(text) {
+    var match = String(text || '').match(/-?\d+(?:\.\d+)?\s*(?:°\s*)?[cC]?/);
+    return match ? match[0].replace(/\s+/g, '').replace(/c$/, '°C').replace(/C$/, '°C') : '';
+  }
+
+  function maybeReadTemperature(file, input, status) {
+    if (!file || !input) return;
+    var fromName = extractTemp(file.name || '');
+    if (fromName && !input.value) input.value = fromName;
+    if (!window.Tesseract || input.value) return;
+    if (status) status.textContent = 'Reading temperature from photo...';
+    window.Tesseract.recognize(file, 'eng').then(function(result) {
+      var found = extractTemp(result && result.data && result.data.text);
+      if (found && !input.value) input.value = found;
+      if (status) status.textContent = found ? 'Temperature auto-filled. Check it before saving.' : 'Could not read temperature. Please type it manually.';
+    }).catch(function() { if (status) status.textContent = 'Could not read temperature. Please type it manually.'; });
+  }
+
+  function thumb(checkId) {
+    return '<button type="button" class="fdocThumb empty checkPhotoThumb" data-check-thumb="' + escx(checkId) + '">No photo</button>';
+  }
+
+  function tempPanel(check) {
+    return '<p class="fdocInstruction">Take a clear photo of this unit’s temperature display, confirm the reading, then save.</p>' +
+      '<div class="fdocBody checkTempBody">' + thumb(check.id) +
+        '<div class="fdocControls">' +
+          '<div class="fdocUploads checkPhotoUpload singleUpload">' +
+            '<label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment" required></label>' +
+          '</div>' +
+          '<div class="fdocMeta checkTempMeta">' +
+            '<label class="fdocExpiry checkTempInput"><span class="fdocDateInputWrap">' + icon.temp + '<span class="fdocExpiryText">Temperature °C</span><input name="temperature" inputmode="decimal" placeholder="3°C" required></span></label>' +
+            '<button type="submit" class="fdocExpiry checkSaveButton">' + icon.save + '<span class="fdocExpiryText">Save</span></button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<label class="checkDocTick actionRequiredTick"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
+      '<div class="correctiveActionBox"><label><span>Corrective action taken</span><textarea name="correctiveAction" placeholder="Example: moved food to another fridge and reported unit for repair"></textarea></label></div>' +
+      '<small class="tempReadStatus">Photo OCR will try to auto-fill the temperature. Check it before saving.</small>';
+  }
+
+  function generalPanel(check) {
+    var items = check.items && check.items.length ? check.items : ['Completed'];
+    return '<div class="checkDocItems">' + items.map(function(item, index) {
+      return '<label class="checkDocTick"><input type="checkbox" name="task_' + index + '" required><span>' + escx(item) + '</span></label>';
+    }).join('') + '</div>' +
+    '<label class="checkDocTick actionRequiredTick"><input type="checkbox" name="actionRequired"><span>Corrective action required</span></label>' +
+    '<div class="correctiveActionBox"><label><span>Corrective action taken</span><textarea name="correctiveAction" placeholder="Write what was wrong and what was done to fix it"></textarea></label></div>' +
+    '<div class="checkSaveRow"><label><span>Notes</span><input name="notes" placeholder="Optional note"></label><button class="primary checkSavePrimary" type="submit">Save</button></div>';
+  }
+
+  function checkCard(check) {
+    var open = !!openChecks[check.id];
+    var temp = isTempCheck(check);
+    var subtitle = (check.equipmentUnit ? check.equipmentUnit + ' · ' : '') + (check.freq || '') + ' · Due ' + (check.due || '');
+    return '<article class="fdoc areaCheckCard ' + (open ? 'open' : '') + '" data-area-check="' + escx(check.id) + '">' +
+      '<button type="button" class="fdocBar areaCheckToggle" data-toggle-check="' + escx(check.id) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+        '<span class="fdocIcon">' + icon.check + '</span>' +
+        '<span class="fdocName"><strong>' + escx(check.title) + '</strong><em>' + escx(subtitle) + '</em></span>' +
+        '<span class="fdocBadge ' + (temp ? 'warn' : 'danger') + '">' + (temp ? 'Temperature' : 'To do') + '</span>' +
+        '<span class="fdocArrow">' + (open ? '⌃' : '⌄') + '</span>' +
+      '</button>' +
+      '<div class="fdocPanel ' + (open ? '' : 'closed') + '"><form class="areaCheckForm" data-check-form="' + escx(check.id) + '">' +
+        (temp ? tempPanel(check) : generalPanel(check)) +
+      '</form></div>' +
+    '</article>';
+  }
+
+  window.checks = function checksPage() {
+    var list = dueChecks();
+    var groups = grouped(list);
+    var keys = Object.keys(groups).sort();
+    var doneCount = (state.done || []).filter(function(done) { return done.date === todaySafe(); }).length;
+    return '<section class="card checksPage"><h2>Checks to complete</h2><p class="muted">Open an area, complete the check, then save. Completed checks disappear until due again.</p><section class="areaGroupList">' +
+      (keys.length ? keys.map(function(area) {
+        var open = openAreas[area] !== false;
+        return '<section class="areaGroup ' + (open ? 'open' : '') + '" data-area-group="' + escx(area) + '">' +
+          '<button type="button" class="fdocBar areaGroupButton" data-toggle-area="' + escx(area) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+            '<span class="fdocIcon">' + icon.group + '</span><span class="fdocName"><strong>' + escx(area) + '</strong><em>' + groups[area].length + ' checks to complete</em></span><span class="fdocArrow">' + (open ? '⌃' : '⌄') + '</span>' +
+          '</button>' +
+          '<div class="areaGroupBody ' + (open ? '' : 'closed') + '">' + groups[area].map(checkCard).join('') + '</div>' +
+        '</section>';
+      }).join('') : '<div class="emptyState">No checks currently due.</div>') +
+      '</section></section><section class="card"><h2>Completed today</h2><p class="muted">' + doneCount + ' checks completed today.</p>' + history() + '</section>';
+  };
+
+  function bindAreaGroups() {
+    document.querySelectorAll('[data-toggle-area]').forEach(function(btn) {
+      btn.onclick = function(event) {
+        event.preventDefault();
+        var area = btn.getAttribute('data-toggle-area');
+        openAreas[area] = !(openAreas[area] !== false);
+        render();
+      };
+    });
+
+    document.querySelectorAll('[data-toggle-check]').forEach(function(btn) {
+      btn.onclick = function(event) {
+        event.preventDefault();
+        var id = btn.getAttribute('data-toggle-check');
+        openChecks[id] = !openChecks[id];
+        render();
+      };
+    });
+
+    document.querySelectorAll('[name="actionRequired"]').forEach(function(input) {
+      var form = input.closest('form');
+      var box = form && form.querySelector('.correctiveActionBox');
+      var textarea = box && box.querySelector('textarea');
+      function sync() {
+        if (!box) return;
+        box.classList.toggle('open', input.checked);
+        if (textarea) textarea.required = input.checked;
+      }
+      input.onchange = sync;
+      sync();
+    });
+
+    document.querySelectorAll('.areaCheckForm').forEach(function(form) {
+      var photo = form.querySelector('input[name="photo"]');
+      if (photo) photo.onchange = function() {
+        var file = photo.files && photo.files[0];
+        var thumbEl = form.querySelector('.checkPhotoThumb');
+        var tempInput = form.querySelector('input[name="temperature"]');
+        var status = form.querySelector('.tempReadStatus');
+        if (file && thumbEl) {
+          readFile(file).then(function(data) {
+            if (data && data.fileData) {
+              thumbEl.classList.remove('empty');
+              thumbEl.innerHTML = '<img src="' + data.fileData + '" alt="Temperature evidence">';
+            }
+          });
+          maybeReadTemperature(file, tempInput, status);
+        }
+      };
+
+      form.onsubmit = function(event) {
+        event.preventDefault();
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        var checkId = form.getAttribute('data-check-form');
+        var check = (state.checks || []).find(function(item) { return item.id === checkId; });
+        if (!check) return;
+        var data = new FormData(form);
+        var actionRequired = !!data.get('actionRequired');
+        var correctiveAction = String(data.get('correctiveAction') || '').trim();
+        if (actionRequired && !correctiveAction) { alert('Please record the corrective action taken.'); return; }
+        var temp = String(data.get('temperature') || '').trim();
+        var tasks = (check.items && check.items.length ? check.items : ['Completed']).map(function(label, index) {
+          return { label: label, checked: !!data.get('task_' + index) };
+        });
+        var photoInput = form.querySelector('input[name="photo"]');
+        readFile(photoInput && photoInput.files && photoInput.files[0]).then(function(photoData) {
+          state.done = state.done || [];
+          state.done.push({
+            id: uidSafe(),
+            checkId: check.id,
+            title: check.title,
+            area: check.area || '',
+            equipmentUnit: check.equipmentUnit || '',
+            userId: currentUserId(),
+            userName: userName(),
+            date: todaySafe(),
+            at: new Date().toISOString(),
+            result: 'Completed',
+            temperature: temp,
+            notes: String(data.get('notes') || '').trim(),
+            actionRequired: actionRequired,
+            correctiveAction: correctiveAction,
+            evidence: photoData ? [photoData] : [],
+            tasks: tasks
+          });
+          saveSafe();
+          openChecks[checkId] = false;
+          render();
+        });
       };
     });
   }
-  if(typeof bind==='function'&&!bind.__areaCheckGroups){var old=bind;bind=function(){old();bindAreaGroups();};bind.__areaCheckGroups=true;}
-  window.openCheck=function(id){openChecks[id]=true;render();setTimeout(function(){var found=null;document.querySelectorAll('[data-area-check]').forEach(function(el){if(el.getAttribute('data-area-check')===id)found=el;});if(found)found.scrollIntoView({block:'center'});},50);};
-  if(typeof render==='function')setTimeout(function(){render();},0);
+
+  if (typeof bind === 'function' && !bind.__coreCheckGroupsV4) {
+    var oldBind = bind;
+    bind = function bindWithCoreCheckGroups() {
+      oldBind();
+      bindAreaGroups();
+    };
+    bind.__coreCheckGroupsV4 = true;
+  }
+
+  window.openCheck = function(id) { openChecks[id] = true; render(); };
+  if (typeof render === 'function') setTimeout(function(){ render(); }, 0);
 })();
