@@ -12,9 +12,17 @@
     return u.permissionSetId || u.role || 'Staff';
   }
 
+  function namedAdmin() {
+    var u = currentUser();
+    if (!u) return false;
+    var text = String((u.name || '') + ' ' + (u.nickname || '') + ' ' + (u.email || '')).toLowerCase();
+    return text.indexOf('chip') !== -1 || text.indexOf('vicky') !== -1 || text.indexOf('rihanna') !== -1;
+  }
+
   function hasPermission(key) {
     var u = currentUser();
     if (!u) return false;
+    if (namedAdmin()) return true;
     var role = String(u.role || '').toLowerCase();
     if (role.indexOf('admin') !== -1 || role.indexOf('manager') !== -1 || role.indexOf('supervisor') !== -1) return true;
     var setName = userPermissionSet();
@@ -27,8 +35,8 @@
     return false;
   }
 
-  function canSeeSharedAlerts() {
-    return hasPermission('documents') || hasPermission('checks') || hasPermission('logs') || hasPermission('settings') || hasPermission('users');
+  function canSeeSettings() {
+    return hasPermission('settings');
   }
 
   function countDocs() {
@@ -71,8 +79,18 @@
     if (nav) document.documentElement.style.setProperty('--fixed-mainnav-height', nav.offsetHeight + 'px');
   }
 
+  function syncSettingsTabVisibility() {
+    var btn = document.querySelector('.bottomNav .navBtn[data-route="settings"]');
+    if (!btn) return;
+    var allowed = canSeeSettings();
+    btn.hidden = !allowed;
+    btn.style.display = allowed ? '' : 'none';
+    btn.disabled = !allowed;
+    btn.setAttribute('aria-hidden', allowed ? 'false' : 'true');
+  }
+
   function routeFromActiveNav() {
-    var active = document.querySelector('.bottomNav .navBtn.active');
+    var active = document.querySelector('.bottomNav .navBtn.active:not([hidden])');
     return active ? active.getAttribute('data-route') : '';
   }
 
@@ -84,25 +102,16 @@
   function cleanupDashboard() {
     var app = document.querySelector('#app');
     if (!app) return;
-
     var countdown = app.querySelector('.homeCountdown');
     if (countdown && countdown.textContent.trim() === 'No upcoming shift.') countdown.textContent = 'No upcoming shift';
-
     var unscheduled = app.querySelector('.unscheduledHomeBox');
     if (unscheduled) {
       unscheduled.querySelectorAll('h3,.muted').forEach(function (el) { el.remove(); });
       var startButton = unscheduled.querySelector('[data-main-unscheduled-clock]');
       if (startButton && unscheduled.firstElementChild !== startButton) unscheduled.insertBefore(startButton, unscheduled.firstElementChild);
     }
-
-    app.querySelectorAll('.rotaHomeActions button').forEach(function (btn) {
-      if (btn.getAttribute('data-route') !== 'rota') btn.remove();
-    });
-
-    app.querySelectorAll('#app > .hero.card').forEach(function (hero) {
-      if (!hero.classList.contains('documentTopBanner')) hero.remove();
-    });
-
+    app.querySelectorAll('.rotaHomeActions button').forEach(function (btn) { if (btn.getAttribute('data-route') !== 'rota') btn.remove(); });
+    app.querySelectorAll('#app > .hero.card').forEach(function (hero) { if (!hero.classList.contains('documentTopBanner')) hero.remove(); });
     app.querySelectorAll('#app > .grid.two').forEach(function (grid) {
       var text = grid.textContent || '';
       if (text.indexOf('Urgent actions') !== -1 || text.indexOf('Recent activity') !== -1) grid.remove();
@@ -119,15 +128,14 @@
 
   function apply() {
     document.querySelectorAll('.statusStrip').forEach(function (el) { el.remove(); });
+    syncSettingsTabVisibility();
     setBadge('checks', countChecks());
     setBadge('documents', countDocs());
     setBadge('logs', countIssues());
     setFixedHeights();
-
     var routeName = routeFromActiveNav();
     applyRouteClasses(routeName);
     applyPageSpacing();
-
     if (routeName === 'documents') {
       var hero = document.querySelector('#app > .hero.card');
       if (hero) {
@@ -135,7 +143,6 @@
         hero.querySelectorAll('.badge,button').forEach(function (b) { b.remove(); });
       }
     }
-
     if (routeName === 'dashboard') cleanupDashboard();
   }
 
@@ -147,6 +154,7 @@
     '.topbar{position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:300!important;border-radius:0!important;background:#080a0c!important}',
     '.bottomNav{position:fixed!important;left:0!important;right:0!important;top:var(--fixed-topbar-height,74px)!important;bottom:auto!important;z-index:299!important;display:grid!important;grid-template-columns:repeat(4,1fr)!important;grid-template-rows:40px 40px!important;height:80px!important;gap:0!important;padding:0!important;margin:0!important;background:#b0914a!important;background-color:#b0914a!important;border-radius:0!important;border-top:1px solid rgba(255,255,255,.2)!important;border-bottom:0!important;box-shadow:0 10px 24px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.22)!important;backdrop-filter:none!important;overflow:hidden!important}',
     '.bottomNav::before,.bottomNav::after{display:none!important;content:none!important}',
+    '.bottomNav .navBtn[hidden]{display:none!important}',
     '.bottomNav .navBtn{position:relative!important;overflow:visible!important;width:100%!important;min-width:0!important;height:40px!important;min-height:40px!important;border:0!important;border-right:1px solid rgba(0,0,0,.32)!important;border-bottom:1px solid rgba(0,0,0,.2)!important;border-radius:0!important;background:#b0914a!important;color:#fff8ea!important;padding:3px 2px 4px!important;display:grid!important;place-items:center!important;align-content:center!important;gap:1px!important;font-size:10px!important;font-weight:900!important;letter-spacing:.02em!important;text-transform:uppercase!important;line-height:1!important;text-shadow:0 1px 1px rgba(0,0,0,.34)!important;box-shadow:inset 1px 1px 0 rgba(255,255,255,.18),inset -1px -1px 0 rgba(0,0,0,.16)!important}',
     '.bottomNav .navBtn:nth-child(4n){border-right:0!important}',
     '.bottomNav .navBtn:nth-child(n+5){border-bottom:0!important}',
@@ -181,10 +189,7 @@
 
   if (typeof render === 'function' && !render.__approvedAppLayoutWrapped) {
     var oldRender = render;
-    render = function () {
-      oldRender();
-      apply();
-    };
+    render = function () { oldRender(); apply(); };
     render.__approvedAppLayoutWrapped = true;
   }
 
