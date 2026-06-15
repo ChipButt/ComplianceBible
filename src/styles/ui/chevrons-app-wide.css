@@ -1,33 +1,35 @@
-/* App-wide chevron normalisation.
-   The Find Documents dropdown is the visual reference.
-   This file deliberately changes chevron rendering only: no layout logic, no click handling, no app state. */
-
+/* Single chevron standard.
+   Find Documents is the reference: same drawn size, stroke, colour, alignment and rotation. */
 :root {
   --app-chevron-size: 28px;
   --app-chevron-drawn-size: 11px;
   --app-chevron-stroke: 4px;
   --app-chevron-gold: #f0b84a;
   --app-chevron-dark: #080a0c;
-  --app-chevron-edge-gap: 8px;
 }
 
-/* Kill text/glyph arrows everywhere we use an arrow span, then redraw with the same CSS chevron used by Find Documents. */
-#app .fdocArrow,
-#app .permissionDetailArrow {
-  width: var(--app-chevron-size) !important;
-  height: var(--app-chevron-size) !important;
-  min-width: var(--app-chevron-size) !important;
-  max-width: var(--app-chevron-size) !important;
-  display: block !important;
-  font-size: 0 !important;
-  line-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  box-sizing: border-box !important;
-  overflow: visible !important;
-  color: var(--app-chevron-gold) !important;
+#app details > summary {
+  list-style: none !important;
 }
 
+#app details > summary::-webkit-details-marker {
+  display: none !important;
+}
+
+#app details.docFilterDrop > summary,
+#app details.addPremisesDetails > summary,
+#app details.settingsExpander > summary,
+#app details.settingsAddCheckDetails > summary {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--app-chevron-size) !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+#app details.docFilterDrop > summary::after,
+#app details.addPremisesDetails > summary::after,
+#app details.settingsExpander > summary::after,
+#app details.settingsAddCheckDetails > summary::after,
 #app .fdocArrow::before,
 #app .permissionDetailArrow::before {
   content: '' !important;
@@ -38,26 +40,44 @@
   border-right: var(--app-chevron-stroke) solid currentColor !important;
   border-bottom: var(--app-chevron-stroke) solid currentColor !important;
   border-radius: 1px !important;
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  right: auto !important;
-  bottom: auto !important;
-  margin: 0 !important;
-  padding: 0 !important;
   transform-origin: 50% 50% !important;
   transition: transform .15s ease !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* Position arrow spans consistently inside button bars. */
-#app .fdocBar,
-#app .areaGroupButton,
-#app .areaCheckToggle,
-#app .permissionGroupButton,
-#app .checkAreaBar,
-#app .checkDocBar {
+#app details.docFilterDrop > summary::after,
+#app details.addPremisesDetails > summary::after,
+#app details.settingsExpander > summary::after,
+#app details.settingsAddCheckDetails > summary::after {
+  color: var(--app-chevron-gold) !important;
+  justify-self: end !important;
+  align-self: center !important;
+}
+
+#app .fdocArrow,
+#app .permissionDetailArrow {
+  width: var(--app-chevron-size) !important;
+  height: var(--app-chevron-size) !important;
+  min-width: var(--app-chevron-size) !important;
+  max-width: var(--app-chevron-size) !important;
+  display: grid !important;
+  place-items: center !important;
+  justify-self: end !important;
+  align-self: center !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--app-chevron-gold) !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
   position: relative !important;
-  padding-right: 48px !important;
+  right: auto !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
 }
 
 #app .fdocBar > .fdocArrow,
@@ -66,19 +86,22 @@
 #app .permissionGroupButton > .fdocArrow,
 #app .checkAreaBar > .fdocArrow,
 #app .checkDocBar > .fdocArrow {
-  position: absolute !important;
-  right: var(--app-chevron-edge-gap) !important;
-  top: 50% !important;
-  left: auto !important;
-  bottom: auto !important;
-  transform: translateY(-50%) !important;
-  justify-self: auto !important;
-  align-self: auto !important;
-  text-align: center !important;
-  place-items: initial !important;
+  position: relative !important;
+  right: auto !important;
+  top: auto !important;
+  transform: none !important;
 }
 
-/* Closed = Find Documents closed angle. */
+#app .areaGroupButton .fdocArrow,
+#app .permissionGroupButton .fdocArrow,
+#app .permissionUsersDrop .permissionDetailArrow {
+  color: var(--app-chevron-dark) !important;
+}
+
+#app details.docFilterDrop:not([open]) > summary::after,
+#app details.addPremisesDetails:not([open]) > summary::after,
+#app details.settingsExpander:not([open]) > summary::after,
+#app details.settingsAddCheckDetails:not([open]) > summary::after,
 #app .fdoc:not(.open) > .fdocBar .fdocArrow::before,
 #app .areaGroup:not(.open) > .areaGroupButton .fdocArrow::before,
 #app .areaCheckCard:not(.open) > .areaCheckToggle .fdocArrow::before,
@@ -86,10 +109,13 @@
 #app .checkDocCard:not(.open) > .checkDocBar .fdocArrow::before,
 #app .permissionGroupCard:not(.open) > .permissionGroupButton .fdocArrow::before,
 #app .permissionUsersDrop:not([open]) .permissionDetailArrow::before {
-  transform: translate(-50%, -50%) rotate(45deg) !important;
+  transform: rotate(45deg) !important;
 }
 
-/* Open = same movement as Find Documents: rotate through to point up. */
+#app details.docFilterDrop[open] > summary::after,
+#app details.addPremisesDetails[open] > summary::after,
+#app details.settingsExpander[open] > summary::after,
+#app details.settingsAddCheckDetails[open] > summary::after,
 #app .fdoc.open > .fdocBar .fdocArrow::before,
 #app .areaGroup.open > .areaGroupButton .fdocArrow::before,
 #app .areaCheckCard.open > .areaCheckToggle .fdocArrow::before,
@@ -97,112 +123,5 @@
 #app .checkDocCard.open > .checkDocBar .fdocArrow::before,
 #app .permissionGroupCard.open > .permissionGroupButton .fdocArrow::before,
 #app .permissionUsersDrop[open] .permissionDetailArrow::before {
-  transform: translate(-50%, -50%) rotate(225deg) !important;
-}
-
-/* Colour follows the card style, but shape/size/movement stays identical. */
-#app .areaGroupButton .fdocArrow,
-#app .permissionGroupButton .fdocArrow,
-#app .permissionUsersDrop .permissionDetailArrow {
-  color: var(--app-chevron-dark) !important;
-}
-
-#app .fdocBar .fdocArrow,
-#app .areaCheckToggle .fdocArrow,
-#app .checkAreaBar .fdocArrow,
-#app .checkDocBar .fdocArrow {
-  color: var(--app-chevron-gold) !important;
-}
-
-/* Native details summaries: remove browser marker and use the same Find Documents chevron. */
-#app details > summary {
-  list-style: none !important;
-}
-
-#app details > summary::-webkit-details-marker {
-  display: none !important;
-}
-
-#app details.settingsExpander > summary,
-#app details.settingsAddCheckDetails > summary,
-#app details.docFilterDrop > summary,
-#app details.addPremisesDetails > summary {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) var(--app-chevron-size) !important;
-  align-items: center !important;
-  gap: 12px !important;
-}
-
-#app details.settingsExpander > summary::after,
-#app details.settingsAddCheckDetails > summary::after,
-#app details.docFilterDrop > summary::after,
-#app details.addPremisesDetails > summary::after {
-  content: '' !important;
-  width: var(--app-chevron-drawn-size) !important;
-  height: var(--app-chevron-drawn-size) !important;
-  box-sizing: border-box !important;
-  display: block !important;
-  border-right: var(--app-chevron-stroke) solid var(--app-chevron-gold) !important;
-  border-bottom: var(--app-chevron-stroke) solid var(--app-chevron-gold) !important;
-  border-radius: 1px !important;
-  justify-self: end !important;
-  align-self: center !important;
-  transform-origin: 50% 50% !important;
-  transition: transform .15s ease !important;
-}
-
-#app details.settingsExpander:not([open]) > summary::after,
-#app details.settingsAddCheckDetails:not([open]) > summary::after,
-#app details.docFilterDrop:not([open]) > summary::after,
-#app details.addPremisesDetails:not([open]) > summary::after {
-  transform: rotate(45deg) !important;
-}
-
-#app details.settingsExpander[open] > summary::after,
-#app details.settingsAddCheckDetails[open] > summary::after,
-#app details.docFilterDrop[open] > summary::after,
-#app details.addPremisesDetails[open] > summary::after {
   transform: rotate(225deg) !important;
-}
-
-/* Specific fix: document card arrows were jumping because inherited transforms/layout rules
-   affected the arrow box. Lock the document-card arrow box absolutely and only rotate
-   the ::before chevron inside that fixed box. */
-#app .fdoc:not(.areaCheckCard) > .fdocBar > .fdocArrow {
-  position: absolute !important;
-  right: 22px !important;
-  top: 50% !important;
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
-  transform: translateY(-50%) !important;
-  transition: none !important;
-  display: block !important;
-  place-items: initial !important;
-  justify-self: auto !important;
-  align-self: auto !important;
-}
-
-#app .fdoc:not(.areaCheckCard).open > .fdocBar > .fdocArrow,
-#app .fdoc:not(.areaCheckCard):not(.open) > .fdocBar > .fdocArrow {
-  transform: translateY(-50%) !important;
-}
-
-#app .fdoc:not(.areaCheckCard) > .fdocBar > .fdocArrow::before {
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  width: 11px !important;
-  height: 11px !important;
-  margin: 0 !important;
-  transform-origin: 50% 50% !important;
-}
-
-#app .fdoc:not(.areaCheckCard):not(.open) > .fdocBar > .fdocArrow::before {
-  transform: translate(-50%, -50%) rotate(45deg) !important;
-}
-
-#app .fdoc:not(.areaCheckCard).open > .fdocBar > .fdocArrow::before {
-  transform: translate(-50%, -50%) rotate(225deg) !important;
 }
