@@ -164,3 +164,45 @@
 #app details.addPremisesDetails[open] > summary::after {
   transform: rotate(225deg) !important;
 }
+
+/* Specific fix: document card arrows were jumping because inherited transforms/layout rules
+   affected the arrow box. Lock the document-card arrow box absolutely and only rotate
+   the ::before chevron inside that fixed box. */
+#app .fdoc:not(.areaCheckCard) > .fdocBar > .fdocArrow {
+  position: absolute !important;
+  right: 22px !important;
+  top: 50% !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  transform: translateY(-50%) !important;
+  transition: none !important;
+  display: block !important;
+  place-items: initial !important;
+  justify-self: auto !important;
+  align-self: auto !important;
+}
+
+#app .fdoc:not(.areaCheckCard).open > .fdocBar > .fdocArrow,
+#app .fdoc:not(.areaCheckCard):not(.open) > .fdocBar > .fdocArrow {
+  transform: translateY(-50%) !important;
+}
+
+#app .fdoc:not(.areaCheckCard) > .fdocBar > .fdocArrow::before {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 11px !important;
+  height: 11px !important;
+  margin: 0 !important;
+  transform-origin: 50% 50% !important;
+}
+
+#app .fdoc:not(.areaCheckCard):not(.open) > .fdocBar > .fdocArrow::before {
+  transform: translate(-50%, -50%) rotate(45deg) !important;
+}
+
+#app .fdoc:not(.areaCheckCard).open > .fdocBar > .fdocArrow::before {
+  transform: translate(-50%, -50%) rotate(225deg) !important;
+}
