@@ -1,7 +1,7 @@
 // Final shared document upload system. Single source of truth for all document upload UI.
 (function () {
-  if (window.__finalDocumentSystemClean5) return;
-  window.__finalDocumentSystemClean5 = true;
+  if (window.__finalDocumentSystemClean6) return;
+  window.__finalDocumentSystemClean6 = true;
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
@@ -45,11 +45,6 @@
     return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(record.id) + '">DOC</button>';
   }
 
-  function docChevron(expanded) {
-    const points = expanded ? '6 15 12 9 18 15' : '6 9 12 15 18 9';
-    return '<span class="docChevronFixed" aria-hidden="true" style="display:block;width:24px;height:24px;justify-self:end;align-self:center;line-height:0;color:#f0b84a;overflow:visible;"><svg viewBox="0 0 24 24" style="display:block;width:24px;height:24px;overflow:visible;" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="' + points + '"></polyline></svg></span>';
-  }
-
   function card(o) {
     const record = o.record || {};
     const s = status(record, o.required);
@@ -62,7 +57,7 @@
         '<span class="fdocName"><strong>' + esc(o.title) + '</strong><em>' + esc(o.cat || 'Document') + '</em></span>' +
         badge +
         '<span class="fdocDate">' + esc(expiryText(record)) + '</span>' +
-        docChevron(expanded) +
+        '<span class="fdocArrow" aria-hidden="true">⌄</span>' +
       '</button>' +
       '<div class="fdocPanel ' + (expanded ? '' : 'closed') + '">' +
         '<p class="fdocInstruction">' + esc(o.note || 'Upload a clear, current copy of this document.') + '</p>' +
