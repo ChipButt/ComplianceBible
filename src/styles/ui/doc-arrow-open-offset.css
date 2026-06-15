@@ -1,7 +1,0 @@
-#app .fdoc:not(.areaCheckCard).open > .fdocBar > .fdocArrow {
-  top: 53% !important;
-}
-
-#app .fdoc:not(.areaCheckCard):not(.open) > .fdocBar > .fdocArrow {
-  top: 50% !important;
-}
