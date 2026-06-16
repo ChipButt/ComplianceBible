@@ -89,7 +89,7 @@
   });
 
   rota = function exactRotaAppTab() {
-    return `<section class="rotaExactShell"><iframe class="rotaExactFrame" src="rota-app.html?v=20260616-5" title="Rota App"></iframe></section>`;
+    return `<section class="rotaExactShell"><iframe class="rotaExactFrame" src="rota-app.html?v=20260616-6" title="Rota App"></iframe></section>`;
   };
 
   const previousRender = render;
