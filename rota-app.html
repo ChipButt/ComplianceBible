@@ -20,219 +20,33 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/hard-schedule-fix.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/schedule-shift-block.css" />
   <style>
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      background: #050607;
-      overflow-x: hidden !important;
-      overflow-y: auto !important;
-      width: 100% !important;
-      max-width: 100vw !important;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    * { box-sizing: border-box !important; }
-
-    body { min-height: 100vh; }
-
-    body:not(.rota-ready) #app { visibility: hidden !important; }
-    body.rota-ready #app { visibility: visible !important; }
-
-    #app {
-      min-height: 100vh;
-      background: #050607;
-      width: 100% !important;
-      max-width: 100vw !important;
-      overflow-x: hidden !important;
-      overflow-y: visible !important;
-    }
-
-    .topbar,
-    .tabs,
-    header.topbar,
-    nav.tabs {
-      display: none !important;
-      height: 0 !important;
-      min-height: 0 !important;
-      max-height: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      border: 0 !important;
-      overflow: hidden !important;
-    }
-
-    main {
-      margin: 0 !important;
-      padding: 0 !important;
-      min-height: 100vh !important;
-      height: auto !important;
-      overflow-x: hidden !important;
-      overflow-y: visible !important;
-      width: 100% !important;
-      max-width: 100vw !important;
-    }
-
-    #rotaView,
-    .view.active {
-      margin: 0 !important;
-      padding: 0 !important;
-      min-height: 100vh !important;
-      height: auto !important;
-      display: block !important;
-      overflow-x: hidden !important;
-      overflow-y: visible !important;
-      width: 100% !important;
-      max-width: 100vw !important;
-    }
-
-    #rotaGrid,
-    .rotaGrid {
-      margin-top: 0 !important;
-      padding-top: 0 !important;
-      height: auto !important;
-      min-height: 1450px !important;
-      max-height: none !important;
-      overflow-x: hidden !important;
-      overflow-y: visible !important;
-      width: 100% !important;
-      max-width: 100vw !important;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    #rotaGrid table,
-    #rotaGrid .scheduleGrid,
-    #rotaGrid .schedule-grid,
-    #rotaGrid .weekGrid,
-    #rotaGrid .week-grid,
-    .rotaGrid table,
-    .rotaGrid .scheduleGrid,
-    .rotaGrid .schedule-grid,
-    .rotaGrid .weekGrid,
-    .rotaGrid .week-grid {
-      width: 100% !important;
-      max-width: 100% !important;
-      min-width: 0 !important;
-      table-layout: fixed !important;
-    }
-
-    #rotaGrid th,
-    #rotaGrid td,
-    .rotaGrid th,
-    .rotaGrid td {
-      min-width: 0 !important;
-      max-width: none !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
-    }
-
-    .toolbar,
-    #rotaGrid .toolbar,
-    main > .toolbar {
-      display: grid !important;
-      grid-template-columns: 52px minmax(0, 1fr) 52px !important;
-      grid-template-areas: "prev date next" ". today ." !important;
-      align-items: center !important;
-      gap: 8px 10px !important;
-      width: 100% !important;
-      max-width: 100% !important;
-      padding: 6px 42px 14px !important;
-      margin: 0 auto 10px !important;
-      background: transparent !important;
-    }
-
-    .toolbar strong,
-    .rotaWeekDate {
-      grid-area: date !important;
-      color: #f0b84a !important;
-      text-align: center !important;
-      font-weight: 900 !important;
-      font-size: 17px !important;
-      line-height: 1.15 !important;
-      display: block !important;
-    }
-
-    .rotaTodayButton {
-      grid-area: today !important;
-      justify-self: center !important;
-      min-height: 32px !important;
-      padding: 0 22px !important;
-      border-radius: 999px !important;
-      border: 1px solid rgba(240,184,74,.58) !important;
-      background: rgba(176,145,74,.14) !important;
-      color: #fff8ea !important;
-      font-size: 14px !important;
-      font-weight: 900 !important;
-    }
-
-    .toolbar button.secondary,
-    .rotaWeekArrow {
-      width: 36px !important;
-      height: 36px !important;
-      min-width: 36px !important;
-      min-height: 36px !important;
-      border: 0 !important;
-      background: transparent !important;
-      color: #f0b84a !important;
-      font-size: 0 !important;
-      line-height: 0 !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      display: grid !important;
-      place-items: center !important;
-      box-shadow: none !important;
-      position: relative !important;
-    }
-
-    .toolbar button.secondary:first-child,
-    .rotaWeekArrow.prev { grid-area: prev !important; justify-self: end !important; }
-
-    .toolbar button.secondary:last-child,
-    .rotaWeekArrow.next { grid-area: next !important; justify-self: start !important; }
-
-    .toolbar button.secondary::before,
-    .rotaWeekArrow::before {
-      content: '' !important;
-      width: 12px !important;
-      height: 12px !important;
-      border-right: 4px solid currentColor !important;
-      border-bottom: 4px solid currentColor !important;
-      border-radius: 1px !important;
-      display: block !important;
-      box-sizing: border-box !important;
-    }
-
-    .toolbar button.secondary:first-child::before,
-    .rotaWeekArrow.prev::before { transform: rotate(135deg) !important; }
-
-    .toolbar button.secondary:last-child::before,
-    .rotaWeekArrow.next::before { transform: rotate(-45deg) !important; }
-
-    #rotaGrid [class*="week"],
-    #rotaGrid [class*="Week"],
-    #rotaGrid [class*="date"],
-    #rotaGrid [class*="Date"],
-    .rotaGrid [class*="week"],
-    .rotaGrid [class*="Week"],
-    .rotaGrid [class*="date"],
-    .rotaGrid [class*="Date"] { color: #f0b84a !important; }
-
-    #rotaGrid h1,
-    #rotaGrid h2,
-    #rotaGrid h3,
-    .rotaGrid h1,
-    .rotaGrid h2,
-    .rotaGrid h3 { color: #fff8ea !important; }
+    html, body { margin:0; min-height:100%; background:#050607; overflow-x:hidden!important; overflow-y:auto!important; width:100%!important; max-width:100vw!important; -webkit-overflow-scrolling:touch; }
+    * { box-sizing:border-box!important; }
+    body { min-height:100vh; }
+    body:not(.rota-ready) #app { visibility:hidden!important; }
+    body.rota-ready #app { visibility:visible!important; }
+    #app { min-height:100vh; background:#050607; width:100%!important; max-width:100vw!important; overflow-x:hidden!important; overflow-y:visible!important; }
+    .topbar,.tabs,header.topbar,nav.tabs { display:none!important; height:0!important; min-height:0!important; max-height:0!important; padding:0!important; margin:0!important; border:0!important; overflow:hidden!important; }
+    main { margin:0!important; padding:0!important; min-height:100vh!important; height:auto!important; overflow-x:hidden!important; overflow-y:visible!important; width:100%!important; max-width:100vw!important; }
+    #rotaView,.view.active { margin:0!important; padding:0!important; min-height:100vh!important; height:auto!important; display:block!important; overflow-x:hidden!important; overflow-y:visible!important; width:100%!important; max-width:100vw!important; }
+    #rotaGrid,.rotaGrid { margin-top:0!important; padding-top:0!important; height:auto!important; min-height:1450px!important; max-height:none!important; overflow-x:hidden!important; overflow-y:visible!important; width:100%!important; max-width:100vw!important; -webkit-overflow-scrolling:touch; }
+    #rotaGrid table,#rotaGrid .scheduleGrid,#rotaGrid .schedule-grid,#rotaGrid .weekGrid,#rotaGrid .week-grid,.rotaGrid table,.rotaGrid .scheduleGrid,.rotaGrid .schedule-grid,.rotaGrid .weekGrid,.rotaGrid .week-grid { width:100%!important; max-width:100%!important; min-width:0!important; table-layout:fixed!important; }
+    #rotaGrid th,#rotaGrid td,.rotaGrid th,.rotaGrid td { min-width:0!important; max-width:none!important; overflow:hidden!important; text-overflow:ellipsis!important; }
+    .toolbar,#rotaGrid .toolbar,main>.toolbar { display:grid!important; grid-template-columns:52px minmax(0,1fr) 52px!important; grid-template-areas:"prev date next" ". today ."!important; align-items:center!important; gap:8px 10px!important; width:100%!important; max-width:100%!important; min-height:82px!important; padding:6px 42px 14px!important; margin:0 auto 10px!important; background:transparent!important; }
+    .toolbar strong,.rotaWeekDate { grid-area:date!important; color:#f0b84a!important; text-align:center!important; font-weight:900!important; font-size:17px!important; line-height:1.15!important; display:block!important; }
+    .rotaTodayButton { grid-area:today!important; justify-self:center!important; min-height:32px!important; padding:0 22px!important; border-radius:999px!important; border:1px solid rgba(240,184,74,.58)!important; background:rgba(176,145,74,.14)!important; color:#fff8ea!important; font-size:14px!important; font-weight:900!important; }
+    .toolbar button.secondary,.rotaWeekArrow { width:36px!important; height:36px!important; min-width:36px!important; min-height:36px!important; border:0!important; background:transparent!important; color:#f0b84a!important; font-size:0!important; line-height:0!important; padding:0!important; margin:0!important; display:grid!important; place-items:center!important; box-shadow:none!important; position:relative!important; }
+    .toolbar button.secondary:first-child,.rotaWeekArrow.prev { grid-area:prev!important; justify-self:end!important; }
+    .toolbar button.secondary:last-child,.rotaWeekArrow.next { grid-area:next!important; justify-self:start!important; }
+    .toolbar button.secondary::before,.rotaWeekArrow::before { content:''!important; width:12px!important; height:12px!important; border-right:4px solid currentColor!important; border-bottom:4px solid currentColor!important; border-radius:1px!important; display:block!important; box-sizing:border-box!important; }
+    .toolbar button.secondary:first-child::before,.rotaWeekArrow.prev::before { transform:rotate(135deg)!important; }
+    .toolbar button.secondary:last-child::before,.rotaWeekArrow.next::before { transform:rotate(-45deg)!important; }
+    #rotaGrid [class*="week"],#rotaGrid [class*="Week"],#rotaGrid [class*="date"],#rotaGrid [class*="Date"],.rotaGrid [class*="week"],.rotaGrid [class*="Week"],.rotaGrid [class*="date"],.rotaGrid [class*="Date"] { color:#f0b84a!important; }
+    #rotaGrid h1,#rotaGrid h2,#rotaGrid h3,.rotaGrid h1,.rotaGrid h2,.rotaGrid h3 { color:#fff8ea!important; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <main>
-      <section id="rotaView" class="view active">
-        <div id="rotaGrid" class="rotaGrid"></div>
-      </section>
-    </main>
-  </div>
-
+  <div id="app"><main><section id="rotaView" class="view active"><div id="rotaGrid" class="rotaGrid"></div></section></main></div>
   <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/app.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/validation-patch.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/rota-planning-patch.js"></script>
@@ -252,84 +66,19 @@
   <script src="rota-no-people.js?v=20260614-1"></script>
   <script>
     (function embeddedRotaCorrections(){
-      function sendHeight(){
-        try {
-          var h = Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0, document.getElementById('app')?.scrollHeight || 0, 1800);
-          parent.postMessage({ type: 'rota-app-height', height: h }, '*');
-        } catch (_) {}
-      }
-
-      function forceScheduleView(){
-        try {
-          state.view = 'rota';
-          if (typeof save === 'function') save();
-        } catch (_) {}
-      }
-
-      function goToday(){
-        try {
-          weekStart = monday(new Date());
-          forceScheduleView();
-          if (typeof renderRota === 'function') renderRota();
-          setTimeout(enhanceScheduleToolbar, 0);
-        } catch (_) {}
-      }
-
-      window.rotaGoToday = goToday;
-
-      function enhanceScheduleToolbar(){
-        var toolbar = document.querySelector('.toolbar');
-        if (!toolbar) { sendHeight(); return; }
-
-        var buttons = toolbar.querySelectorAll('button.secondary');
-        if (buttons[0]) {
-          buttons[0].classList.add('rotaWeekArrow', 'prev');
-          buttons[0].setAttribute('aria-label', 'Previous week');
-        }
-        if (buttons[1]) {
-          buttons[1].classList.add('rotaWeekArrow', 'next');
-          buttons[1].setAttribute('aria-label', 'Next week');
-        }
-
-        var date = toolbar.querySelector('strong');
-        if (date) date.classList.add('rotaWeekDate');
-
-        if (!toolbar.querySelector('.rotaTodayButton')) {
-          var today = document.createElement('button');
-          today.type = 'button';
-          today.className = 'rotaTodayButton';
-          today.textContent = 'Today';
-          today.onclick = goToday;
-          toolbar.appendChild(today);
-        }
-
-        document.body.classList.add('rota-ready');
-        sendHeight();
-      }
-
-      try {
-        var originalRenderRota = renderRota;
-        renderRota = function embeddedRenderRota(){
-          forceScheduleView();
-          originalRenderRota();
-          setTimeout(enhanceScheduleToolbar, 0);
-          setTimeout(sendHeight, 80);
-        };
-      } catch (_) {}
-
-      try {
-        render = function embeddedScheduleOnlyRender(){
-          forceScheduleView();
-          if (typeof renderRota === 'function') renderRota();
-        };
-      } catch (_) {}
-
+      function sendHeight(){try{var h=Math.max(document.body.scrollHeight||0,document.documentElement.scrollHeight||0,document.getElementById('app')?.scrollHeight||0,1800);parent.postMessage({type:'rota-app-height',height:h},'*');}catch(_){}}
+      function forceScheduleView(){try{state.view='rota';if(typeof save==='function')save();}catch(_){}}
+      function goToday(){try{weekStart=monday(new Date());forceScheduleView();if(typeof renderRota==='function')renderRota();setTimeout(enhanceScheduleToolbar,0);}catch(_){}}
+      window.rotaGoToday=goToday;
+      function enhanceScheduleToolbar(){var toolbar=document.querySelector('.toolbar');if(!toolbar){sendHeight();return false;}var buttons=toolbar.querySelectorAll('button.secondary');if(buttons[0]){buttons[0].classList.add('rotaWeekArrow','prev');buttons[0].setAttribute('aria-label','Previous week');}if(buttons[1]){buttons[1].classList.add('rotaWeekArrow','next');buttons[1].setAttribute('aria-label','Next week');}var date=toolbar.querySelector('strong');if(date)date.classList.add('rotaWeekDate');if(!toolbar.querySelector('.rotaTodayButton')){var today=document.createElement('button');today.type='button';today.className='rotaTodayButton';today.textContent='Today';today.onclick=goToday;toolbar.appendChild(today);}sendHeight();return true;}
+      function revealWhenReady(){if(enhanceScheduleToolbar()){requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('rota-ready');sendHeight();});});}else{setTimeout(revealWhenReady,40);}}
+      try{var originalRenderRota=renderRota;renderRota=function embeddedRenderRota(){forceScheduleView();originalRenderRota();setTimeout(enhanceScheduleToolbar,0);setTimeout(sendHeight,80);};}catch(_){}
+      try{render=function embeddedScheduleOnlyRender(){forceScheduleView();if(typeof renderRota==='function')renderRota();};}catch(_){}
       forceScheduleView();
-      if (typeof renderRota === 'function') renderRota();
-      setTimeout(enhanceScheduleToolbar, 0);
-      setTimeout(function(){ document.body.classList.add('rota-ready'); sendHeight(); }, 250);
-      window.addEventListener('resize', sendHeight);
-      window.addEventListener('load', function(){ setTimeout(sendHeight, 120); });
+      if(typeof renderRota==='function')renderRota();
+      revealWhenReady();
+      window.addEventListener('resize',sendHeight);
+      window.addEventListener('load',function(){setTimeout(sendHeight,120);});
     })();
   </script>
 </body>
