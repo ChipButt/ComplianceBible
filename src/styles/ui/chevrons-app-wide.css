@@ -92,7 +92,7 @@
 }
 
 #app .areaCheckCard > .areaCheckToggle > .fdocArrow {
-  transform: translateX(4px) !important;
+  transform: translateX(8px) !important;
 }
 
 #app .areaGroupButton .fdocArrow,
