@@ -92,7 +92,7 @@
 }
 
 #app .areaCheckCard > .areaCheckToggle > .fdocArrow {
-  transform: translateX(40px) !important;
+  transform: translateX(24px) !important;
 }
 
 #app:has(.checksPage) {
