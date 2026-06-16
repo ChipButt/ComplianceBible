@@ -35,7 +35,7 @@
     }
     .rotaExactShell {
       width: 100%;
-      min-height: 1000px;
+      min-height: 720px;
       margin: 0;
       padding: 0;
       overflow: visible !important;
@@ -45,23 +45,42 @@
     .rotaExactFrame {
       display: block;
       width: 100%;
-      height: 1000px;
-      min-height: 1000px;
+      height: 720px;
+      min-height: 720px;
       border: 0;
       margin: 0;
       padding: 0;
       background: #050607;
       border-radius: 24px;
       overflow: visible !important;
+      opacity: 0 !important;
+      transition: opacity .01s linear !important;
+    }
+    .rotaExactFrame.rotaFrameReady {
+      opacity: 1 !important;
     }
   `;
   document.head.appendChild(style);
 
   window.addEventListener('message', event => {
     const data = event && event.data;
-    if (!data || data.type !== 'rota-app-height') return;
+    if (!data) return;
+
+    if (data.type === 'rota-app-ready') {
+      document.querySelectorAll('.rotaExactFrame').forEach(frame => frame.classList.add('rotaFrameReady'));
+      return;
+    }
+
+    if (data.type === 'rota-scroll-top') {
+      const shell = document.querySelector('.rotaExactShell');
+      if (shell) shell.scrollIntoView({ block: 'start', inline: 'nearest' });
+      window.scrollTo({ top: shell ? Math.max(0, shell.getBoundingClientRect().top + window.scrollY - 8) : 0, behavior: 'auto' });
+      return;
+    }
+
+    if (data.type !== 'rota-app-height') return;
     const rawHeight = Number(data.height || 0);
-    const height = Math.max(900, Math.min(2600, rawHeight + 12));
+    const height = Math.max(650, Math.min(1800, rawHeight + 8));
     document.querySelectorAll('.rotaExactShell').forEach(shell => shell.style.minHeight = height + 'px');
     document.querySelectorAll('.rotaExactFrame').forEach(frame => {
       frame.style.height = height + 'px';
@@ -70,7 +89,7 @@
   });
 
   rota = function exactRotaAppTab() {
-    return `<section class="rotaExactShell"><iframe class="rotaExactFrame" src="rota-app.html?v=20260616-3" title="Rota App"></iframe></section>`;
+    return `<section class="rotaExactShell"><iframe class="rotaExactFrame" src="rota-app.html?v=20260616-5" title="Rota App"></iframe></section>`;
   };
 
   const previousRender = render;
