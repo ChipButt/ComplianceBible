@@ -5,6 +5,7 @@
   const rotaKey = 'localRota';
   let swipeStartX = null;
   let swipeStartY = null;
+  let toolbarTapStart = null;
 
   function startOfWeek(date){
     const d = new Date(date);
@@ -20,14 +21,10 @@
     return d;
   }
 
-  function isoDate(date){
-    return date.toISOString().slice(0,10);
-  }
+  function isoDate(date){ return date.toISOString().slice(0,10); }
 
   function rotaState(){
-    if (!state[rotaKey]) {
-      state[rotaKey] = { sections: ['Kitchen','FOH','Office','WFH','Housekeeping','KP','Kitchen PotWash','Social Media Work','Meetings'], shifts: [], copiedWeek: null };
-    }
+    if (!state[rotaKey]) state[rotaKey] = { sections: ['Kitchen','FOH','Office','WFH','Housekeeping','KP','Kitchen PotWash','Social Media Work','Meetings'], shifts: [], copiedWeek: null };
     return state[rotaKey];
   }
 
@@ -62,34 +59,51 @@
     });
   }
 
+  function toolbarDirection(clientX){
+    const toolbar = document.querySelector('.localRotaToolbar');
+    if (!toolbar) return 0;
+    const rect = toolbar.getBoundingClientRect();
+    const x = clientX - rect.left;
+    if (x < rect.width * 0.32) return -7;
+    if (x > rect.width * 0.68) return 7;
+    return 0;
+  }
+
   document.addEventListener('click', function(e){
     protectToolbar();
-
     const prev = e.target.closest('[data-rota-prev], .localRotaArrow.prev');
     const next = e.target.closest('[data-rota-next], .localRotaArrow.next');
     const today = e.target.closest('[data-rota-today], .localRotaToday');
-    const toolbar = e.target.closest('.localRotaToolbar');
-
-    if (!prev && !next && !today && !toolbar) return;
-
+    if (!prev && !next && !today) return;
     e.preventDefault();
     e.stopPropagation();
+    if (prev) return moveWeek(-7);
+    if (next) return moveWeek(7);
+    if (today) return goToday();
+  }, true);
 
-    if (prev) { moveWeek(-7); return; }
-    if (next) { moveWeek(7); return; }
-    if (today) { goToday(); return; }
+  document.addEventListener('pointerdown', function(e){
+    protectToolbar();
+    if (!e.target.closest('.localRotaToolbar')) return;
+    toolbarTapStart = { x: e.clientX, y: e.clientY };
+  }, true);
 
-    if (toolbar) {
-      const rect = toolbar.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      if (x > rect.width * 0.72) moveWeek(7);
-      if (x < rect.width * 0.28) moveWeek(-7);
-    }
+  document.addEventListener('pointerup', function(e){
+    if (!toolbarTapStart) return;
+    const start = toolbarTapStart;
+    toolbarTapStart = null;
+    if (!e.target.closest('.localRotaToolbar')) return;
+    if (Math.abs(e.clientX - start.x) > 12 || Math.abs(e.clientY - start.y) > 12) return;
+    const direction = toolbarDirection(e.clientX);
+    if (!direction) return;
+    e.preventDefault();
+    e.stopPropagation();
+    moveWeek(direction);
   }, true);
 
   document.addEventListener('touchstart', function(e){
     protectToolbar();
-    if (!e.target.closest('.localRotaPage, .localRotaGrid')) return;
+    if (!e.target.closest('.localRotaPage, .localRotaGrid, .localRotaToolbar')) return;
     const touch = e.touches && e.touches[0];
     if (!touch) return;
     swipeStartX = touch.clientX;
@@ -102,10 +116,14 @@
     if (!touch) return;
     const dx = touch.clientX - swipeStartX;
     const dy = touch.clientY - swipeStartY;
+    const startedX = swipeStartX;
     swipeStartX = null;
     swipeStartY = null;
-    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
-    moveWeek(dx < 0 ? 7 : -7);
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy)) return moveWeek(dx < 0 ? 7 : -7);
+    if (Math.abs(dx) <= 12 && Math.abs(dy) <= 12) {
+      const direction = toolbarDirection(startedX);
+      if (direction) moveWeek(direction);
+    }
   }, { passive: true, capture: true });
 
   new MutationObserver(protectToolbar).observe(document.documentElement, { childList:true, subtree:true });
