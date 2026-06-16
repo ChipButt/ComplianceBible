@@ -11,8 +11,9 @@
       button.style.setProperty('grid-template-columns', 'minmax(0, 1fr) 30px', 'important');
       button.style.setProperty('gap', '8px', 'important');
       button.style.setProperty('padding-left', '14px', 'important');
-      button.style.setProperty('padding-right', '10px', 'important');
+      button.style.setProperty('padding-right', '22px', 'important');
       button.style.setProperty('align-items', 'center', 'important');
+      button.style.setProperty('overflow', 'hidden', 'important');
 
       const name = button.querySelector(':scope > .fdocName');
       if (name) {
@@ -21,6 +22,22 @@
         name.style.setProperty('width', '100%', 'important');
         name.style.setProperty('max-width', 'none', 'important');
         name.style.setProperty('overflow', 'hidden', 'important');
+        name.style.setProperty('grid-column', '1', 'important');
+      }
+
+      const arrow = button.querySelector(':scope > .fdocArrow');
+      if (arrow) {
+        arrow.style.setProperty('grid-column', '2', 'important');
+        arrow.style.setProperty('justify-self', 'end', 'important');
+        arrow.style.setProperty('align-self', 'center', 'important');
+        arrow.style.setProperty('transform', 'none', 'important');
+        arrow.style.setProperty('right', 'auto', 'important');
+        arrow.style.setProperty('top', 'auto', 'important');
+        arrow.style.setProperty('width', '28px', 'important');
+        arrow.style.setProperty('height', '28px', 'important');
+        arrow.style.setProperty('min-width', '28px', 'important');
+        arrow.style.setProperty('max-width', '28px', 'important');
+        arrow.style.setProperty('overflow', 'visible', 'important');
       }
 
       const strong = button.querySelector(':scope > .fdocName > strong');
