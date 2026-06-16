@@ -3,15 +3,35 @@
   window.__checksFinalDomFix = true;
 
   function fixCheckButtons(){
+    document.querySelectorAll('#app .areaGroupButton').forEach(button => {
+      button.style.setProperty('display', 'grid', 'important');
+      button.style.setProperty('grid-template-columns', '48px minmax(0, 1fr) 30px', 'important');
+      button.style.setProperty('gap', '12px', 'important');
+      button.style.setProperty('align-items', 'center', 'important');
+      button.style.setProperty('padding-left', '14px', 'important');
+      button.style.setProperty('padding-right', '14px', 'important');
+      button.style.setProperty('min-height', '68px', 'important');
+      button.style.setProperty('height', '68px', 'important');
+
+      const name = button.querySelector(':scope > .fdocName');
+      if (name) {
+        name.style.setProperty('grid-column', '2', 'important');
+        name.style.setProperty('align-self', 'center', 'important');
+        name.style.setProperty('min-width', '0', 'important');
+        name.style.setProperty('transform', 'none', 'important');
+        name.style.setProperty('margin', '0', 'important');
+      }
+    });
+
     document.querySelectorAll('#app .areaCheckToggle').forEach(button => {
       const icon = button.querySelector(':scope > .fdocIcon');
       if (icon) icon.remove();
 
       button.style.setProperty('display', 'grid', 'important');
-      button.style.setProperty('grid-template-columns', 'minmax(0, 1fr) 30px', 'important');
+      button.style.setProperty('grid-template-columns', 'minmax(0, 1fr) 28px', 'important');
       button.style.setProperty('gap', '8px', 'important');
       button.style.setProperty('padding-left', '14px', 'important');
-      button.style.setProperty('padding-right', '22px', 'important');
+      button.style.setProperty('padding-right', '8px', 'important');
       button.style.setProperty('align-items', 'center', 'important');
       button.style.setProperty('overflow', 'hidden', 'important');
 
