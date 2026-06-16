@@ -35,7 +35,7 @@
     }
     .rotaExactShell {
       width: 100%;
-      min-height: 1650px;
+      min-height: 2400px;
       margin: 0;
       padding: 0;
       overflow: visible !important;
@@ -45,7 +45,8 @@
     .rotaExactFrame {
       display: block;
       width: 100%;
-      height: 1650px;
+      height: 2400px;
+      min-height: 2400px;
       border: 0;
       margin: 0;
       padding: 0;
@@ -56,8 +57,19 @@
   `;
   document.head.appendChild(style);
 
+  window.addEventListener('message', event => {
+    const data = event && event.data;
+    if (!data || data.type !== 'rota-app-height') return;
+    const height = Math.max(1800, Math.min(5000, Number(data.height || 0) + 40));
+    document.querySelectorAll('.rotaExactShell').forEach(shell => shell.style.minHeight = height + 'px');
+    document.querySelectorAll('.rotaExactFrame').forEach(frame => {
+      frame.style.height = height + 'px';
+      frame.style.minHeight = height + 'px';
+    });
+  });
+
   rota = function exactRotaAppTab() {
-    return `<section class="rotaExactShell"><iframe class="rotaExactFrame" src="rota-app.html?v=20260614-1" title="Rota App"></iframe></section>`;
+    return `<section class="rotaExactShell"><iframe class="rotaExactFrame" src="rota-app.html?v=20260616-2" title="Rota App"></iframe></section>`;
   };
 
   const previousRender = render;
