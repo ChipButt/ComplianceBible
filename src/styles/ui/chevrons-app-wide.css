@@ -97,17 +97,21 @@
 
 #app:has(.checksPage) {
   width: 100% !important;
-  max-width: none !important;
-  margin: 0 auto !important;
-  padding-left: 8px !important;
-  padding-right: 8px !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
 }
 
 #app .checksPage {
   width: 100% !important;
-  max-width: none !important;
+  max-width: 100% !important;
   margin-left: auto !important;
   margin-right: auto !important;
+  box-sizing: border-box !important;
 }
 
 #app .areaGroupButton .fdocArrow,
