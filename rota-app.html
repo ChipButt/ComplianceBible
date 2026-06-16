@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rota App</title>
+  <script>
+    try {
+      var key = 'rotaAppUnifiedV2';
+      var rotaState = JSON.parse(localStorage.getItem(key) || 'null');
+      if (rotaState) {
+        rotaState.view = 'rota';
+        localStorage.setItem(key, JSON.stringify(rotaState));
+      }
+    } catch (_) {}
+  </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/styles.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/schedule-admin-overrides.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-ui-overrides.css" />
@@ -21,13 +31,12 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    * {
-      box-sizing: border-box !important;
-    }
+    * { box-sizing: border-box !important; }
 
-    body {
-      min-height: 100vh;
-    }
+    body { min-height: 100vh; }
+
+    body:not(.rota-ready) #app { visibility: hidden !important; }
+    body.rota-ready #app { visibility: visible !important; }
 
     #app {
       min-height: 100vh;
@@ -38,7 +47,6 @@
       overflow-y: visible !important;
     }
 
-    /* Embedded inside Compliance: remove the wasted Rota header/nav space. */
     .topbar,
     .tabs,
     header.topbar,
@@ -176,16 +184,10 @@
     }
 
     .toolbar button.secondary:first-child,
-    .rotaWeekArrow.prev {
-      grid-area: prev !important;
-      justify-self: end !important;
-    }
+    .rotaWeekArrow.prev { grid-area: prev !important; justify-self: end !important; }
 
     .toolbar button.secondary:last-child,
-    .rotaWeekArrow.next {
-      grid-area: next !important;
-      justify-self: start !important;
-    }
+    .rotaWeekArrow.next { grid-area: next !important; justify-self: start !important; }
 
     .toolbar button.secondary::before,
     .rotaWeekArrow::before {
@@ -200,14 +202,10 @@
     }
 
     .toolbar button.secondary:first-child::before,
-    .rotaWeekArrow.prev::before {
-      transform: rotate(135deg) !important;
-    }
+    .rotaWeekArrow.prev::before { transform: rotate(135deg) !important; }
 
     .toolbar button.secondary:last-child::before,
-    .rotaWeekArrow.next::before {
-      transform: rotate(-45deg) !important;
-    }
+    .rotaWeekArrow.next::before { transform: rotate(-45deg) !important; }
 
     #rotaGrid [class*="week"],
     #rotaGrid [class*="Week"],
@@ -216,18 +214,14 @@
     .rotaGrid [class*="week"],
     .rotaGrid [class*="Week"],
     .rotaGrid [class*="date"],
-    .rotaGrid [class*="Date"] {
-      color: #f0b84a !important;
-    }
+    .rotaGrid [class*="Date"] { color: #f0b84a !important; }
 
     #rotaGrid h1,
     #rotaGrid h2,
     #rotaGrid h3,
     .rotaGrid h1,
     .rotaGrid h2,
-    .rotaGrid h3 {
-      color: #fff8ea !important;
-    }
+    .rotaGrid h3 { color: #fff8ea !important; }
   </style>
 </head>
 <body>
@@ -260,12 +254,7 @@
     (function embeddedRotaCorrections(){
       function sendHeight(){
         try {
-          var h = Math.max(
-            document.body.scrollHeight || 0,
-            document.documentElement.scrollHeight || 0,
-            document.getElementById('app')?.scrollHeight || 0,
-            1800
-          );
+          var h = Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0, document.getElementById('app')?.scrollHeight || 0, 1800);
           parent.postMessage({ type: 'rota-app-height', height: h }, '*');
         } catch (_) {}
       }
@@ -314,6 +303,7 @@
           toolbar.appendChild(today);
         }
 
+        document.body.classList.add('rota-ready');
         sendHeight();
       }
 
@@ -337,7 +327,7 @@
       forceScheduleView();
       if (typeof renderRota === 'function') renderRota();
       setTimeout(enhanceScheduleToolbar, 0);
-      setTimeout(sendHeight, 120);
+      setTimeout(function(){ document.body.classList.add('rota-ready'); sendHeight(); }, 250);
       window.addEventListener('resize', sendHeight);
       window.addEventListener('load', function(){ setTimeout(sendHeight, 120); });
     })();
