@@ -92,7 +92,22 @@
 }
 
 #app .areaCheckCard > .areaCheckToggle > .fdocArrow {
-  transform: translateX(8px) !important;
+  transform: translateX(40px) !important;
+}
+
+#app:has(.checksPage) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 auto !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+#app .checksPage {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 #app .areaGroupButton .fdocArrow,
