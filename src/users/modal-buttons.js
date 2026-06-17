@@ -49,6 +49,7 @@
     var input=document.getElementById('centralPeopleSearch');
     var list=document.getElementById('centralPeopleList');
     if(!input||!list) return;
+    input.placeholder='Search Staff..';
     var query=String(input.value||'').toLowerCase();
     list.innerHTML=(state.users||[]).filter(function(user){return String(user.name||'').toLowerCase().includes(query)||String(user.nickname||'').toLowerCase().includes(query);}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(user){
       return '<button class="personRow centralPersonRow userOpenButton" data-central-user-modal="'+safe(user.id)+'"><span class="avatarText">'+safe(initials(user))+'</span><span class="userOpenText"><strong>'+safe(user.name)+'</strong><em>'+safe(status(user))+'</em></span><span class="userRolePill">'+safe(user.role||'User')+'</span></button>';
@@ -58,8 +59,8 @@
 
   if(typeof bind==='function'&&!bind.__userButtonsModalStyle){
     var oldBind=bind;
-    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');if(search){search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
+    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
     bind.__userButtonsModalStyle=true;
   }
-  setTimeout(function(){if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
+  setTimeout(function(){var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
 })();
