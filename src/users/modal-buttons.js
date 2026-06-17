@@ -2,7 +2,7 @@
   if(window.__userButtonsModalStyle) return;
   window.__userButtonsModalStyle=true;
 
-  function safe(v){try{return esc(v);}catch(_){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c];});}}
+  function safe(v){try{return esc(v);}catch(_){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}}
   function initials(user){try{return userInitials(user.name);}catch(_){var p=String(user.name||user.nickname||'').trim().split(/\s+/);return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');}}
   function status(user){try{return userStatusLine(user);}catch(_){return user.jobArea||user.area||user.role||'';}}
   function readUserContext(user){
@@ -56,6 +56,11 @@
     }).join('');
     document.querySelectorAll('[data-central-user-modal]').forEach(function(btn){btn.onclick=function(){openUserModal(btn.getAttribute('data-central-user-modal'));};});
   };
+
+  document.addEventListener('click',function(event){
+    if(!modalRoot.classList.contains('userInfoModalOpen')) return;
+    if(event.target.closest('.bottomNav .navBtn,.mainNav .navBtn,[data-route]')) closeUserModal();
+  },true);
 
   if(typeof bind==='function'&&!bind.__userButtonsModalStyle){
     var oldBind=bind;
