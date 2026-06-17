@@ -177,15 +177,20 @@ function render() {
 
 function resetRouteScroll() {
   if (route !== 'rota') return;
-  const reset = () => {
-    const scroller = document.scrollingElement || document.documentElement;
-    if (scroller) scroller.scrollTop = 0;
-    document.body.scrollTop = 0;
-    window.scrollTo(0, 0);
-  };
-  reset();
-  requestAnimationFrame(reset);
-  setTimeout(reset, 80);
+  const scroller = document.scrollingElement || document.documentElement;
+  if (scroller) scroller.scrollTop = 0;
+  document.body.scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
+function navigateRoute(nextRoute) {
+  if (!nextRoute) return;
+  if (nextRoute === route) {
+    resetRouteScroll();
+    return;
+  }
+  route = nextRoute;
+  render();
 }
 
 function setNavIcons() {
@@ -245,9 +250,8 @@ function inspection() {
 }
 
 function rota() {
-  requestAnimationFrame(() => window.scrollTo(0, 0));
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-10"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-11"></iframe>
   </section>`;
 }
 
@@ -341,7 +345,7 @@ function userProfileCard(u) {
 
 function bind() {
   setNavIcons();
-  document.querySelectorAll('[data-route]').forEach(b => b.onclick = () => { route = b.dataset.route; render(); });
+  document.querySelectorAll('[data-route]').forEach(b => b.onclick = () => navigateRoute(b.dataset.route));
   document.querySelectorAll('.bottomNav [data-route]').forEach(b => b.classList.toggle('active', b.dataset.route === route));
   const userSwitch = document.getElementById('userSwitch');
   if (userSwitch) userSwitch.onchange = e => { state.currentUser = e.target.value; save(); render(); };

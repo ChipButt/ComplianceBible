@@ -328,12 +328,18 @@
     var modal = document.querySelector('.modalBackdrop');
     if (!modal) return;
 
-    modal.style.setProperty('align-items', 'flex-start', 'important');
-    modal.style.setProperty('padding-top', '18px', 'important');
-    modal.scrollTop = 0;
-    try {
-      parent.postMessage({ type: 'rota-scroll-top' }, '*');
-    } catch (_) {}
+    if (modal.dataset.rotaTopAligned !== '1') {
+      modal.style.setProperty('align-items', 'flex-start', 'important');
+      modal.style.setProperty('padding-top', '18px', 'important');
+      modal.dataset.rotaTopAligned = '1';
+    }
+    if (modal.scrollTop !== 0) modal.scrollTop = 0;
+    if (modal.dataset.rotaScrollTopSent !== '1') {
+      modal.dataset.rotaScrollTopSent = '1';
+      try {
+        parent.postMessage({ type: 'rota-scroll-top' }, '*');
+      } catch (_) {}
+    }
     sendHeight();
   }
 

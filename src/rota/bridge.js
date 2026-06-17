@@ -188,24 +188,17 @@ userProfileCard = function rotaUserProfileCard(user) {
 
 const previousRotaPage = rota;
 function resetRotaScheduleScroll() {
-  const reset = () => {
-    const scroller = document.scrollingElement || document.documentElement;
-    if (scroller) scroller.scrollTop = 0;
-    window.scrollTo(0, 0);
-    try {
-      document.getElementById('rotaScheduleFrame')?.contentWindow?.scrollTo(0, 0);
-    } catch (_) {}
-  };
-  reset();
-  requestAnimationFrame(reset);
+  const scroller = document.scrollingElement || document.documentElement;
+  if (scroller) scroller.scrollTop = 0;
+  document.body.scrollTop = 0;
+  window.scrollTo(0, 0);
 }
 window.__rotaScheduleScrollReset = resetRotaScheduleScroll;
 
 rota = function rotaSchedulePage() {
   writeRotaStateFromCompliance();
-  resetRotaScheduleScroll();
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-10"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-11"></iframe>
   </section>`;
 };
 
@@ -216,7 +209,7 @@ window.addEventListener('message', event => {
     document.documentElement.style.removeProperty('--rota-frame-height');
   }
   if (data.type === 'rota-app-ready' && document.body.classList.contains('is-rota-route')) resetRotaScheduleScroll();
-  if (data.type === 'rota-scroll-top') window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (data.type === 'rota-scroll-top') resetRotaScheduleScroll();
 });
 
 function saveRotaUserFromModal(user, formData) {
