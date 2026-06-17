@@ -160,10 +160,19 @@
       var todayButton = document.createElement('button');
       todayButton.type = 'button';
       todayButton.className = 'rotaTodayButton';
-      todayButton.textContent = 'Today';
+      todayButton.setAttribute('aria-label', 'Go to current week');
+      todayButton.innerHTML = '<span class="rotaTodayButtonText">Today</span>';
       todayButton.onclick = goToday;
       toolbar.appendChild(todayButton);
     }
+
+    toolbar.querySelectorAll('.rotaTodayButton').forEach(function normalizeTodayButton(button) {
+      button.type = 'button';
+      button.setAttribute('aria-label', 'Go to current week');
+      if (!button.querySelector('.rotaTodayButtonText')) {
+        button.innerHTML = '<span class="rotaTodayButtonText">Today</span>';
+      }
+    });
 
     formatDateHeaders();
     sendHeight();

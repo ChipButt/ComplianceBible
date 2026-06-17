@@ -247,7 +247,7 @@ function inspection() {
 function rota() {
   requestAnimationFrame(() => window.scrollTo(0, 0));
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-5"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-7"></iframe>
   </section>`;
 }
 
