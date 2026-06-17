@@ -172,6 +172,7 @@
   function returnToEditedUserProfile(id) {
     if (!id) return;
     window.__returnToUserProfileId = null;
+    if (typeof render === 'function') render();
     setTimeout(() => {
       if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(id);
     }, 0);
