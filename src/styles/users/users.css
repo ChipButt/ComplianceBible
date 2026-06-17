@@ -173,12 +173,28 @@ body.user-info-modal-open { overflow: hidden !important; }
   padding: 18px !important;
   box-sizing: border-box !important;
 }
-#modal.userInfoModalOpen .close {
-  position: fixed !important;
-  top: calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px) + 24px) !important;
-  right: 24px !important;
-  z-index: 1002 !important;
-  float: none !important;
+#modal.userInfoModalOpen .close { display: none !important; }
+#modal.userInfoModalOpen .userModalFloatingClose {
+  position: absolute !important;
+  top: 24px !important;
+  right: 28px !important;
+  z-index: 1003 !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(8,10,12,.72) !important;
+  color: #23a8ff !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
 }
 #modal.userInfoModalOpen .userModalDetail {
   max-height: none !important;
