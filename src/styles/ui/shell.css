@@ -18,6 +18,9 @@ p,.muted,small{color:var(--muted)!important}
 button,input,select,textarea{font:inherit!important}
 input,select,textarea{background:rgba(255,255,255,.06)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:14px!important;min-height:48px!important;padding:12px!important}
 button.primary,button:not(.navBtn):not(.ghost):not(.close):not(.secondary){background:linear-gradient(135deg,var(--gold),#d0ad58)!important;color:#070707!important;border:0!important;border-radius:14px!important;min-height:48px!important;font-weight:850!important}
+#app .checksPage .temperaturePhotoButton{grid-template-columns:auto auto!important;justify-content:center!important;justify-items:center!important;text-align:center!important}
+#app .checksPage .temperaturePhotoButton span{display:block!important;text-align:center!important}
+#app .checksPage .areaCheckCard .temperatureCheckPanel .temperatureEntryRow>button.temperatureSaveButton{height:34px!important;min-height:34px!important;max-height:34px!important;border-radius:10px!important;line-height:34px!important;padding:0 14px!important;align-self:stretch!important}
 button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:14px!important;min-height:48px!important}
 .bottomNav{position:fixed!important;left:10px!important;right:10px!important;bottom:max(10px,env(safe-area-inset-bottom))!important;z-index:50!important;height:72px!important;display:flex!important;gap:4px!important;overflow-x:auto!important;padding:8px!important;background:rgba(8,9,10,.96)!important;border:1px solid rgba(176,145,74,.28)!important;border-radius:24px!important;box-shadow:0 18px 38px rgba(0,0,0,.42)!important;scrollbar-width:none!important}
 .bottomNav::-webkit-scrollbar{display:none!important}
