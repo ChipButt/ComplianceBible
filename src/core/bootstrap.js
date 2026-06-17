@@ -59,8 +59,90 @@
       overflow-y: auto !important;
       overflow-x: hidden !important;
       -webkit-overflow-scrolling: touch !important;
-      padding: 18px !important;
+      padding: 0 !important;
       border-radius: 24px !important;
+    }
+    #modal.editUserModalOpen .editUserTopBar {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 6 !important;
+      display: grid !important;
+      grid-template-columns: 48px minmax(0,1fr) 82px !important;
+      align-items: center !important;
+      gap: 10px !important;
+      padding: 14px 16px !important;
+      background: #151b22 !important;
+      border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    }
+    #modal.editUserModalOpen .editUserTopBar h2 {
+      margin: 0 !important;
+      text-align: center !important;
+      font-size: 20px !important;
+      line-height: 1.1 !important;
+    }
+    #modal.editUserModalOpen .editUserTopBar .close,
+    #modal.editUserModalOpen .editUserTopBar .saveUserButton {
+      width: auto !important;
+      min-width: 48px !important;
+      max-width: 82px !important;
+      height: 44px !important;
+      min-height: 44px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 12px !important;
+      margin: 0 !important;
+      border-radius: 999px !important;
+      box-sizing: border-box !important;
+      float: none !important;
+      position: static !important;
+    }
+    #modal.editUserModalOpen .editUserFormBody {
+      padding: 0 18px 18px !important;
+    }
+    #modal.editUserModalOpen .editUserPhotoRow {
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      padding: 18px 0 !important;
+      border-bottom: 1px solid rgba(255,255,255,.08) !important;
+      color: #aaa194 !important;
+      font-size: 18px !important;
+      font-weight: 700 !important;
+    }
+    #modal.editUserModalOpen .editUserField {
+      display: block !important;
+      padding: 14px 0 !important;
+      border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    }
+    #modal.editUserModalOpen .editUserField span {
+      display: block !important;
+      color: #aaa194 !important;
+      font-size: 15px !important;
+      font-weight: 750 !important;
+      margin: 0 0 6px !important;
+    }
+    #modal.editUserModalOpen .editUserField input,
+    #modal.editUserModalOpen .editUserField select,
+    #modal.editUserModalOpen .editUserField textarea {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: 38px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: #fff8ea !important;
+      font-size: 20px !important;
+      line-height: 1.25 !important;
+      box-sizing: border-box !important;
+    }
+    #modal.editUserModalOpen .editUserField textarea {
+      min-height: 58px !important;
+      padding-top: 4px !important;
+      resize: vertical !important;
     }
     #modal.editUserModalOpen .modalCard.editUserModalCard form,
     #modal.editUserModalOpen .modalCard.editUserModalCard .stack {
@@ -68,29 +150,12 @@
       max-width: 100% !important;
       box-sizing: border-box !important;
       overflow-x: hidden !important;
+      gap: 0 !important;
     }
-    #modal.editUserModalOpen .modalCard.editUserModalCard input,
-    #modal.editUserModalOpen .modalCard.editUserModalCard select,
-    #modal.editUserModalOpen .modalCard.editUserModalCard textarea,
-    #modal.editUserModalOpen .modalCard.editUserModalCard button {
-      width: 100% !important;
-      max-width: 100% !important;
-      box-sizing: border-box !important;
-    }
-    #modal.editUserModalOpen .modalCard.editUserModalCard .close {
-      position: sticky !important;
-      top: 0 !important;
-      float: right !important;
-      z-index: 3 !important;
-      width: 34px !important;
-      min-width: 34px !important;
-      height: 34px !important;
-      min-height: 34px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      padding: 0 !important;
-      border-radius: 999px !important;
+    #modal.editUserModalOpen .trainingDocBlock {
+      margin-top: 18px !important;
+      padding-top: 12px !important;
+      border-top: 1px solid rgba(255,255,255,.08) !important;
     }
   `;
   document.head.appendChild(editUserStyle);
@@ -116,14 +181,29 @@
     unlockEditUserBackground();
   }
 
+  function splitNameParts(userRecord) {
+    const full = String(userRecord.name || '').trim();
+    const parts = full.split(/\s+/).filter(Boolean);
+    return {
+      first: userRecord.firstName || parts.shift() || '',
+      last: userRecord.lastName || parts.join(' ')
+    };
+  }
+
+  function field(label, name, value, attrs = '') {
+    return `<label class="editUserField"><span>${esc(label)}</span><input name="${name}" value="${esc(value || '')}" ${attrs}></label>`;
+  }
+
+  function textareaField(label, name, value) {
+    return `<label class="editUserField"><span>${esc(label)}</span><textarea name="${name}">${esc(value || '')}</textarea></label>`;
+  }
+
   openUserEditor = function lockedOpenUserEditor(id) {
     const u = state.users.find(x => x.id === id);
     if (!u) return;
+    const nameParts = splitNameParts(u);
     lockEditUserBackground();
-    modalRoot.innerHTML = `<div class="modalCard editUserModalCard"><button class="close" id="closeModal" type="button">×</button><h2>Edit user profile</h2>
-      <form id="editUserForm" class="stack"><input name="name" value="${esc(u.name)}" required><input name="nickname" value="${esc(u.nickname)}" required><input name="email" value="${esc(u.email || '')}" placeholder="Email"><input name="mobile" value="${esc(u.mobile || '')}" placeholder="Mobile"><input name="dob" value="${esc(u.dob || '')}" placeholder="Date of birth"><textarea name="address" placeholder="Address">${esc(u.address || '')}</textarea><input name="wage" type="number" step="0.01" value="${esc(u.wage || 0)}"><input name="pronouns" value="${esc(u.pronouns || '')}" placeholder="Pronouns"><select name="area">${optionList(state.areas, u.area || u.jobArea)}</select><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select><button class="primary">Save user profile</button></form>
-      <h3>Add training document record</h3><form id="trainingDocForm" class="stack"><input name="title" placeholder="Document title e.g. Food Hygiene Certificate" required><textarea name="note" placeholder="Upload/link note for now. Real file upload comes with backend storage."></textarea><button class="primary">Add training document record</button></form>
-    </div>`;
+    modalRoot.innerHTML = `<div class="modalCard editUserModalCard"><form id="editUserForm" class="stack"><div class="editUserTopBar"><button class="close" id="closeModal" type="button">×</button><h2>Edit profile</h2><button class="primary saveUserButton" type="submit">Save</button></div><div class="editUserFormBody"><div class="editUserPhotoRow"><span class="avatarText">${esc(userInitials(u.name))}</span><span>Profile photo</span></div>${field('First name','firstName',nameParts.first,'required')}${field('Last name','lastName',nameParts.last)}${field('Email','email',u.email || '', 'type="email"')}${field('Mobile','mobile',u.mobile || '')}${field('Emergency contact name','emergencyContactName',u.emergencyContactName || '')}${field('Emergency phone number','emergencyPhone',u.emergencyPhone || '')}${textareaField('Address','address',u.address || '')}${field('Date of birth','dob',u.dob || '')}${field('Pronouns','pronouns',u.pronouns || '')}<label class="editUserField"><span>Job area</span><select name="area">${optionList(state.areas, u.area || u.jobArea)}</select></label><label class="editUserField"><span>Role</span><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select></label>${field('Pay rate','wage',u.wage || 0,'type="number" step="0.01"')}</div></form><div class="editUserFormBody trainingDocBlock"><h3>Add training document record</h3><form id="trainingDocForm" class="stack">${field('Document title','title','', 'required')}<label class="editUserField"><span>Document note</span><textarea name="note"></textarea></label><button class="primary">Add training document record</button></form></div></div>`;
     modalRoot.classList.add('editUserModalOpen');
     modalRoot.classList.remove('hidden');
     document.getElementById('closeModal').onclick = closeEditUserModal;
@@ -132,7 +212,8 @@
     };
     document.getElementById('editUserForm').onsubmit = event => {
       const d = fd(event);
-      Object.assign(u, d);
+      const fullName = `${d.firstName || ''} ${d.lastName || ''}`.trim();
+      Object.assign(u, d, { name: fullName || u.name, nickname: d.firstName || u.nickname });
       u.jobArea = d.area || u.jobArea || u.area;
       save();
       closeEditUserModal();
