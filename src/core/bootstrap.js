@@ -230,6 +230,36 @@
     if (!modalRoot.classList.contains('editUserModalOpen')) return;
     if (!event.target.closest('.editUserModalCard')) event.preventDefault();
   }, { passive: false });
+
+  function countPendingChecksForBadge() {
+    try {
+      if (typeof hasPermission === 'function' && !hasPermission('checks')) return 0;
+      return (state.checks || []).filter(check => typeof done === 'function' && !done(check.id)).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function syncCheckNotificationBadge() {
+    const button = document.querySelector('.bottomNav .navBtn[data-route="checks"]');
+    if (!button) return;
+    const count = countPendingChecksForBadge();
+    if (count > 0) button.setAttribute('data-alert-count', String(count));
+    else button.removeAttribute('data-alert-count');
+  }
+
+  if (typeof render === 'function' && !render.__checkNotificationBadgeWrapped) {
+    const previousRenderForCheckBadge = render;
+    render = function renderWithCheckNotificationBadge() {
+      previousRenderForCheckBadge();
+      syncCheckNotificationBadge();
+      setTimeout(syncCheckNotificationBadge, 0);
+    };
+    render.__checkNotificationBadgeWrapped = true;
+  }
+
+  document.addEventListener('click', () => setTimeout(syncCheckNotificationBadge, 0), true);
+  document.addEventListener('change', () => setTimeout(syncCheckNotificationBadge, 0), true);
 })();
 
 startApp();
