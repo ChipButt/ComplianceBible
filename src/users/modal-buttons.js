@@ -2,14 +2,35 @@
   if(window.__userButtonsModalStyle) return;
   window.__userButtonsModalStyle=true;
 
+  var lockedScrollY=0;
   var modalCss=document.createElement('style');
   modalCss.id='user-modal-header-lock-overrides';
-  modalCss.textContent='#modal.userInfoModalOpen .userModalCard{padding:0 18px 18px!important;overflow-y:auto!important}#modal.userInfoModalOpen .userModalStickyHeader{position:sticky!important;top:0!important;z-index:30!important;margin:0 -18px 14px!important;padding:18px 18px 10px!important;background:#151b22!important;border-radius:24px 24px 0 0!important;box-shadow:0 10px 18px rgba(0,0,0,.20)!important}#modal.userInfoModalOpen .userModalHeader{display:grid!important;grid-template-columns:64px minmax(0,1fr) 34px!important;align-items:center!important;gap:14px!important;margin:0 0 12px!important}#modal.userInfoModalOpen .userModalHeader h2{margin:0!important;font-size:26px!important;line-height:1.05!important;color:#fff8ea!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal.userInfoModalOpen .userModalClose{position:static!important;display:flex!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;border:0!important;border-radius:999px!important;background:rgba(8,10,12,.72)!important;color:#23a8ff!important;font-size:24px!important;line-height:1!important;float:none!important}#modal.userInfoModalOpen .userModalTabs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:4px!important;margin:0!important;padding:0!important;background:transparent!important;position:static!important}#modal.userInfoModalOpen .userModalTabs button{min-height:38px!important;border-radius:12px!important;font-size:9px!important;line-height:1!important;padding:4px 2px!important;white-space:nowrap!important}#modal.userInfoModalOpen .userModalFloatingClose{display:none!important}';
+  modalCss.textContent='#modal.userInfoModalOpen .userModalCard{padding:0 18px 18px!important;overflow-y:auto!important}#modal.userInfoModalOpen .userModalStickyHeader{position:sticky!important;top:0!important;z-index:30!important;margin:0 -18px 14px!important;padding:18px 18px 10px!important;background:#151b22!important;border-radius:24px 24px 0 0!important;box-shadow:0 10px 18px rgba(0,0,0,.20)!important}#modal.userInfoModalOpen .userModalHeader{display:grid!important;grid-template-columns:64px minmax(0,1fr) 34px!important;align-items:center!important;gap:14px!important;margin:0 0 12px!important}#modal.userInfoModalOpen .userModalHeader h2{margin:0!important;font-size:26px!important;line-height:1.05!important;color:#fff8ea!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal.userInfoModalOpen .userModalClose{position:static!important;display:flex!important;width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;border:0!important;border-radius:999px!important;background:rgba(8,10,12,.72)!important;color:#23a8ff!important;font-size:24px!important;line-height:1!important;float:none!important}#modal.userInfoModalOpen .userModalTabs{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:4px!important;margin:0!important;padding:0!important;background:transparent!important;position:static!important}#modal.userInfoModalOpen .userModalTabs button{min-height:38px!important;border-radius:12px!important;font-size:9px!important;line-height:1!important;padding:4px 2px!important;white-space:nowrap!important}#modal.userInfoModalOpen .userModalFloatingClose{display:none!important}body.user-info-modal-open{overflow:hidden!important;position:fixed!important;width:100%!important;left:0!important;right:0!important;touch-action:none!important}body.user-info-modal-open #modal.userInfoModalOpen{touch-action:auto!important}';
   document.head.appendChild(modalCss);
 
   function safe(v){try{return esc(v);}catch(_){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}}
   function initials(user){try{return userInitials(user.name);}catch(_){var p=String(user.name||user.nickname||'').trim().split(/\s+/);return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');}}
   function status(user){try{return userStatusLine(user);}catch(_){return user.jobArea||user.area||user.role||'';}}
+  function lockPageScroll(){
+    lockedScrollY=window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0;
+    document.body.style.top='-'+lockedScrollY+'px';
+    document.body.style.position='fixed';
+    document.body.style.width='100%';
+    document.body.style.left='0';
+    document.body.style.right='0';
+    document.body.style.overflow='hidden';
+    document.documentElement.style.overflow='hidden';
+  }
+  function unlockPageScroll(){
+    document.body.style.top='';
+    document.body.style.position='';
+    document.body.style.width='';
+    document.body.style.left='';
+    document.body.style.right='';
+    document.body.style.overflow='';
+    document.documentElement.style.overflow='';
+    window.scrollTo(0,lockedScrollY||0);
+  }
   function readUserContext(user){
     var shifts=[], training=[], docs=[], availabilityText='';
     try{var rs=readRotaState()||{};shifts=(rs.shifts||[]).filter(function(s){return s.userId===user.id;}).sort(function(a,b){return String(a.date).localeCompare(String(b.date));});}catch(_){shifts=[];}
@@ -30,10 +51,12 @@
     modalRoot.classList.remove('userInfoModalOpen');
     document.body.classList.remove('user-info-modal-open');
     modalRoot.innerHTML='';
+    unlockPageScroll();
   }
   function openUserModal(id){
     var user=(state.users||[]).find(function(u){return u.id===id;});
     if(!user) return;
+    lockPageScroll();
     modalRoot.innerHTML='<div class="modalCard userModalCard" role="dialog" aria-modal="true" aria-label="User profile"><div class="userModalStickyHeader"><div class="userModalHeader"><span class="avatarText big">'+safe(initials(user))+'</span><h2>'+safe(user.name||user.nickname)+'</h2><button class="close userModalClose" id="closeUserModal" type="button">×</button></div><div class="userModalTabs"><button data-user-modal-section="personal">Personal</button><button data-user-modal-section="employment">Employment</button><button data-user-modal-section="shifts">Shifts</button><button data-user-modal-section="training">Training</button><button data-user-modal-section="availability">Availability</button></div></div><div id="userModalDetail" class="panel userModalDetail">'+detail(user,'personal')+'</div>'+(typeof isAdminUser==='function'&&isAdminUser()?'<button class="secondary userModalEdit" data-edit-user="'+safe(user.id)+'">Edit Profile</button>':'')+'</div>';
     modalRoot.classList.add('userInfoModalOpen');
     modalRoot.classList.remove('hidden');
@@ -67,6 +90,11 @@
     if(!modalRoot.classList.contains('userInfoModalOpen')) return;
     if(event.target.closest('.bottomNav .navBtn,.mainNav .navBtn,[data-route]')) closeUserModal();
   },true);
+
+  document.addEventListener('touchmove',function(event){
+    if(!modalRoot.classList.contains('userInfoModalOpen')) return;
+    if(!event.target.closest('.userModalCard')) event.preventDefault();
+  },{passive:false});
 
   if(typeof bind==='function'&&!bind.__userButtonsModalStyle){
     var oldBind=bind;
