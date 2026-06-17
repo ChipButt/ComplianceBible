@@ -64,7 +64,7 @@
     document.body.classList.add('user-info-modal-open');
     document.getElementById('closeUserModal').onclick=closeUserModal;
     var edit=document.getElementById('userModalEditCog');
-    if(edit)edit.onclick=function(){closeUserModal();setTimeout(function(){openUserEditor(user.id);},0);};
+    if(edit)edit.onclick=function(){window.__returnToUserProfileId=user.id;closeUserModal();setTimeout(function(){openUserEditor(user.id);},0);};
     modalRoot.onclick=function(event){if(event.target===modalRoot)closeUserModal();};
     document.querySelectorAll('[data-user-modal-section]').forEach(function(btn){
       btn.onclick=function(){
@@ -75,6 +75,7 @@
     });
     var first=document.querySelector('[data-user-modal-section="personal"]');if(first)first.classList.add('active');
   }
+  window.openUserProfileModal=openUserModal;
 
   window.drawCentralPeopleList=function(){
     var input=document.getElementById('centralPeopleSearch');
