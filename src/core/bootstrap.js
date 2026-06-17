@@ -174,11 +174,21 @@
     window.scrollTo(0, editUserLockedScrollY || 0);
   }
 
-  function closeEditUserModal() {
+  function returnToEditedUserProfile(id) {
+    if (!id) return;
+    window.__returnToUserProfileId = null;
+    setTimeout(() => {
+      if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(id);
+    }, 0);
+  }
+
+  function closeEditUserModal(returnToProfile = true) {
+    const returnId = window.__returnToUserProfileId;
     modalRoot.classList.add('hidden');
     modalRoot.classList.remove('editUserModalOpen');
     modalRoot.innerHTML = '';
     unlockEditUserBackground();
+    if (returnToProfile) returnToEditedUserProfile(returnId);
   }
 
   function splitNameParts(userRecord) {
@@ -201,14 +211,15 @@
   openUserEditor = function lockedOpenUserEditor(id) {
     const u = state.users.find(x => x.id === id);
     if (!u) return;
+    window.__returnToUserProfileId = id;
     const nameParts = splitNameParts(u);
     lockEditUserBackground();
     modalRoot.innerHTML = `<div class="modalCard editUserModalCard"><form id="editUserForm" class="stack"><div class="editUserTopBar"><button class="close" id="closeModal" type="button">×</button><h2>Edit profile</h2><button class="primary saveUserButton" type="submit">Save</button></div><div class="editUserFormBody"><div class="editUserPhotoRow"><span class="avatarText">${esc(userInitials(u.name))}</span><span>Profile photo</span></div>${field('First name','firstName',nameParts.first,'required')}${field('Last name','lastName',nameParts.last)}${field('Email','email',u.email || '', 'type="email"')}${field('Mobile','mobile',u.mobile || '')}${field('Emergency contact name','emergencyContactName',u.emergencyContactName || '')}${field('Emergency phone number','emergencyPhone',u.emergencyPhone || '')}${textareaField('Address','address',u.address || '')}${field('Date of birth','dob',u.dob || '')}${field('Pronouns','pronouns',u.pronouns || '')}<label class="editUserField"><span>Job area</span><select name="area">${optionList(state.areas, u.area || u.jobArea)}</select></label><label class="editUserField"><span>Role</span><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select></label>${field('Pay rate','wage',u.wage || 0,'type="number" step="0.01"')}</div></form><div class="editUserFormBody trainingDocBlock"><h3>Add training document record</h3><form id="trainingDocForm" class="stack">${field('Document title','title','', 'required')}<label class="editUserField"><span>Document note</span><textarea name="note"></textarea></label><button class="primary">Add training document record</button></form></div></div>`;
     modalRoot.classList.add('editUserModalOpen');
     modalRoot.classList.remove('hidden');
-    document.getElementById('closeModal').onclick = closeEditUserModal;
+    document.getElementById('closeModal').onclick = () => closeEditUserModal(true);
     modalRoot.onclick = event => {
-      if (event.target === modalRoot) closeEditUserModal();
+      if (event.target === modalRoot) closeEditUserModal(true);
     };
     document.getElementById('editUserForm').onsubmit = event => {
       const d = fd(event);
@@ -216,15 +227,13 @@
       Object.assign(u, d, { name: fullName || u.name, nickname: d.firstName || u.nickname });
       u.jobArea = d.area || u.jobArea || u.area;
       save();
-      closeEditUserModal();
-      render();
+      closeEditUserModal(true);
     };
     document.getElementById('trainingDocForm').onsubmit = event => {
       const d = fd(event);
       state.trainingDocs.push({ id: uid(), userId: id, title: d.title, note: d.note, created: new Date().toISOString() });
       save();
-      closeEditUserModal();
-      render();
+      closeEditUserModal(true);
     };
   };
 
