@@ -29,7 +29,7 @@
   function openUserModal(id){
     var user=(state.users||[]).find(function(u){return u.id===id;});
     if(!user) return;
-    modalRoot.innerHTML='<div class="modalCard userModalCard" role="dialog" aria-modal="true" aria-label="User profile"><button class="close" id="closeUserModal">×</button><div class="userModalHeader"><span class="avatarText big">'+safe(initials(user))+'</span><div><p class="eyebrow">User profile</p><h2>'+safe(user.nickname||user.name)+'</h2><p class="muted">'+safe(user.name)+' · '+safe(user.role||'')+' · '+safe(user.jobArea||user.area||'')+'</p></div></div><div class="userModalTabs"><button data-user-modal-section="personal">Personal</button><button data-user-modal-section="employment">Employment</button><button data-user-modal-section="shifts">Shifts</button><button data-user-modal-section="training">Training</button><button data-user-modal-section="availability">Availability</button></div><div id="userModalDetail" class="panel userModalDetail">'+detail(user,'personal')+'</div>'+(typeof isAdminUser==='function'&&isAdminUser()?'<button class="secondary userModalEdit" data-edit-user="'+safe(user.id)+'">Edit Profile</button>':'')+'</div>';
+    modalRoot.innerHTML='<button class="userModalFloatingClose" id="closeUserModal" type="button">×</button><div class="modalCard userModalCard" role="dialog" aria-modal="true" aria-label="User profile"><div class="userModalHeader"><span class="avatarText big">'+safe(initials(user))+'</span><div><p class="eyebrow">User profile</p><h2>'+safe(user.nickname||user.name)+'</h2><p class="muted">'+safe(user.name)+' · '+safe(user.role||'')+' · '+safe(user.jobArea||user.area||'')+'</p></div></div><div class="userModalTabs"><button data-user-modal-section="personal">Personal</button><button data-user-modal-section="employment">Employment</button><button data-user-modal-section="shifts">Shifts</button><button data-user-modal-section="training">Training</button><button data-user-modal-section="availability">Availability</button></div><div id="userModalDetail" class="panel userModalDetail">'+detail(user,'personal')+'</div>'+(typeof isAdminUser==='function'&&isAdminUser()?'<button class="secondary userModalEdit" data-edit-user="'+safe(user.id)+'">Edit Profile</button>':'')+'</div>';
     modalRoot.classList.add('userInfoModalOpen');
     modalRoot.classList.remove('hidden');
     document.body.classList.add('user-info-modal-open');
@@ -50,6 +50,7 @@
     var list=document.getElementById('centralPeopleList');
     if(!input||!list) return;
     input.placeholder='Search Staff..';
+    document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});
     var query=String(input.value||'').toLowerCase();
     list.innerHTML=(state.users||[]).filter(function(user){return String(user.name||'').toLowerCase().includes(query)||String(user.nickname||'').toLowerCase().includes(query);}).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''));}).map(function(user){
       return '<button class="personRow centralPersonRow userOpenButton" data-central-user-modal="'+safe(user.id)+'"><span class="avatarText">'+safe(initials(user))+'</span><span class="userOpenText"><strong>'+safe(user.name)+'</strong><em>'+safe(status(user))+'</em></span><span class="userRolePill">'+safe(user.role||'User')+'</span></button>';
@@ -64,8 +65,8 @@
 
   if(typeof bind==='function'&&!bind.__userButtonsModalStyle){
     var oldBind=bind;
-    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
+    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
     bind.__userButtonsModalStyle=true;
   }
-  setTimeout(function(){var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
+  setTimeout(function(){var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
 })();
