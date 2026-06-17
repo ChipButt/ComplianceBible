@@ -19,6 +19,17 @@ function userStatusLine(user) {
   return user.jobArea || user.area || '';
 }
 
+function resetCentralUserProfilePosition() {
+  const run = () => {
+    const scroller = document.scrollingElement || document.documentElement;
+    if (scroller) scroller.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+  };
+  run();
+  requestAnimationFrame(run);
+}
+
 staff = function centralUsersPage() {
   if (centralUserPanel === 'profile' && centralUserProfileId) return centralUserProfilePage();
   return `<section class="rotaPeopleShell">
@@ -48,6 +59,7 @@ function drawCentralPeopleList() {
     centralUserProfileId = btn.dataset.centralUser;
     centralUserPanel = 'profile';
     render();
+    resetCentralUserProfilePosition();
   });
 }
 
@@ -84,7 +96,7 @@ function centralUserProfilePage() {
     <div id="centralProfileDetail" class="panel centralProfileDetail">
       ${centralProfileDetail(user, 'personal', shifts, training, docs, availabilityText)}
     </div>
-  </section>`;
+  </section>`
 }
 
 function centralProfileDetail(user, section, shifts, training, docs, availabilityText) {
@@ -98,7 +110,7 @@ function centralProfileDetail(user, section, shifts, training, docs, availabilit
 function bindCentralUsers() {
   const search = document.getElementById('centralPeopleSearch');
   if (search) { search.oninput = drawCentralPeopleList; drawCentralPeopleList(); }
-  document.querySelectorAll('[data-users-back]').forEach(btn => btn.onclick = () => { centralUserPanel = 'list'; centralUserProfileId = null; render(); });
+  document.querySelectorAll('[data-users-back]').forEach(btn => btn.onclick = () => { centralUserPanel = 'list'; centralUserProfileId = null; render(); resetCentralUserProfilePosition(); });
   document.querySelectorAll('[data-central-section]').forEach(btn => btn.onclick = () => {
     const user = state.users.find(u => u.id === centralUserProfileId) || state.users[0];
     const rs = readRotaState() || {};
