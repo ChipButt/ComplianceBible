@@ -53,21 +53,19 @@
   border: 1px solid rgba(176,145,74,.22) !important;
   white-space: nowrap !important;
 }
-
 #app .rotaPeopleShell {
   display: grid !important;
   grid-template-columns: 132px minmax(0,1fr) !important;
   column-gap: 12px !important;
   align-items: center !important;
 }
-#app .rotaPeopleShell .sectionHeader {
-  display: contents !important;
-}
+#app .rotaPeopleShell .sectionHeader { display: contents !important; }
 #app .rotaPeopleShell .sectionHeader h2 {
   grid-column: 1 / -1 !important;
   margin: 0 0 14px !important;
 }
-#app .rotaPeopleShell .sectionHeader .rotaRoundAdd {
+#app .rotaPeopleShell .sectionHeader .rotaRoundAdd,
+#app .rotaPeopleShell .sectionHeader .usersAddUserBtn {
   grid-column: 1 !important;
   grid-row: 2 !important;
   width: 132px !important;
@@ -75,13 +73,17 @@
   height: 58px !important;
   min-height: 58px !important;
   margin: 0 !important;
-  padding: 0 !important;
+  padding: 0 10px !important;
   border-radius: 22px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 32px !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
   line-height: 1 !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+  text-transform: none !important;
 }
 #app .rotaPeopleShell #centralPeopleSearch {
   grid-column: 2 !important;
@@ -98,30 +100,37 @@
   grid-column: 1 / -1 !important;
   margin-top: 12px !important;
 }
-
 .userModalCard { max-width: min(720px,94vw) !important; }
 .userModalHeader {
   display: grid !important;
   grid-template-columns: 64px minmax(0,1fr) !important;
   align-items: center !important;
   gap: 14px !important;
-  margin-bottom: 14px !important;
+  margin: 0 48px 14px 0 !important;
 }
 .userModalHeader h2, .userModalHeader p { margin: 0 !important; }
 .userModalTabs {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 3 !important;
   display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 8px !important;
-  margin: 12px 0 !important;
+  grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  gap: 4px !important;
+  margin: 0 -2px 12px !important;
+  padding: 4px 0 8px !important;
+  background: #151b22 !important;
 }
 .userModalTabs button {
-  min-height: 42px !important;
-  border-radius: 14px !important;
+  min-height: 38px !important;
+  border-radius: 12px !important;
   background: rgba(255,255,255,.05) !important;
   border: 1px solid rgba(255,255,255,.09) !important;
   color: #fff8ea !important;
-  font-size: 12px !important;
+  font-size: 9px !important;
   font-weight: 850 !important;
+  line-height: 1 !important;
+  padding: 4px 2px !important;
+  white-space: nowrap !important;
 }
 .userModalTabs button.active {
   background: rgba(176,145,74,.20) !important;
@@ -165,26 +174,29 @@ body.user-info-modal-open { overflow: hidden !important; }
   box-sizing: border-box !important;
 }
 #modal.userInfoModalOpen .close {
-  position: sticky !important;
-  top: 0 !important;
-  float: right !important;
-  z-index: 2 !important;
+  position: fixed !important;
+  top: calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px) + 24px) !important;
+  right: 24px !important;
+  z-index: 1002 !important;
+  float: none !important;
 }
 #modal.userInfoModalOpen .userModalDetail {
   max-height: none !important;
   overflow: visible !important;
 }
-
 @media (max-width: 390px) {
   #app .rotaPeopleShell {
     grid-template-columns: 112px minmax(0,1fr) !important;
     column-gap: 10px !important;
   }
-  #app .rotaPeopleShell .sectionHeader .rotaRoundAdd {
+  #app .rotaPeopleShell .sectionHeader .rotaRoundAdd,
+  #app .rotaPeopleShell .sectionHeader .usersAddUserBtn {
     width: 112px !important;
     min-width: 112px !important;
+    font-size: 13px !important;
   }
+  .userModalTabs button { font-size: 8px !important; }
 }
 @media (min-width:560px) {
-  .userModalTabs { grid-template-columns: repeat(5,1fr) !important; }
+  .userModalTabs button { font-size: 12px !important; }
 }
