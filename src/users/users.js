@@ -1,6 +1,7 @@
 // Central Users tab: replaces Compliance cards with the Rota App People-style list plus combined profile detail.
 let centralUserProfileId = null;
 let centralUserPanel = 'list';
+let centralUserActiveSection = 'personal';
 
 function userInitials(name) {
   const parts = String(name || '').trim().split(/\s+/);
@@ -17,20 +18,6 @@ function userStatusLine(user) {
   if (user.accountStatus === 'invited') return 'Invited';
   if (user.accountStatus === 'confirmed') return 'Confirmed';
   return user.jobArea || user.area || '';
-}
-
-function resetCentralUserProfilePosition() {
-  const run = () => {
-    const scroller = document.scrollingElement || document.documentElement;
-    if (scroller) scroller.scrollTop = 0;
-    document.body.scrollTop = 0;
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  };
-  run();
-  requestAnimationFrame(run);
-  setTimeout(run, 0);
-  setTimeout(run, 80);
-  setTimeout(run, 180);
 }
 
 staff = function centralUsersPage() {
@@ -61,8 +48,8 @@ function drawCentralPeopleList() {
   document.querySelectorAll('[data-central-user]').forEach(btn => btn.onclick = () => {
     centralUserProfileId = btn.dataset.centralUser;
     centralUserPanel = 'profile';
+    centralUserActiveSection = 'personal';
     render();
-    resetCentralUserProfilePosition();
   });
 }
 
@@ -90,14 +77,14 @@ function centralUserProfilePage() {
       <button data-route="rota">Open rota</button>
     </div>
     <div class="profileLinks">
-      <button data-central-section="personal">Personal details <span>›</span></button>
-      <button data-central-section="employment">Employment / rota details <span>›</span></button>
-      <button data-central-section="shifts">Upcoming shifts <span>›</span></button>
-      <button data-central-section="training">Training & documents <span>›</span></button>
-      <button data-central-section="availability">Availability <span>›</span></button>
+      <button class="${centralUserActiveSection === 'personal' ? 'active' : ''}" data-central-section="personal">Personal details</button>
+      <button class="${centralUserActiveSection === 'employment' ? 'active' : ''}" data-central-section="employment">Employment</button>
+      <button class="${centralUserActiveSection === 'shifts' ? 'active' : ''}" data-central-section="shifts">Shifts</button>
+      <button class="${centralUserActiveSection === 'training' ? 'active' : ''}" data-central-section="training">Training</button>
+      <button class="${centralUserActiveSection === 'availability' ? 'active' : ''}" data-central-section="availability">Availability</button>
     </div>
     <div id="centralProfileDetail" class="panel centralProfileDetail">
-      ${centralProfileDetail(user, 'personal', shifts, training, docs, availabilityText)}
+      ${centralProfileDetail(user, centralUserActiveSection, shifts, training, docs, availabilityText)}
     </div>
   </section>`;
 }
@@ -113,17 +100,10 @@ function centralProfileDetail(user, section, shifts, training, docs, availabilit
 function bindCentralUsers() {
   const search = document.getElementById('centralPeopleSearch');
   if (search) { search.oninput = drawCentralPeopleList; drawCentralPeopleList(); }
-  document.querySelectorAll('[data-users-back]').forEach(btn => btn.onclick = () => { centralUserPanel = 'list'; centralUserProfileId = null; render(); resetCentralUserProfilePosition(); });
+  document.querySelectorAll('[data-users-back]').forEach(btn => btn.onclick = () => { centralUserPanel = 'list'; centralUserProfileId = null; centralUserActiveSection = 'personal'; render(); });
   document.querySelectorAll('[data-central-section]').forEach(btn => btn.onclick = () => {
-    const user = state.users.find(u => u.id === centralUserProfileId) || state.users[0];
-    const rs = readRotaState() || {};
-    const shifts = (rs.shifts || []).filter(s => s.userId === user.id).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const training = state.training.filter(t => t.userId === user.id);
-    const docs = (state.trainingDocs || []).filter(d => d.userId === user.id);
-    const a = user.availability || {};
-    const availabilityText = ['mon','tue','wed','thu','fri','sat','sun'].map(day => `${day.toUpperCase()}: ${a[day] ? 'Yes' : 'No'}`).join(' · ');
-    const detail = document.getElementById('centralProfileDetail');
-    if (detail) detail.innerHTML = centralProfileDetail(user, btn.dataset.centralSection, shifts, training, docs, availabilityText);
+    centralUserActiveSection = btn.dataset.centralSection || 'personal';
+    render();
   });
 }
 
