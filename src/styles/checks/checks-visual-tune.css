@@ -8,12 +8,10 @@
 #app .areaGroupButton .fdocIcon svg{display:none!important}
 #app .areaGroupButton .fdocIcon::before{content:'✓'!important;color:#f0b84a!important;font-size:20px!important;font-weight:950!important;line-height:1!important;display:block!important;transform:translateY(-1px)!important}
 #app .areaGroupButton .fdocArrow,#app .areaGroupButton .fdocArrow::before{color:#f0b84a!important;border-color:#f0b84a!important}
-#app .areaCheckToggle{display:grid!important;grid-template-columns:minmax(0,1fr) 28px!important;gap:8px!important;padding-left:14px!important;padding-right:8px!important;align-items:center!important;overflow:hidden!important}
-#app .areaCheckToggle .fdocIcon{display:none!important}
-#app .areaCheckToggle .fdocName{grid-column:1!important;min-width:0!important;width:100%!important;max-width:none!important;display:block!important;overflow:hidden!important}
-#app .areaCheckToggle .fdocName strong{display:block!important;width:100%!important;max-width:none!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#fff8ea!important}
-#app .areaCheckToggle .fdocName em{display:block!important;width:100%!important;max-width:none!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#f0b84a!important}
-#app .areaCheckToggle .fdocArrow{grid-column:2!important;justify-self:end!important;align-self:center!important;transform:none!important;right:auto!important;top:auto!important;width:28px!important;height:28px!important;min-width:28px!important;max-width:28px!important;overflow:visible!important}
-#app .areaCheckCard.open>.areaCheckToggle{min-height:70px!important;height:auto!important;align-items:center!important}
-#app .areaCheckCard.open>.areaCheckToggle .fdocName{overflow:visible!important}
-#app .areaCheckCard.open>.areaCheckToggle .fdocName strong{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.15!important}
+#app .checksPage .areaCheckCard>.areaCheckToggle{display:grid!important;grid-template-columns:minmax(0,1fr) 28px!important;gap:8px!important;min-height:72px!important;height:auto!important;padding:10px 8px 10px 14px!important;align-items:center!important;overflow:visible!important}
+#app .checksPage .areaCheckCard>.areaCheckToggle .fdocIcon{display:none!important}
+#app .checksPage .areaCheckCard>.areaCheckToggle>.fdocName{grid-column:1!important;justify-self:stretch!important;align-self:center!important;min-width:0!important;width:auto!important;max-width:100%!important;display:grid!important;gap:3px!important;margin:0!important;overflow:visible!important}
+#app .checksPage .areaCheckCard>.areaCheckToggle>.fdocName strong{display:block!important;width:auto!important;max-width:100%!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important;line-height:1.18!important;color:#fff8ea!important}
+#app .checksPage .areaCheckCard>.areaCheckToggle>.fdocName em{display:block!important;width:auto!important;max-width:100%!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important;line-height:1.25!important;color:#f0b84a!important}
+#app .checksPage .areaCheckCard>.areaCheckToggle>.fdocArrow{grid-column:2!important;justify-self:end!important;align-self:center!important;transform:none!important;right:auto!important;top:auto!important;width:28px!important;height:28px!important;min-width:28px!important;max-width:28px!important;overflow:visible!important}
+#app .checksPage .areaCheckCard.open>.areaCheckToggle{min-height:72px!important;height:auto!important;align-items:center!important}
