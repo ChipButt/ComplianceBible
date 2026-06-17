@@ -5,7 +5,8 @@
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
-  let filter = 'all';
+  const selectedDocFilters = new Set();
+  const baseFilterLabels = ['Premises documents','Staff documents','Licensing','Food Safety','Fire Safety','Health & Safety','Staff','Equipment','Allergen Awareness','Food Hygiene','Challenge 25','Right to Work'];
 
   const icon = {
     doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 15h7M9 18h5"/></svg>',
@@ -38,6 +39,25 @@
   function getRecord(kind, key) {
     if (kind === 'premises') return (state.docs || []).find(d => d.id === key);
     const parts = key.split('|'); return getUserRecord(parts[0], parts[1]);
+  }
+  function filterKey(value) { return String(value || '').toLowerCase(); }
+  function matchesSelectedFilters(kind, text) {
+    const filters = Array.from(selectedDocFilters);
+    if (!filters.length) return true;
+    const haystack = filterKey(text);
+    return filters.some(value => {
+      const selected = filterKey(value);
+      if (selected === 'premises documents') return kind === 'premises';
+      if (selected === 'staff documents') return kind === 'userdoc';
+      return haystack.includes(selected);
+    });
+  }
+  function allFilterLabels() {
+    const labels = [...baseFilterLabels];
+    reqs().forEach(req => {
+      if (req.title && !labels.some(label => filterKey(label) === filterKey(req.title))) labels.push(req.title);
+    });
+    return labels;
   }
   function thumb(record) {
     if (!record?.fileData) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
@@ -78,32 +98,29 @@
   }
 
   function premisesList() {
-    const f = ['all','premises','staff'].includes(filter) ? 'all' : filter;
-    const docs = (state.docs || []).filter(d => filter !== 'staff' && (f === 'all' || ((d.title || '') + ' ' + (d.cat || '')).toLowerCase().includes(f.toLowerCase())));
+    const docs = (state.docs || []).filter(d => matchesSelectedFilters('premises', (d.title || '') + ' ' + (d.cat || '')));
     return docs.map(d => card({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' })).join('') || '<p class="muted">No premises documents match this filter.</p>';
   }
   function staffList() {
-    if (filter === 'premises') return '<p class="muted">Staff documents hidden by filter.</p>';
-    const f = ['all','premises','staff'].includes(filter) ? 'all' : filter;
     const out = [];
     (state.users || []).forEach(user => reqs().forEach(req => {
       const needed = (req.staffGroups || []).includes(group(user));
       const r = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
       if (!needed && !r) return;
       const hay = ((req.title || '') + ' ' + (user.name || '') + ' ' + (user.nickname || '') + ' ' + group(user)).toLowerCase();
-      if (f !== 'all' && !hay.includes(f.toLowerCase())) return;
+      if (!matchesSelectedFilters('userdoc', hay)) return;
       out.push(card({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:(user.nickname || user.name) + ' · ' + group(user), record:r, required:needed, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' }));
     }));
     return out.join('') || '<p class="muted">No staff documents match this filter.</p>';
   }
-  function filterButton(id, label) { return '<button class="secondary ' + (filter === id ? 'activeFilter' : '') + '" data-final-filter="' + esc(id) + '">' + esc(label) + '</button>'; }
   function filterButtons() {
-    const common = ['Allergen Awareness','Food Hygiene','Challenge 25','Right to Work','Fire Safety'];
-    const buttons = [filterButton('all','All documents'), filterButton('premises','Premises documents'), filterButton('staff','All staff documents')].concat(common.map(x => filterButton(x, x)));
-    reqs().forEach(r => { if (!common.some(c => c.toLowerCase() === String(r.title || '').toLowerCase())) buttons.push(filterButton(r.title, r.title)); });
-    return '<div class="buttonRow docFinderButtons">' + buttons.join('') + '</div>';
+    return '<div class="buttonRow docFinderButtons"><details class="docFilterDrop"><summary>Filter document groups</summary><div class="docFilterOptions">' +
+      allFilterLabels().map(label => '<label><input type="checkbox" data-doc-group="' + esc(label) + '" ' + (selectedDocFilters.has(label) ? 'checked' : '') + '> <span>' + esc(label) + '</span></label>').join('') +
+      '</div></details></div>';
   }
-  function addForm() { return '<section class="panel"><h2>Add premises document</h2><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></section>'; }
+  function addForm() {
+    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span><small>Add a licence, certificate, policy, inspection record or other venue document</small></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
+  }
   documents = function () { return '<section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section><section class="fdocSection"><h2>Premises documents</h2>' + premisesList() + '</section><section class="fdocSection"><h2>Staff documents</h2>' + staffList() + '</section><section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm(); };
 
   if (typeof centralProfileDetail === 'function') {
@@ -118,7 +135,13 @@
   const oldBind = bind;
   bind = function () {
     oldBind();
-    document.querySelectorAll('[data-final-filter]').forEach(b => b.onclick = () => { filter = b.dataset.finalFilter; render(); });
+    document.querySelectorAll('[data-doc-group]').forEach(input => {
+      input.onchange = () => {
+        if (input.checked) selectedDocFilters.add(input.dataset.docGroup);
+        else selectedDocFilters.delete(input.dataset.docGroup);
+        render();
+      };
+    });
     document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => {
       const k = btn.dataset.fdocToggle;
       const article = btn.closest('.fdoc');
@@ -136,5 +159,4 @@
     document.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
     document.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
   };
-  setTimeout(() => { try { render(); } catch {} }, 0);
 })();

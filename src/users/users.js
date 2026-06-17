@@ -117,5 +117,3 @@ bind = function bindWithCentralUsers() {
   previousBindForCentralUsers();
   bindCentralUsers();
 };
-
-render();

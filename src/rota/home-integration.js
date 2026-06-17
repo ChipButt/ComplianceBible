@@ -254,6 +254,4 @@
     @media(max-width:430px){ .rotaHomeActions { grid-template-columns: 1fr; } .rotaHomeIdentity { grid-template-columns: auto 1fr; } .rotaHomeIdentity .badge { grid-column: 1 / -1; justify-self: start; } }
   `;
   document.head.appendChild(style);
-
-  render();
 })();

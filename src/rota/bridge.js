@@ -4,6 +4,52 @@ const ROTA_KEY = 'rotaAppUnifiedV2';
 const ROTA_MANAGERS = ['Vikki Fox', 'Chip Butt', 'Rhiannon Green'];
 const ROTA_NAMES = ['Ali','Andrew','April Hobday','April Hood','Ben','Ben McManus','Chan','Charlie','Chip Butt','Darcey Warwick','Ellie','Fleur','Frederick Lees','Hayden Smith','Jake','Jamie Cox','Jess Keddie','Katie','Logan','Maisie Morris','Mandi','Marc Pearmain','Meg','Megan','Paul Davis','Rhiannon Green','Ryan Thompson','Sharon Hiatt','Skye','Sophia Vassalos','Tom Mills','Vikki Fox','Zoe'];
 const ROTA_SECTIONS = ['Kitchen','FOH','Office','WFH','Housekeeping','KP','Kitchen PotWash'];
+const ROTA_ADMIN_PERMISSIONS = {
+  viewPeople: true,
+  manageUsers: true,
+  manageRota: true,
+  viewAllTimesheets: true,
+  manageTimesheets: true,
+  viewAllLeave: true,
+  manageLeave: true,
+  editLeaveBalances: true,
+  viewReports: true,
+  managePermissionSets: true,
+  viewOwnProfile: true,
+  editOwnPersonal: true,
+  viewOwnShifts: true,
+  clockIn: true,
+  requestLeave: true,
+  viewOwnLeave: true,
+  viewOwnTimesheets: true,
+  viewOwnAvailability: true,
+  editOwnAvailability: true
+};
+const ROTA_STAFF_PERMISSIONS = {
+  viewPeople: false,
+  manageUsers: false,
+  manageRota: false,
+  viewAllTimesheets: false,
+  manageTimesheets: false,
+  viewAllLeave: false,
+  manageLeave: false,
+  editLeaveBalances: false,
+  viewReports: false,
+  managePermissionSets: false,
+  viewOwnProfile: true,
+  editOwnPersonal: true,
+  viewOwnShifts: true,
+  clockIn: true,
+  requestLeave: true,
+  viewOwnLeave: true,
+  viewOwnTimesheets: true,
+  viewOwnAvailability: true,
+  editOwnAvailability: true
+};
+const ROTA_PERMISSION_SETS = {
+  admin: { id: 'admin', name: 'Admin', description: 'Full access to manage rota, users, reports, leave and timesheets.', permissions: ROTA_ADMIN_PERMISSIONS },
+  staff: { id: 'staff', name: 'Staff', description: 'Own rota, profile, leave and timesheets.', permissions: ROTA_STAFF_PERMISSIONS }
+};
 
 function rotaIdFromName(name) {
   return 'u_' + String(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -43,21 +89,38 @@ function rotaMakeUser(name) {
     availability: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false }
   };
 }
+function rotaIsAdminUser(userRecord) {
+  const roleText = String(`${userRecord?.role || ''} ${userRecord?.rotaRole || ''} ${userRecord?.permissionSetId || ''}`).toLowerCase();
+  return roleText.includes('admin') || roleText.includes('manager') || roleText.includes('supervisor') || ROTA_MANAGERS.includes(userRecord?.name);
+}
+function rotaNormalizeUser(userRecord) {
+  const name = userRecord.name || [userRecord.firstName, userRecord.lastName].filter(Boolean).join(' ') || 'Unknown';
+  const base = rotaMakeUser(name);
+  const admin = rotaIsAdminUser({ ...base, ...userRecord, name });
+  return {
+    ...base,
+    ...userRecord,
+    name,
+    nickname: userRecord.nickname || base.nickname,
+    role: admin ? 'admin' : 'staff',
+    rotaRole: admin ? 'admin' : 'staff',
+    permissionSetId: admin ? 'admin' : 'staff',
+    area: userRecord.jobArea || userRecord.area || base.area,
+    jobArea: userRecord.jobArea || userRecord.area || base.jobArea
+  };
+}
 
 function readRotaState() {
   try { return JSON.parse(localStorage.getItem(ROTA_KEY) || 'null'); } catch { return null; }
 }
 function writeRotaStateFromCompliance() {
   const rotaState = readRotaState() || {};
-  rotaState.currentUserId = rotaState.currentUserId || rotaIdFromName('Chip Butt');
   rotaState.view = rotaState.view || 'rota';
   rotaState.sections = state.rotaSettings?.sections || ROTA_SECTIONS;
-  rotaState.users = state.users.map(u => ({
-    ...u,
-    role: u.rotaRole || String(u.role || '').toLowerCase(),
-    area: u.jobArea || u.area || 'FOH',
-    jobArea: u.jobArea || u.area || 'FOH'
-  }));
+  rotaState.permissionSets = ROTA_PERMISSION_SETS;
+  rotaState.users = state.users.map(rotaNormalizeUser);
+  const currentUserExists = rotaState.users.some(u => u.id === state.currentUser);
+  rotaState.currentUserId = currentUserExists ? state.currentUser : (rotaState.users.find(u => u.name === 'Chip Butt')?.id || rotaState.users[0]?.id || rotaIdFromName('Chip Butt'));
   rotaState.shifts = rotaState.shifts || [];
   rotaState.logs = rotaState.logs || {};
   rotaState.leaveRequests = rotaState.leaveRequests || [];
@@ -72,7 +135,7 @@ function mergeRotaUsersIntoCompliance() {
   state.users = sourceUsers.map(ru => {
     const existing = byId.get(ru.id) || {};
     const role = ru.permissionSetId === 'admin' || ru.role === 'admin' || ROTA_MANAGERS.includes(ru.name) ? 'Admin' : 'Staff';
-    return {
+    const merged = {
       ...rotaMakeUser(ru.name || [ru.firstName, ru.lastName].filter(Boolean).join(' ') || 'Unknown'),
       ...ru,
       ...existing,
@@ -80,6 +143,11 @@ function mergeRotaUsersIntoCompliance() {
       rotaRole: ru.role || (role === 'Admin' ? 'admin' : 'staff'),
       area: ru.jobArea || ru.area || existing.area || 'FOH',
       jobArea: ru.jobArea || ru.area || existing.jobArea || 'FOH'
+    };
+    return {
+      ...merged,
+      permissionSetId: role === 'Admin' ? 'admin' : 'staff',
+      rotaRole: role === 'Admin' ? 'admin' : 'staff'
     };
   });
   state.currentUser = state.users.find(u => u.name === 'Chip Butt')?.id || state.users[0]?.id;
@@ -119,22 +187,37 @@ userProfileCard = function rotaUserProfileCard(user) {
 };
 
 const previousRotaPage = rota;
-rota = function rotaBridgePage() {
-  const rotaState = readRotaState();
-  return `<section class="hero card">
-    <div><p class="eyebrow">Rota-App branch found</p><h2>Rota integration</h2><p>The user model now matches the Rota-App branch. Full rota UI/code import is the next step.</p></div>
-    ${badge(rotaState ? 'Rota state found' : 'Seeded from branch model', 'ok')}
-  </section>
-  <section class="card">
-    <h2>Shared rota users</h2>
-    <p class="muted">These users are now seeded from the Rota-App branch model: name, nickname, email, mobile, date of birth, address, wage, job area, pronouns, permission set, account status, shift alerts, holiday allowance and availability.</p>
-    <div class="tableWrap"><table><thead><tr><th>Name</th><th>Nickname</th><th>Area</th><th>Role</th><th>Email</th><th>Wage</th></tr></thead><tbody>${state.users.map(u => `<tr><td>${esc(u.name)}</td><td>${esc(u.nickname)}</td><td>${esc(u.jobArea || u.area)}</td><td>${esc(u.role)}</td><td>${esc(u.email || '')}</td><td>£${Number(u.wage || 0).toFixed(2)}</td></tr>`).join('')}</tbody></table></div>
-  </section>
-  <section class="card">
-    <h2>Next import step</h2>
-    <p>The Rota-App branch is made from one core app file plus a chain of patch files. I’ve confirmed the source and aligned the user/profile data first. The full rota tab can now be moved across as a module without inventing a second staff system.</p>
+function resetRotaScheduleScroll() {
+  const reset = () => {
+    const scroller = document.scrollingElement || document.documentElement;
+    if (scroller) scroller.scrollTop = 0;
+    window.scrollTo(0, 0);
+    try {
+      document.getElementById('rotaScheduleFrame')?.contentWindow?.scrollTo(0, 0);
+    } catch (_) {}
+  };
+  reset();
+  requestAnimationFrame(reset);
+}
+window.__rotaScheduleScrollReset = resetRotaScheduleScroll;
+
+rota = function rotaSchedulePage() {
+  writeRotaStateFromCompliance();
+  resetRotaScheduleScroll();
+  return `<section class="rotaEmbedCard rotaScheduleEmbed">
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-5"></iframe>
   </section>`;
 };
+
+window.addEventListener('message', event => {
+  const data = event.data || {};
+  if (!data || typeof data !== 'object') return;
+  if (data.type === 'rota-app-height') {
+    document.documentElement.style.removeProperty('--rota-frame-height');
+  }
+  if (data.type === 'rota-app-ready' && document.body.classList.contains('is-rota-route')) resetRotaScheduleScroll();
+  if (data.type === 'rota-scroll-top') window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
 function saveRotaUserFromModal(user, formData) {
   user.firstName = formData.firstName || user.firstName;

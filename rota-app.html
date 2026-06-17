@@ -14,53 +14,32 @@
       }
     } catch (_) {}
   </script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/styles.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/schedule-admin-overrides.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-ui-overrides.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/hard-schedule-fix.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/schedule-shift-block.css" />
-  <style>
-    html,body{margin:0;min-height:100%;background:#050607;overflow-x:hidden!important;overflow-y:auto!important;width:100%!important;max-width:100vw!important;-webkit-overflow-scrolling:touch}*{box-sizing:border-box!important}body{min-height:100vh}body:not(.rota-ready) #app{visibility:hidden!important}body.rota-ready #app{visibility:visible!important}#app{min-height:0!important;background:#050607;width:100%!important;max-width:100vw!important;overflow-x:hidden!important;overflow-y:visible!important}.topbar,.tabs,header.topbar,nav.tabs{display:none!important;height:0!important;min-height:0!important;max-height:0!important;padding:0!important;margin:0!important;border:0!important;overflow:hidden!important}main,#rotaView,.view.active,#rotaGrid,.rotaGrid{margin:0!important;padding:0!important;min-height:0!important;height:auto!important;max-height:none!important;overflow-x:hidden!important;overflow-y:visible!important;width:100%!important;max-width:100vw!important}#rotaGrid table,#rotaGrid .scheduleGrid,#rotaGrid .schedule-grid,#rotaGrid .weekGrid,#rotaGrid .week-grid,.rotaGrid table,.rotaGrid .scheduleGrid,.rotaGrid .schedule-grid,.rotaGrid .weekGrid,.rotaGrid .week-grid{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important}#rotaGrid th,#rotaGrid td,.rotaGrid th,.rotaGrid td{min-width:0!important;max-width:none!important;overflow:hidden!important;text-overflow:ellipsis!important}.toolbar,#rotaGrid .toolbar,main>.toolbar{display:grid!important;grid-template-columns:42px minmax(0,1fr) 42px!important;grid-template-areas:"prev date next" ". today ."!important;align-items:center!important;gap:6px 8px!important;width:100%!important;max-width:100%!important;min-height:76px!important;padding:6px 30px 10px!important;margin:0 auto 8px!important;background:transparent!important}.toolbar strong,.rotaWeekDate{grid-area:date!important;color:#f0b84a!important;text-align:center!important;font-weight:900!important;font-size:15px!important;line-height:1.15!important;display:block!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important}.rotaTodayButton{grid-area:today!important;justify-self:center!important;width:auto!important;min-width:0!important;min-height:0!important;height:auto!important;padding:3px 8px!important;border-radius:999px!important;border:1px solid rgba(240,184,74,.58)!important;background:rgba(176,145,74,.14)!important;color:#fff8ea!important;font-size:12px!important;font-weight:900!important;line-height:1!important}.toolbar button.secondary,.rotaWeekArrow{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;border:0!important;background:transparent!important;color:#f0b84a!important;font-size:0!important;line-height:0!important;padding:0!important;margin:0!important;display:grid!important;place-items:center!important;box-shadow:none!important;position:relative!important}.toolbar button.secondary:first-child,.rotaWeekArrow.prev{grid-area:prev!important;justify-self:end!important}.toolbar button.secondary:last-child,.rotaWeekArrow.next{grid-area:next!important;justify-self:start!important}.toolbar button.secondary::before,.rotaWeekArrow::before{content:''!important;width:12px!important;height:12px!important;border-right:4px solid currentColor!important;border-bottom:4px solid currentColor!important;border-radius:1px!important;display:block!important;box-sizing:border-box!important}.toolbar button.secondary:first-child::before,.rotaWeekArrow.prev::before{transform:rotate(135deg)!important}.toolbar button.secondary:last-child::before,.rotaWeekArrow.next::before{transform:rotate(-45deg)!important}.modalBackdrop{position:fixed!important;inset:0!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;padding:18px 12px!important;overflow-y:auto!important;z-index:999999!important;background:rgba(0,0,0,.72)!important}.shiftModal{margin:0 auto!important;transform:none!important;top:auto!important;max-height:calc(100vh - 36px)!important;overflow-y:auto!important}#rotaGrid [class*="week"],#rotaGrid [class*="Week"],#rotaGrid [class*="date"],#rotaGrid [class*="Date"],.rotaGrid [class*="week"],.rotaGrid [class*="Week"],.rotaGrid [class*="date"],.rotaGrid [class*="Date"]{color:#f0b84a!important}#rotaGrid h1,#rotaGrid h2,#rotaGrid h3,.rotaGrid h1,.rotaGrid h2,.rotaGrid h3{color:#fff8ea!important}
-  </style>
+  <link rel="stylesheet" href="src/rota/vendor/styles.css" />
+  <link rel="stylesheet" href="src/rota/vendor/schedule-admin-overrides.css" />
+  <link rel="stylesheet" href="src/rota/vendor/final-ui-overrides.css" />
+  <link rel="stylesheet" href="src/rota/vendor/hard-schedule-fix.css" />
+  <link rel="stylesheet" href="src/rota/vendor/schedule-shift-block.css" />
+  <link rel="stylesheet" href="src/rota/schedule-embed.css?v=20260617-5" />
 </head>
 <body>
   <div id="app"><main><section id="rotaView" class="view active"><div id="rotaGrid" class="rotaGrid"></div></section></main></div>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/app.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/validation-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/rota-planning-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/payroll-breaks-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/unassigned-shifts-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/pronouns-salary-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/permissions-sections-final-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-corrections-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-top-nav-patch.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-admin-timesheets-report.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-admin-page-nav.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/final-render-on-load.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/absolute-final-fix.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/replacement-final.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/profile-save-final.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/ChipButt/Test@Rota-App/visibility-and-card-final.js"></script>
+  <script src="src/rota/vendor/app.js"></script>
+  <script src="src/rota/vendor/validation-patch.js"></script>
+  <script src="src/rota/vendor/rota-planning-patch.js"></script>
+  <script src="src/rota/vendor/payroll-breaks-patch.js"></script>
+  <script src="src/rota/vendor/unassigned-shifts-patch.js"></script>
+  <script src="src/rota/vendor/pronouns-salary-patch.js"></script>
+  <script src="src/rota/vendor/permissions-sections-final-patch.js"></script>
+  <script src="src/rota/vendor/final-corrections-patch.js"></script>
+  <script src="src/rota/vendor/final-top-nav-patch.js"></script>
+  <script src="src/rota/vendor/final-admin-timesheets-report.js"></script>
+  <script src="src/rota/vendor/final-admin-page-nav.js"></script>
+  <script src="src/rota/vendor/final-render-on-load.js"></script>
+  <script src="src/rota/vendor/absolute-final-fix.js"></script>
+  <script src="src/rota/vendor/replacement-final.js"></script>
+  <script src="src/rota/vendor/profile-save-final.js"></script>
+  <script src="src/rota/vendor/visibility-and-card-final.js"></script>
   <script src="rota-no-people.js?v=20260616-5"></script>
-  <script>
-    (function embeddedRotaCorrections(){
-      function contentHeight(){var grid=document.getElementById('rotaGrid');if(!grid)return 650;var kids=[].slice.call(grid.children);var bottom=0;kids.forEach(function(el){if(el.offsetParent!==null){bottom=Math.max(bottom,el.offsetTop+el.offsetHeight);}});return Math.max(420,Math.ceil(bottom+12));}
-      function sendHeight(){try{parent.postMessage({type:'rota-app-height',height:contentHeight()},'*');}catch(_){}}
-      function forceScheduleView(){try{state.view='rota';if(typeof save==='function')save();}catch(_){}}
-      function goToday(){try{weekStart=monday(new Date());forceScheduleView();if(typeof renderRota==='function')renderRota();setTimeout(enhanceScheduleToolbar,0);}catch(_){}}
-      window.rotaGoToday=goToday;
-      function topModal(){var modal=document.querySelector('.modalBackdrop');if(modal){modal.style.setProperty('align-items','flex-start','important');modal.style.setProperty('padding-top','18px','important');modal.scrollTop=0;try{parent.postMessage({type:'rota-scroll-top'},'*');}catch(_){}sendHeight();}}
-      function splitHeaderCell(el){if(!el||el.dataset.rotaSplit==='1')return;var txt=(el.textContent||'').trim().replace(/\s+/g,' ');var m=txt.match(/^([A-Za-z]{3,9})\s+(\d{1,2})\s+([A-Za-z]{3,9})$/);if(m){el.innerHTML='<span>'+m[1]+'</span><span>'+m[2]+'</span><span>'+m[3]+'</span>';el.dataset.rotaSplit='1';el.style.setProperty('display','grid','important');el.style.setProperty('gap','1px','important');el.style.setProperty('line-height','1.05','important');el.style.setProperty('text-align','center','important');}}
-      function formatDateHeaders(){document.querySelectorAll('th,td,.dayHeader,.day,.date').forEach(splitHeaderCell);}
-      function enhanceScheduleToolbar(){var toolbar=document.querySelector('.toolbar');if(!toolbar){sendHeight();return false;}var buttons=toolbar.querySelectorAll('button.secondary');if(buttons[0]){buttons[0].classList.add('rotaWeekArrow','prev');buttons[0].setAttribute('aria-label','Previous week');}if(buttons[1]){buttons[1].classList.add('rotaWeekArrow','next');buttons[1].setAttribute('aria-label','Next week');}var date=toolbar.querySelector('strong');if(date){date.classList.add('rotaWeekDate');date.style.setProperty('white-space','normal','important');date.style.setProperty('overflow','visible','important');date.style.setProperty('text-overflow','clip','important');}if(!toolbar.querySelector('.rotaTodayButton')){var today=document.createElement('button');today.type='button';today.className='rotaTodayButton';today.textContent='Today';today.onclick=goToday;toolbar.appendChild(today);}formatDateHeaders();sendHeight();return true;}
-      function collapseLoadedButtons(){document.querySelectorAll('details[open]').forEach(function(d){d.removeAttribute('open');});document.querySelectorAll('[aria-expanded="true"]').forEach(function(el){el.setAttribute('aria-expanded','false');});document.querySelectorAll('.open,.expanded,.activePanel').forEach(function(el){if(!el.closest('#rotaGrid'))return;el.classList.remove('open','expanded','activePanel');});}
-      function revealWhenReady(){if(enhanceScheduleToolbar()){collapseLoadedButtons();requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('rota-ready');sendHeight();try{parent.postMessage({type:'rota-app-ready'},'*');}catch(_){};});});}else{setTimeout(revealWhenReady,40);}}
-      try{var originalRenderRota=renderRota;renderRota=function embeddedRenderRota(){forceScheduleView();originalRenderRota();setTimeout(enhanceScheduleToolbar,0);setTimeout(sendHeight,80);};}catch(_){}
-      try{var originalOpenShiftModal=openShiftModal;openShiftModal=function embeddedTopShiftModal(){originalOpenShiftModal.apply(this,arguments);setTimeout(topModal,0);setTimeout(topModal,80);};}catch(_){}
-      try{render=function embeddedScheduleOnlyRender(){forceScheduleView();if(typeof renderRota==='function')renderRota();};}catch(_){}
-      var observer=new MutationObserver(function(){formatDateHeaders();topModal();sendHeight();});observer.observe(document.documentElement,{childList:true,subtree:true});
-      forceScheduleView();if(typeof renderRota==='function')renderRota();revealWhenReady();window.addEventListener('resize',sendHeight);window.addEventListener('load',function(){setTimeout(sendHeight,120);});
-    })();
-  </script>
+  <script src="src/rota/schedule-embed.js?v=20260617-5"></script>
 </body>
 </html>

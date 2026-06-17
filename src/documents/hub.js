@@ -123,6 +123,4 @@
     .trainingMatrix td { min-width: 120px; }
   `;
   document.head.appendChild(style);
-
-  render();
 })();

@@ -45,12 +45,31 @@ const defaults = {
   ],
   issues: [
     { id: uid(), title: 'Example: replace missing wet-floor sign', area: 'Bar', severity: 'Medium', status: 'Open', notes: 'Demo issue - edit or resolve.', created: new Date().toISOString() }
-  ]
+  ],
+  trainingDocs: [],
+  userRequiredDocuments: [],
+  rotaSettings: {
+    source: 'Pending integration with existing Rota App',
+    sections: ['Kitchen', 'FOH', 'Office', 'WFH', 'Housekeeping', 'KP']
+  },
+  documentCategories: ['Licensing', 'Food Safety', 'Fire Safety', 'Health & Safety', 'Staff', 'Equipment'],
+  permissionMatrix: {
+    Admin: { checks: true, documents: true, logs: true, users: true, rota: true, inspection: true, settings: true },
+    Supervisor: { checks: true, documents: true, logs: true, users: true, rota: true, inspection: true, settings: true },
+    Staff: { checks: true, documents: false, logs: true, users: false, rota: true, inspection: false, settings: false }
+  }
 };
 
 let state = load();
 let route = 'dashboard';
+let settingsTab = 'checks';
+let lastPermittedRoute = 'dashboard';
 let deferredInstallPrompt = null;
+const PERMISSION_KEYS = ['checks', 'documents', 'logs', 'users', 'rota', 'inspection', 'settings'];
+
+try {
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+} catch (_) {}
 
 function load() {
   try {
@@ -70,17 +89,72 @@ function dueDT(check) { const [h, m] = check.due.split(':').map(Number); const d
 function overdue(check) { return !done(check.id) && new Date() > dueDT(check); }
 function badge(text, kind = '') { return `<span class="badge ${kind}">${esc(text)}</span>`; }
 function nav(id, label) { return `<button class="navBtn ${route === id ? 'active' : ''}" data-route="${id}">${label}</button>`; }
+function optionList(values, selected) { return values.map(v => `<option ${v === selected ? 'selected' : ''}>${esc(v)}</option>`).join(''); }
+
+function isNamedAdminUser(userRecord) {
+  const text = String(`${userRecord?.name || ''} ${userRecord?.nickname || ''} ${userRecord?.email || ''}`).toLowerCase();
+  return text.includes('chip') || text.includes('vicky') || text.includes('rihanna');
+}
+
+function ensureCoreState() {
+  state.users = state.users || [];
+  state.areas = state.areas || [];
+  state.docs = state.docs || [];
+  state.checks = state.checks || [];
+  state.done = state.done || [];
+  state.temps = state.temps || [];
+  state.logs = state.logs || [];
+  state.training = state.training || [];
+  state.trainingDocs = state.trainingDocs || [];
+  state.userRequiredDocuments = state.userRequiredDocuments || [];
+  state.documentCategories = state.documentCategories || clone(defaults.documentCategories);
+  state.rotaSettings = state.rotaSettings || clone(defaults.rotaSettings);
+  state.rotaSettings.sections = Array.from(new Set([...(state.rotaSettings.sections || []), ...defaults.rotaSettings.sections]));
+  state.permissionMatrix = state.permissionMatrix || {};
+  Object.entries(defaults.permissionMatrix).forEach(([group, permissions]) => {
+    state.permissionMatrix[group] = state.permissionMatrix[group] || {};
+    PERMISSION_KEYS.forEach(key => {
+      if (typeof state.permissionMatrix[group][key] !== 'boolean') state.permissionMatrix[group][key] = !!permissions[key];
+    });
+  });
+  state.users.forEach(userRecord => {
+    if (isNamedAdminUser(userRecord)) {
+      userRecord.role = 'Admin';
+      userRecord.permissionSetId = 'Admin';
+    }
+    if (!userRecord.permissionSetId) userRecord.permissionSetId = userRecord.role || 'Staff';
+  });
+}
+
+function ensureExtendedState() {
+  ensureCoreState();
+}
+
+function isAdminUser() {
+  const current = me();
+  if (!current) return false;
+  if (isNamedAdminUser(current)) return true;
+  const role = String(current.role || '').toLowerCase();
+  if (role.includes('admin') || role.includes('supervisor') || role.includes('manager')) return true;
+  const setName = current.permissionSetId || current.role || 'Staff';
+  const permissions = state.permissionMatrix?.[setName];
+  if (permissions?.settings === true) return true;
+  const setLower = String(setName || '').toLowerCase();
+  return setLower.includes('admin') || setLower.includes('supervisor') || setLower.includes('manager');
+}
 
 function shell(content) {
+  ensureCoreState();
   const overdueCount = state.checks.filter(overdue).length;
   const missingDocs = state.docs.filter(d => d.status !== 'Stored').length;
   const openIssues = state.issues.filter(i => i.status !== 'Resolved').length;
+  const adminNav = isAdminUser() ? nav('settings', 'Settings') : '';
   return `
     <section class="profileSwitch">
       <div><strong>${esc(state.pub.name)}</strong><span>${esc(me().nickname)} · ${esc(me().role)}</span></div>
       <select id="userSwitch">${state.users.map(u => `<option value="${u.id}" ${u.id === state.currentUser ? 'selected' : ''}>${esc(u.nickname)} (${esc(u.role)})</option>`).join('')}</select>
     </section>
-    <nav class="mainNav">${nav('dashboard', 'Dashboard')}${nav('checks', 'Checks')}${nav('documents', 'Documents')}${nav('logs', 'Logs')}${nav('staff', 'Staff')}${nav('inspection', 'Inspection')}</nav>
+    <nav class="mainNav">${nav('dashboard', 'Dashboard')}${nav('checks', 'Checks')}${nav('documents', 'Documents')}${nav('logs', 'Logs')}${nav('staff', 'Users')}${nav('rota', 'Rota')}${nav('inspection', 'Inspection')}${adminNav}</nav>
     <section class="statusStrip">
       <div>${badge(overdueCount, overdueCount ? 'danger' : 'ok')}<span>Overdue checks</span></div>
       <div>${badge(missingDocs, missingDocs ? 'warn' : 'ok')}<span>Missing docs</span></div>
@@ -90,9 +164,35 @@ function shell(content) {
 }
 
 function render() {
-  const pages = { dashboard, checks, documents, logs, staff, inspection };
+  ensureCoreState();
+  const pages = { dashboard, checks, documents, logs, staff, rota, inspection, settings };
+  if (route === 'settings' && !isAdminUser()) route = lastPermittedRoute || 'dashboard';
+  if (!pages[route]) route = lastPermittedRoute || 'dashboard';
+  if (route !== 'settings' || isAdminUser()) lastPermittedRoute = route;
+  document.body.classList.toggle('is-rota-route', route === 'rota');
   appRoot.innerHTML = shell((pages[route] || dashboard)());
   bind();
+  resetRouteScroll();
+}
+
+function resetRouteScroll() {
+  if (route !== 'rota') return;
+  const reset = () => {
+    const scroller = document.scrollingElement || document.documentElement;
+    if (scroller) scroller.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+  };
+  reset();
+  requestAnimationFrame(reset);
+  setTimeout(reset, 80);
+}
+
+function setNavIcons() {
+  const icons = { dashboard: '⌂', checks: '✓', documents: '□', logs: '!', staff: '◉', rota: '▦', inspection: '◇', settings: '⚙' };
+  document.querySelectorAll('.bottomNav .navBtn').forEach(btn => {
+    btn.dataset.icon = icons[btn.dataset.route] || '•';
+  });
 }
 
 function dashboard() {
@@ -115,10 +215,11 @@ function activity() {
 }
 function checkCard(c) {
   const d = done(c.id), od = overdue(c);
-  return `<article class="card checkCard ${d ? 'done' : od ? 'overdue' : ''}"><div class="cardTop"><h3>${esc(c.title)}</h3>${d ? badge('Done', 'ok') : od ? badge('Overdue', 'danger') : badge('Due ' + c.due, 'warn')}</div><p>${esc(c.area)} · ${esc(c.freq)}${c.sign ? ' · Manager sign-off' : ''}</p><button class="primary" data-complete="${c.id}">${d ? 'View / redo check' : 'Complete check'}</button></article>`;
+  const editButton = isAdminUser() ? `<button class="ghost small" data-edit-check="${c.id}">Edit</button>` : '';
+  return `<article class="card checkCard ${d ? 'done' : od ? 'overdue' : ''}"><div class="cardTop"><h3>${esc(c.title)}</h3>${d ? badge('Done', 'ok') : od ? badge('Overdue', 'danger') : badge('Due ' + c.due, 'warn')}</div><p>${esc(c.area)} · ${esc(c.freq)}${c.sign ? ' · Manager sign-off' : ''}</p><div class="miniRow"><button class="primary" data-complete="${c.id}">${d ? 'View / redo check' : 'Complete check'}</button>${editButton}</div></article>`;
 }
 function checks() {
-  return `<section class="grid two"><article class="card"><h2>Complete a check</h2>${state.checks.map(c => `<button class="rowButton" data-complete="${c.id}"><span>${esc(c.title)}</span>${done(c.id) ? badge('Done', 'ok') : overdue(c) ? badge('Overdue', 'danger') : badge(c.due, 'warn')}</button>`).join('')}</article><article class="card"><h2>Add custom check</h2><form id="checkForm" class="stack"><input name="title" placeholder="Check title" required><select name="area">${state.areas.map(a => `<option>${esc(a)}</option>`).join('')}</select><select name="freq"><option>Daily</option><option>Weekly</option><option>Monthly</option></select><input name="due" type="time" value="12:00" required><textarea name="items" placeholder="One checklist item per line" required></textarea><label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label><button class="primary">Add check</button></form></article></section><section class="card"><h2>Completion history</h2>${history()}</section>`;
+  return `<section class="card"><h2>Checks to complete</h2><p class="muted">Checklist setup lives in Settings. This screen stays focused on completion.</p><div class="grid cards">${state.checks.map(checkCard).join('')}</div></section><section class="card"><h2>Completion history</h2>${history()}</section>`;
 }
 function history() {
   return state.done.length ? `<div class="tableWrap"><table><thead><tr><th>Date</th><th>Check</th><th>User</th><th>Result</th><th>Notes</th></tr></thead><tbody>${[...state.done].reverse().map(c => `<tr><td>${esc(c.date)}</td><td>${esc(c.title)}</td><td>${esc(user(c.userId).nickname)}</td><td>${esc(c.result)}</td><td>${esc(c.notes)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No completed checks yet.</p>';
@@ -143,12 +244,111 @@ function inspection() {
   return `<section class="hero card"><div><p class="eyebrow">Read-only pack</p><h2>Inspection Mode</h2><p>Show the current compliance position without exposing private admin settings.</p></div><button class="primary" id="exportBtn">Export report</button></section><section class="grid two"><article class="card"><h3>Pub details</h3><p><strong>${esc(state.pub.name)}</strong><br>${esc(state.pub.address)}<br>Premises licence: ${esc(state.pub.licence)}<br>DPS: ${esc(state.pub.dps)}</p></article><article class="card"><h3>Today’s checks</h3><p>${state.done.filter(c => c.date === today()).length}/${state.checks.length} completed today.</p>${state.checks.map(c => `<div class="miniRow"><span>${esc(c.title)}</span>${done(c.id) ? badge('Done', 'ok') : overdue(c) ? badge('Overdue', 'danger') : badge('Pending', 'warn')}</div>`).join('')}</article><article class="card"><h3>Required documents</h3>${state.docs.map(d => `<div class="miniRow"><span>${esc(d.title)}</span>${badge(d.status, d.status === 'Stored' ? 'ok' : 'warn')}</div>`).join('')}</article><article class="card"><h3>Staff training</h3>${state.training.map(t => `<div class="miniRow"><span>${esc(user(t.userId).nickname)} · ${esc(t.course)}</span>${badge(t.status, t.status === 'Valid' ? 'ok' : 'warn')}</div>`).join('')}</article></section>`;
 }
 
+function rota() {
+  requestAnimationFrame(() => window.scrollTo(0, 0));
+  return `<section class="rotaEmbedCard rotaScheduleEmbed">
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-5"></iframe>
+  </section>`;
+}
+
+function settings() {
+  if (!isAdminUser()) return `<section class="card"><h2>Settings unavailable</h2><p>Only admin/supervisor users can change settings.</p></section>`;
+  return `<section class="hero card"><div><p class="eyebrow">Admin only</p><h2>Settings</h2><p>Configuration lives here. Normal staff screens are kept clean for completing checks and logs.</p></div>${badge('Admin area', 'ok')}</section>
+  <section class="card">
+    <nav class="mainNav settingsOnlyNav">
+      ${settingsTabButton('checks', 'Checklists')}
+      ${settingsTabButton('users', 'Users')}
+      ${settingsTabButton('documents', 'Documents')}
+      ${settingsTabButton('areas', 'Areas')}
+      ${settingsTabButton('rota', 'Rota setup')}
+      ${settingsTabButton('pub', 'Pub details')}
+    </nav>
+    ${settingsContent()}
+  </section>`;
+}
+
+function settingsTabButton(id, label) {
+  return `<button class="navBtn ${settingsTab === id ? 'active' : ''}" data-settings-tab="${id}">${label}</button>`;
+}
+
+function settingsContent() {
+  if (settingsTab === 'checks') return settingsChecks();
+  if (settingsTab === 'users') return settingsUsers();
+  if (settingsTab === 'documents') return settingsDocuments();
+  if (settingsTab === 'areas') return settingsAreas();
+  if (settingsTab === 'rota') return settingsRota();
+  if (settingsTab === 'pub') return settingsPub();
+  return settingsChecks();
+}
+
+function settingsChecks() {
+  return `<h2>Checklist setup</h2>
+  <div class="docList">${state.checks.map(c => `<div class="docItem"><div><strong>${esc(c.title)}</strong><span>${esc(c.area)} · ${esc(c.freq)} · Due ${esc(c.due)}</span><p>${esc((c.items || []).length)} checklist items</p></div><div><button class="ghost small" data-edit-check="${c.id}">Edit</button><button class="primary small" data-complete="${c.id}">Test</button></div></div>`).join('')}</div>
+  <h3>Add new checklist</h3>
+  <form id="checkForm" class="stack">
+    <input name="title" placeholder="Check title" required>
+    <select name="area">${optionList(state.areas)}</select>
+    <select name="freq">${optionList(['Daily', 'Weekly', 'Monthly', 'Yearly'])}</select>
+    <input name="due" type="time" value="12:00" required>
+    <textarea name="items" placeholder="One checklist item per line" required></textarea>
+    <label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label>
+    <button class="primary">Add checklist</button>
+  </form>`;
+}
+
+function settingsUsers() {
+  const courses = ['Food Hygiene', 'Allergen Awareness', 'Fire Safety', 'Challenge 25', 'Manual Handling'];
+  return `<h2>User profile setup</h2>
+  <div class="grid cards">${state.users.map(userProfileCard).join('')}</div>
+  <h3>Add user</h3>
+  <form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown on rota/checks" required><input name="email" type="email" placeholder="Email"><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'])}</select><select name="area">${optionList(state.areas)}</select><button class="primary">Add user</button></form>
+  <h3>Add training record</h3>
+  <form id="trainingForm" class="inlineForm"><select name="userId">${state.users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status">${optionList(['Valid', 'Due Soon', 'Missing'])}</select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form>`;
+}
+
+function settingsDocuments() {
+  return `<h2>Document setup</h2>${documents()}`;
+}
+
+function settingsAreas() {
+  return `<h2>Areas / sections</h2>
+  <ul class="plainList">${state.areas.map(a => `<li><span>${esc(a)}</span><button class="ghost small" data-delete-area="${esc(a)}">Remove</button></li>`).join('')}</ul>
+  <form id="areaForm" class="inlineForm"><input name="area" placeholder="New area / section" required><button class="primary">Add area</button></form>`;
+}
+
+function settingsRota() {
+  return `<h2>Rota setup</h2><ul class="plainList">${state.rotaSettings.sections.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+  <form id="rotaSectionForm" class="inlineForm"><input name="section" placeholder="New rota section" required><button class="primary">Add rota section</button></form>`;
+}
+
+function settingsPub() {
+  return `<h2>Pub details</h2><form id="pubForm" class="stack"><input name="name" value="${esc(state.pub.name)}" placeholder="Pub name"><input name="licence" value="${esc(state.pub.licence)}" placeholder="Premises licence"><input name="dps" value="${esc(state.pub.dps)}" placeholder="DPS"><textarea name="address" placeholder="Address">${esc(state.pub.address)}</textarea><button class="primary">Save pub details</button></form>`;
+}
+
+function userProfileCard(u) {
+  const records = state.training.filter(t => t.userId === u.id);
+  const docs = (state.trainingDocs || []).filter(d => d.userId === u.id);
+  return `<article class="card">
+    <div class="cardTop"><h3>${esc(u.nickname)}</h3>${badge(u.role, u.role === 'Admin' ? 'ok' : '')}</div>
+    <p><strong>${esc(u.name)}</strong><br>${esc(u.area)} · ${esc(u.email || 'No email')}</p>
+    <h3>Training</h3>
+    ${records.length ? `<ul class="plainList">${records.map(t => `<li><span>${esc(t.course)} · ${esc(t.status)}</span><small>${esc(t.expiry ? 'Expires ' + t.expiry : 'No expiry')}</small></li>`).join('')}</ul>` : '<p class="muted">No training records.</p>'}
+    <h3>Training documents</h3>
+    ${docs.length ? `<ul class="plainList">${docs.map(d => `<li><span>${esc(d.title)}</span><small>${esc(d.note || 'No note')}</small></li>`).join('')}</ul>` : '<p class="muted">No uploaded training document records yet.</p>'}
+    ${isAdminUser() ? `<button class="ghost" data-edit-user="${u.id}">Edit profile / add training document</button>` : ''}
+  </article>`;
+}
+
 function bind() {
+  setNavIcons();
   document.querySelectorAll('[data-route]').forEach(b => b.onclick = () => { route = b.dataset.route; render(); });
   document.querySelectorAll('.bottomNav [data-route]').forEach(b => b.classList.toggle('active', b.dataset.route === route));
   const userSwitch = document.getElementById('userSwitch');
   if (userSwitch) userSwitch.onchange = e => { state.currentUser = e.target.value; save(); render(); };
   document.querySelectorAll('[data-complete]').forEach(b => b.onclick = () => openCheck(b.dataset.complete));
+  document.querySelectorAll('[data-edit-check]').forEach(b => b.onclick = () => openEditCheck(b.dataset.editCheck));
+  document.querySelectorAll('[data-settings-tab]').forEach(b => b.onclick = () => { settingsTab = b.dataset.settingsTab; render(); });
+  document.querySelectorAll('[data-edit-user]').forEach(b => b.onclick = () => openUserEditor(b.dataset.editUser));
   document.querySelectorAll('[data-doc]').forEach(b => b.onclick = () => { const d = state.docs.find(x => x.id === b.dataset.doc); if (d) d.status = d.status === 'Stored' ? 'Missing' : 'Stored'; save(); render(); });
   document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) i.status = i.status === 'Resolved' ? 'Open' : 'Resolved'; save(); render(); });
   on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: d.freq, due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
@@ -158,11 +358,69 @@ function bind() {
   on('issueForm', e => { const d = fd(e); state.issues.push({ id: uid(), title: d.title, area: d.area, severity: d.severity, status: 'Open', notes: d.notes, created: new Date().toISOString() }); save(); render(); });
   on('staffForm', e => { const d = fd(e); state.users.push({ id: uid(), name: d.name, nickname: d.nickname, email: d.email, role: d.role, area: d.area }); save(); render(); });
   on('trainingForm', e => { const d = fd(e); const existing = state.training.find(t => t.userId === d.userId && t.course === d.course); existing ? Object.assign(existing, d) : state.training.push({ id: uid(), ...d }); save(); render(); });
+  on('areaForm', e => { const d = fd(e); if (d.area && !state.areas.includes(d.area)) state.areas.push(d.area); save(); render(); });
+  document.querySelectorAll('[data-delete-area]').forEach(b => b.onclick = () => { state.areas = state.areas.filter(a => a !== b.dataset.deleteArea); save(); render(); });
+  on('rotaSectionForm', e => { const d = fd(e); if (d.section && !state.rotaSettings.sections.includes(d.section)) state.rotaSettings.sections.push(d.section); save(); render(); });
+  on('pubForm', e => { const d = fd(e); state.pub = { ...state.pub, ...d }; save(); render(); });
   const exportBtn = document.getElementById('exportBtn');
   if (exportBtn) exportBtn.onclick = exportReport;
 }
 function fd(e) { e.preventDefault(); return Object.fromEntries(new FormData(e.target).entries()); }
 function on(id, fn) { const el = document.getElementById(id); if (el) el.onsubmit = fn; }
+
+function openEditCheck(id) {
+  const c = state.checks.find(x => x.id === id);
+  if (!c) return;
+  modalRoot.innerHTML = `<div class="modalCard">
+    <button class="close" id="closeModal">×</button>
+    <h2>Edit checklist</h2>
+    <form id="editCheckForm" class="stack">
+      <input name="title" value="${esc(c.title)}" required>
+      <select name="area">${optionList(state.areas, c.area)}</select>
+      <select name="freq">${optionList(['Daily', 'Weekly', 'Monthly', 'Yearly'], c.freq)}</select>
+      <input name="due" type="time" value="${esc(c.due)}" required>
+      <textarea name="items" required>${esc((c.items || []).join('\n'))}</textarea>
+      <label class="checkline"><input type="checkbox" name="sign" ${c.sign ? 'checked' : ''}> Requires manager sign-off</label>
+      <button class="primary">Save checklist changes</button>
+      <button type="button" class="ghost" id="deleteCheckBtn">Delete this checklist</button>
+    </form>
+  </div>`;
+  modalRoot.classList.remove('hidden');
+  document.getElementById('closeModal').onclick = () => modalRoot.classList.add('hidden');
+  document.getElementById('deleteCheckBtn').onclick = () => {
+    if (confirm('Delete this checklist? Completed history will remain, but this check will no longer appear.')) {
+      state.checks = state.checks.filter(x => x.id !== id);
+      save();
+      modalRoot.classList.add('hidden');
+      render();
+    }
+  };
+  document.getElementById('editCheckForm').onsubmit = e => {
+    const d = fd(e);
+    c.title = d.title;
+    c.area = d.area;
+    c.freq = d.freq;
+    c.due = d.due;
+    c.sign = e.target.sign.checked;
+    c.items = d.items.split('\n').map(x => x.trim()).filter(Boolean);
+    save();
+    modalRoot.classList.add('hidden');
+    render();
+  };
+}
+
+function openUserEditor(id) {
+  const u = state.users.find(x => x.id === id);
+  if (!u) return;
+  modalRoot.innerHTML = `<div class="modalCard"><button class="close" id="closeModal">×</button><h2>Edit user profile</h2>
+    <form id="editUserForm" class="stack"><input name="name" value="${esc(u.name)}" required><input name="nickname" value="${esc(u.nickname)}" required><input name="email" value="${esc(u.email || '')}"><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select><select name="area">${optionList(state.areas, u.area)}</select><button class="primary">Save user profile</button></form>
+    <h3>Add training document record</h3><form id="trainingDocForm" class="stack"><input name="title" placeholder="Document title e.g. Food Hygiene Certificate" required><textarea name="note" placeholder="Upload/link note for now. Real file upload comes with backend storage."></textarea><button class="primary">Add training document record</button></form>
+  </div>`;
+  modalRoot.classList.remove('hidden');
+  document.getElementById('closeModal').onclick = () => modalRoot.classList.add('hidden');
+  document.getElementById('editUserForm').onsubmit = e => { const d = fd(e); Object.assign(u, d); save(); modalRoot.classList.add('hidden'); render(); };
+  document.getElementById('trainingDocForm').onsubmit = e => { const d = fd(e); state.trainingDocs.push({ id: uid(), userId: id, title: d.title, note: d.note, created: new Date().toISOString() }); save(); modalRoot.classList.add('hidden'); render(); };
+}
 
 function openCheck(id) {
   const c = state.checks.find(x => x.id === id);
@@ -214,9 +472,13 @@ window.addEventListener('beforeinstallprompt', e => {
 if (installButton) installButton.onclick = async () => { if (deferredInstallPrompt) { deferredInstallPrompt.prompt(); deferredInstallPrompt = null; } };
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
 
-try {
-  render();
-} catch (error) {
-  console.error(error);
-  appRoot.innerHTML = `<section class="card"><h2>App load error</h2><p>The app failed to start. Refresh the page, or clear site data and reload.</p><pre>${esc(error.message)}</pre></section>`;
+function startApp() {
+  try {
+    ensureCoreState();
+    save();
+    render();
+  } catch (error) {
+    console.error(error);
+    appRoot.innerHTML = `<section class="card"><h2>App load error</h2><p>The app failed to start. Refresh the page, or clear site data and reload.</p><pre>${esc(error.message)}</pre></section>`;
+  }
 }

@@ -34,6 +34,4 @@
         '</form>'+
       '</details>';
   };
-
-  if(typeof render==='function') setTimeout(function(){try{render();}catch(_){}} ,0);
 })();

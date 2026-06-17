@@ -196,6 +196,4 @@
     previousBindForUserDocs();
     bindDocRequirementEvents();
   };
-
-  render();
 })();

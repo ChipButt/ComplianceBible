@@ -43,5 +43,4 @@
   document.addEventListener('submit',function(event){var form=event.target.closest&&event.target.closest('.checksPage .areaCheckForm');if(form){event.preventDefault();event.stopPropagation();completeForm(form);}},true);
   if(typeof bind==='function'&&!bind.__coreCheckGroupsV7){var oldBind=bind;bind=function bindWithCoreCheckGroups(){oldBind();bindAreaGroups();};bind.__coreCheckGroupsV7=true;}
   window.openCheck=function(id){openChecks[id]=true;render();};
-  if(typeof render==='function')setTimeout(function(){render();},0);
 })();
