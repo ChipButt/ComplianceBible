@@ -24,10 +24,13 @@ function resetCentralUserProfilePosition() {
     const scroller = document.scrollingElement || document.documentElement;
     if (scroller) scroller.scrollTop = 0;
     document.body.scrollTop = 0;
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   };
   run();
   requestAnimationFrame(run);
+  setTimeout(run, 0);
+  setTimeout(run, 80);
+  setTimeout(run, 180);
 }
 
 staff = function centralUsersPage() {
@@ -96,7 +99,7 @@ function centralUserProfilePage() {
     <div id="centralProfileDetail" class="panel centralProfileDetail">
       ${centralProfileDetail(user, 'personal', shifts, training, docs, availabilityText)}
     </div>
-  </section>`
+  </section>`;
 }
 
 function centralProfileDetail(user, section, shifts, training, docs, availabilityText) {
