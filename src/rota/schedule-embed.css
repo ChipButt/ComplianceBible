@@ -175,6 +175,59 @@ main > .toolbar {
   line-height: 1.1 !important;
 }
 
+.rotaPlanStatus {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+  color: #f3e6c7 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.rotaPlanStatus span {
+  display: inline-grid !important;
+  min-height: 26px !important;
+  place-items: center !important;
+  padding: 0 10px !important;
+  border: 1px solid rgba(240, 184, 74, 0.28) !important;
+  border-radius: 999px !important;
+  background: rgba(240, 184, 74, 0.08) !important;
+}
+
+.rotaTemplateLoader {
+  margin-top: 10px !important;
+}
+
+.rotaTemplateSaveRow {
+  margin-top: 10px !important;
+}
+
+.rotaTemplateSaveRow label {
+  display: grid !important;
+  gap: 6px !important;
+  color: #f3e6c7 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.rotaTemplateSaveRow input {
+  width: 100% !important;
+  min-height: 38px !important;
+  padding: 8px 10px !important;
+  border: 1px solid rgba(240, 184, 74, 0.28) !important;
+  border-radius: 10px !important;
+  background: #fffaf0 !important;
+  color: #15110a !important;
+  font-size: 16px !important;
+}
+
+.rotaTemplateLoader button[disabled],
+.rotaTemplateLoader select[disabled] {
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+
 .bandDayHead {
   display: grid !important;
   grid-template-rows: repeat(3, auto) !important;

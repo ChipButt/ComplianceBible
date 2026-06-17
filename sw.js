@@ -1,9 +1,8 @@
-const CACHE = 'compliance-bible-clean-slate-v20260617-16';
+const CACHE = 'compliance-bible-clean-slate-v20260617-19';
 const ASSETS = [
   './',
   './index.html',
   './rota-app.html',
-  './rota-no-people.js',
   './manifest.json',
   './sw.js',
   './src/styles/base.css',
