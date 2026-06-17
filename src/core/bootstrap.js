@@ -4,6 +4,11 @@
     return originalNav(id, id === 'logs' ? 'Maintenance' : label);
   };
 
+  const originalDashboard = dashboard;
+  dashboard = function dashboardWithReportIssue() {
+    return originalDashboard() + `<details class="card homeReportIssue"><summary>Report an Issue</summary><form id="homeLogForm" class="stack"><select name="type"><option>Incident</option><option>Alcohol Refusal</option><option>Accident</option><option>Pest Sighting</option></select><input name="summary" placeholder="Short summary" required><textarea name="details" placeholder="Details, witnesses, action taken"></textarea><button class="primary">Add log</button></form></details>`;
+  };
+
   function activeMaintenanceIssues() {
     return (state.issues || []).filter(issue => issue.status !== 'Resolved');
   }
@@ -64,6 +69,11 @@
     .shoppingListItems { list-style: none !important; padding: 0 !important; margin: 0 !important; display: grid !important; gap: 8px !important; }
     .shoppingListItems li { display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; gap: 10px !important; align-items: center !important; padding: 10px 12px !important; border-radius: 14px !important; background: rgba(255,255,255,.04) !important; border: 1px solid rgba(255,255,255,.08) !important; }
     .shoppingListItems span { color: #fff8ea !important; font-weight: 800 !important; }
+    .homeReportIssue summary { cursor: pointer !important; font-size: 22px !important; font-weight: 900 !important; color: #fff8ea !important; list-style: none !important; }
+    .homeReportIssue summary::-webkit-details-marker { display: none !important; }
+    .homeReportIssue summary::after { content: '⌄'; float: right; color: #d0ad58; }
+    .homeReportIssue[open] summary::after { transform: rotate(180deg); }
+    .homeReportIssue form { margin-top: 16px !important; }
   `;
   document.head.appendChild(maintenanceStyle);
 
@@ -141,6 +151,16 @@
   };
 
   function bindMaintenanceExtras() {
+    const homeLogForm = document.getElementById('homeLogForm');
+    if (homeLogForm && !homeLogForm.dataset.bound) {
+      homeLogForm.dataset.bound = '1';
+      homeLogForm.onsubmit = event => {
+        const data = fd(event);
+        state.logs.push({ id: uid(), type: data.type, summary: data.summary, details: data.details, userId: state.currentUser, created: new Date().toISOString() });
+        save();
+        render();
+      };
+    }
     const shopForm = document.getElementById('shoppingForm');
     if (shopForm && !shopForm.dataset.bound) {
       shopForm.dataset.bound = '1';
