@@ -20,12 +20,21 @@
       return '<h2>Personal details</h2><div class="listItem"><p>Name: '+safe(user.name)+'</p><p>Nickname: '+safe(user.nickname||'')+'</p><p>Role: '+safe(user.role||'')+'</p><p>Area: '+safe(user.jobArea||user.area||'')+'</p><p>Email: '+safe(user.email||'No email')+'</p></div>';
     }
   }
+  function closeUserModal(){
+    modalRoot.classList.add('hidden');
+    modalRoot.classList.remove('userInfoModalOpen');
+    document.body.classList.remove('user-info-modal-open');
+    modalRoot.innerHTML='';
+  }
   function openUserModal(id){
     var user=(state.users||[]).find(function(u){return u.id===id;});
     if(!user) return;
-    modalRoot.innerHTML='<div class="modalCard userModalCard"><button class="close" id="closeUserModal">×</button><div class="userModalHeader"><span class="avatarText big">'+safe(initials(user))+'</span><div><p class="eyebrow">User profile</p><h2>'+safe(user.nickname||user.name)+'</h2><p class="muted">'+safe(user.name)+' · '+safe(user.role||'')+' · '+safe(user.jobArea||user.area||'')+'</p></div></div><div class="userModalTabs"><button data-user-modal-section="personal">Personal</button><button data-user-modal-section="employment">Employment</button><button data-user-modal-section="shifts">Shifts</button><button data-user-modal-section="training">Training</button><button data-user-modal-section="availability">Availability</button></div><div id="userModalDetail" class="panel userModalDetail">'+detail(user,'personal')+'</div>'+(typeof isAdminUser==='function'&&isAdminUser()?'<button class="secondary userModalEdit" data-edit-user="'+safe(user.id)+'">Edit Profile</button>':'')+'</div>';
+    modalRoot.innerHTML='<div class="modalCard userModalCard" role="dialog" aria-modal="true" aria-label="User profile"><button class="close" id="closeUserModal">×</button><div class="userModalHeader"><span class="avatarText big">'+safe(initials(user))+'</span><div><p class="eyebrow">User profile</p><h2>'+safe(user.nickname||user.name)+'</h2><p class="muted">'+safe(user.name)+' · '+safe(user.role||'')+' · '+safe(user.jobArea||user.area||'')+'</p></div></div><div class="userModalTabs"><button data-user-modal-section="personal">Personal</button><button data-user-modal-section="employment">Employment</button><button data-user-modal-section="shifts">Shifts</button><button data-user-modal-section="training">Training</button><button data-user-modal-section="availability">Availability</button></div><div id="userModalDetail" class="panel userModalDetail">'+detail(user,'personal')+'</div>'+(typeof isAdminUser==='function'&&isAdminUser()?'<button class="secondary userModalEdit" data-edit-user="'+safe(user.id)+'">Edit Profile</button>':'')+'</div>';
+    modalRoot.classList.add('userInfoModalOpen');
     modalRoot.classList.remove('hidden');
-    document.getElementById('closeUserModal').onclick=function(){modalRoot.classList.add('hidden');};
+    document.body.classList.add('user-info-modal-open');
+    document.getElementById('closeUserModal').onclick=closeUserModal;
+    modalRoot.onclick=function(event){if(event.target===modalRoot)closeUserModal();};
     document.querySelectorAll('[data-user-modal-section]').forEach(function(btn){
       btn.onclick=function(){
         document.querySelectorAll('[data-user-modal-section]').forEach(function(b){b.classList.toggle('active',b===btn);});
