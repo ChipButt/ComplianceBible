@@ -251,7 +251,7 @@ function inspection() {
 
 function rota() {
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-11"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-12"></iframe>
   </section>`;
 }
 

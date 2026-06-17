@@ -1,6 +1,8 @@
 (function embeddedRotaSchedule() {
   var heightFrame = 0;
   var mutationFrame = 0;
+  var draggedShiftId = '';
+  var lastDragMoveAt = 0;
 
   function offsetDate(date, days) {
     var copy = new Date(date);
@@ -97,7 +99,6 @@
       setScheduleWeek(offsetDate(current, days));
       forceScheduleView();
       if (typeof renderRota === 'function') renderRota();
-      setTimeout(enhanceScheduleToolbar, 0);
     } catch (_) {}
   }
 
@@ -320,7 +321,6 @@
       setScheduleWeek(new Date());
       forceScheduleView();
       if (typeof renderRota === 'function') renderRota();
-      setTimeout(enhanceScheduleToolbar, 0);
     } catch (_) {}
   }
 
@@ -390,6 +390,256 @@
     return freshButton;
   }
 
+  function canManageSchedule() {
+    try {
+      return typeof can !== 'function' || can('manageRota');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isVisibleScheduleShift(shift) {
+    try {
+      return typeof visibleShift === 'function' ? visibleShift(shift) : true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function shiftIdFromCard(card) {
+    if (!card) return '';
+    if (card.dataset.shiftId) return card.dataset.shiftId;
+    var inlineClick = card.getAttribute('onclick') || '';
+    var match = inlineClick.match(/openShiftModal\(['"]([^'"]+)['"]/);
+    return match ? match[1] : '';
+  }
+
+  function clearDropTargets() {
+    document.querySelectorAll('.rotaDropTarget,.rotaDragging').forEach(function clearClass(el) {
+      el.classList.remove('rotaDropTarget', 'rotaDragging');
+    });
+  }
+
+  function moveShiftToCell(shiftId, cell) {
+    if (!shiftId || !cell) return false;
+    var date = cell.dataset.rotaDate;
+    var section = cell.dataset.rotaSection;
+    if (!date || !section) return false;
+
+    var shift = (state.shifts || []).find(function findShift(candidate) {
+      return candidate.id === shiftId;
+    });
+    if (!shift) return false;
+    if (shift.date === date && shift.section === section) return false;
+
+    shift.date = date;
+    shift.section = section;
+    shift.unscheduled = false;
+    if (typeof save === 'function') save();
+    lastDragMoveAt = Date.now();
+    if (typeof renderRota === 'function') renderRota();
+    return true;
+  }
+
+  function dropCellFromPoint(x, y) {
+    var el = document.elementFromPoint(x, y);
+    return el ? el.closest('.rotaDropCell') : null;
+  }
+
+  function beginNativeShiftDrag(card, event) {
+    var shiftId = shiftIdFromCard(card);
+    if (!shiftId) return;
+    draggedShiftId = shiftId;
+    card.classList.add('rotaDragging');
+    try {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', shiftId);
+    } catch (_) {}
+  }
+
+  function wireDropCell(cell) {
+    if (cell.dataset.rotaDropWired === '1') return;
+    cell.dataset.rotaDropWired = '1';
+
+    cell.addEventListener('dragover', function allowDrop(event) {
+      if (!draggedShiftId) return;
+      event.preventDefault();
+      cell.classList.add('rotaDropTarget');
+      try {
+        event.dataTransfer.dropEffect = 'move';
+      } catch (_) {}
+    });
+
+    cell.addEventListener('dragenter', function enterDrop(event) {
+      if (!draggedShiftId) return;
+      event.preventDefault();
+      cell.classList.add('rotaDropTarget');
+    });
+
+    cell.addEventListener('dragleave', function leaveDrop(event) {
+      if (!event.relatedTarget || !cell.contains(event.relatedTarget)) {
+        cell.classList.remove('rotaDropTarget');
+      }
+    });
+
+    cell.addEventListener('drop', function dropShift(event) {
+      event.preventDefault();
+      var shiftId = draggedShiftId;
+      try {
+        shiftId = shiftId || event.dataTransfer.getData('text/plain');
+      } catch (_) {}
+      clearDropTargets();
+      draggedShiftId = '';
+      moveShiftToCell(shiftId, cell);
+    });
+  }
+
+  function startTouchShiftDrag(card, event) {
+    if (!canManageSchedule()) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+    var shiftId = shiftIdFromCard(card);
+    if (!shiftId) return;
+
+    var isMouse = event.pointerType === 'mouse';
+    var startX = event.clientX;
+    var startY = event.clientY;
+    var ghost = null;
+    var active = false;
+    var pressTimer = setTimeout(function beginTimedDrag() {
+      beginDrag(event.clientX, event.clientY);
+    }, isMouse ? 120 : 240);
+
+    function beginDrag(x, y) {
+      if (active) return;
+      active = true;
+      draggedShiftId = shiftId;
+      card.classList.add('rotaDragging');
+      ghost = card.cloneNode(true);
+      ghost.classList.add('rotaDragGhost');
+      ghost.style.width = Math.max(84, Math.round(card.getBoundingClientRect().width)) + 'px';
+      document.body.appendChild(ghost);
+      moveGhost(x, y);
+      try {
+        card.setPointerCapture(event.pointerId);
+      } catch (_) {}
+    }
+
+    function cleanup() {
+      clearTimeout(pressTimer);
+      if (ghost) ghost.remove();
+      card.classList.remove('rotaDragging');
+      clearDropTargets();
+      draggedShiftId = '';
+      window.removeEventListener('pointermove', onPointerMove, true);
+      window.removeEventListener('pointerup', onPointerUp, true);
+      window.removeEventListener('pointercancel', onPointerCancel, true);
+      try {
+        card.releasePointerCapture(event.pointerId);
+      } catch (_) {}
+    }
+
+    function moveGhost(x, y) {
+      if (!ghost) return;
+      ghost.style.transform = 'translate(' + Math.round(x + 10) + 'px,' + Math.round(y + 10) + 'px)';
+    }
+
+    function onPointerMove(moveEvent) {
+      var dx = moveEvent.clientX - startX;
+      var dy = moveEvent.clientY - startY;
+      var distance = Math.sqrt(dx * dx + dy * dy);
+      if (!active && isMouse && distance > 4) {
+        clearTimeout(pressTimer);
+        beginDrag(moveEvent.clientX, moveEvent.clientY);
+      }
+      if (!active && !isMouse && distance > 10) {
+        cleanup();
+        return;
+      }
+      if (!active) return;
+      moveEvent.preventDefault();
+      moveGhost(moveEvent.clientX, moveEvent.clientY);
+      document.querySelectorAll('.rotaDropTarget').forEach(function clearCell(cell) {
+        cell.classList.remove('rotaDropTarget');
+      });
+      var cell = dropCellFromPoint(moveEvent.clientX, moveEvent.clientY);
+      if (cell) cell.classList.add('rotaDropTarget');
+    }
+
+    function onPointerUp(upEvent) {
+      if (active) {
+        upEvent.preventDefault();
+        var cell = dropCellFromPoint(upEvent.clientX, upEvent.clientY);
+        if (cell) moveShiftToCell(shiftId, cell);
+      }
+      cleanup();
+    }
+
+    function onPointerCancel() {
+      cleanup();
+    }
+
+    window.addEventListener('pointermove', onPointerMove, true);
+    window.addEventListener('pointerup', onPointerUp, true);
+    window.addEventListener('pointercancel', onPointerCancel, true);
+  }
+
+  function wireShiftCard(card) {
+    var shiftId = shiftIdFromCard(card);
+    if (!shiftId) return;
+
+    card.dataset.shiftId = shiftId;
+    card.draggable = true;
+    card.classList.add('rotaDraggableShift');
+    card.setAttribute('title', 'Drag to move shift; tap to edit');
+
+    if (card.dataset.rotaDragWired === '1') return;
+    card.dataset.rotaDragWired = '1';
+
+    card.addEventListener('dragstart', function dragShift(event) {
+      beginNativeShiftDrag(card, event);
+    });
+    card.addEventListener('dragend', function endDrag() {
+      draggedShiftId = '';
+      clearDropTargets();
+    });
+    card.addEventListener('pointerdown', function pointerDrag(event) {
+      startTouchShiftDrag(card, event);
+    });
+  }
+
+  function wireScheduleDragDrop() {
+    if (!canManageSchedule()) return;
+
+    var dates = currentWeekDates();
+    document.querySelectorAll('.rotaSectionBand').forEach(function wireBand(sectionBand) {
+      var section = (sectionBand.querySelector('.sectionBandTitle')?.textContent || '').trim();
+      if (!section) return;
+
+      var cells = sectionBand.querySelectorAll('.bandDayCell,.compactDayCell,.rotaDayCell');
+      cells.forEach(function wireCell(cell, dayIndex) {
+        var date = dates[dayIndex];
+        if (!date) return;
+
+        cell.dataset.rotaSection = section;
+        cell.dataset.rotaDate = date;
+        cell.classList.add('rotaDropCell');
+        wireDropCell(cell);
+
+        var shifts = (state.shifts || []).filter(function matchesCell(shift) {
+          return shift.section === section && shift.date === date && isVisibleScheduleShift(shift);
+        }).sort(function sortShift(a, b) {
+          return String(a.start).localeCompare(String(b.start));
+        });
+
+        cell.querySelectorAll('.scheduleShiftBlock,.shiftCard').forEach(function wireCard(card, index) {
+          if (shifts[index]) card.dataset.shiftId = shifts[index].id;
+          wireShiftCard(card);
+        });
+      });
+    });
+  }
+
   function enhanceScheduleToolbar() {
     var toolbar = document.querySelector('.toolbar');
     if (!toolbar) {
@@ -433,6 +683,7 @@
 
     formatDateHeaders();
     enhancePlanningTools();
+    wireScheduleDragDrop();
     sendHeight();
     return true;
   }
@@ -470,10 +721,13 @@
   try {
     var originalRenderRota = renderRota;
     renderRota = function embeddedRenderRota() {
+      var previousScrollX = window.scrollX || 0;
+      var previousScrollY = window.scrollY || 0;
       patchPlanningActions();
       forceScheduleView();
       originalRenderRota();
-      setTimeout(enhanceScheduleToolbar, 0);
+      enhanceScheduleToolbar();
+      if (previousScrollX || previousScrollY) window.scrollTo(previousScrollX, previousScrollY);
       setTimeout(sendHeight, 80);
     };
   } catch (_) {}
@@ -500,12 +754,21 @@
       mutationFrame = 0;
       formatDateHeaders();
       enhancePlanningTools();
+      wireScheduleDragDrop();
       topModal();
       sendHeight();
     });
   });
 
   window.rotaGoToday = goToday;
+  document.addEventListener('click', function suppressClickAfterDrag(event) {
+    if (Date.now() - lastDragMoveAt > 500) return;
+    var shiftCard = event.target.closest('.rotaDraggableShift');
+    if (!shiftCard) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }, true);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   patchPlanningActions();
   forceScheduleView();

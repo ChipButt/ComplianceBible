@@ -337,6 +337,61 @@ main > .toolbar {
   transform: none !important;
 }
 
+.rotaDraggableShift {
+  cursor: grab !important;
+  user-select: none !important;
+  touch-action: none !important;
+}
+
+.rotaDraggableShift:active,
+.rotaDragging {
+  cursor: grabbing !important;
+}
+
+.rotaDragging {
+  opacity: 0.45 !important;
+  outline: 2px solid #f0b84a !important;
+  outline-offset: -2px !important;
+}
+
+.rotaDropCell {
+  position: relative !important;
+}
+
+.rotaDropCell.rotaDropTarget {
+  background: rgba(240, 184, 74, 0.16) !important;
+  box-shadow: inset 0 0 0 2px rgba(240, 184, 74, 0.72) !important;
+}
+
+.rotaDropCell.rotaDropTarget::after {
+  content: "Move here" !important;
+  position: absolute !important;
+  left: 3px !important;
+  right: 3px !important;
+  bottom: 3px !important;
+  min-height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  background: rgba(5, 6, 7, 0.84) !important;
+  color: #f0b84a !important;
+  font-size: 8px !important;
+  font-weight: 950 !important;
+  line-height: 1 !important;
+  pointer-events: none !important;
+}
+
+.rotaDragGhost {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  z-index: 1000000 !important;
+  pointer-events: none !important;
+  opacity: 0.88 !important;
+  transform-origin: top left !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42) !important;
+}
+
 #rotaGrid [class*="week"],
 #rotaGrid [class*="Week"],
 #rotaGrid [class*="date"],
