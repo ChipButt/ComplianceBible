@@ -1,7 +1,7 @@
 // User profile employment availability editor.
 (function profileAvailabilityEditorPatch() {
-  if (window.__profileAvailabilityEditorPatchV1) return;
-  window.__profileAvailabilityEditorPatchV1 = true;
+  if (window.__profileAvailabilityEditorPatchV2) return;
+  window.__profileAvailabilityEditorPatchV2 = true;
 
   const DAYS = [
     ['mon', 'Monday'],
@@ -35,7 +35,7 @@
     DAYS.forEach(([key]) => {
       const current = user.availability[key];
       if (typeof current === 'boolean') {
-        user.availability[key] = { allDay: current, ranges: current ? [] : [] };
+        user.availability[key] = { allDay: current, ranges: [] };
       } else if (!current || typeof current !== 'object' || Array.isArray(current)) {
         user.availability[key] = { allDay: false, ranges: [] };
       } else {
@@ -74,10 +74,11 @@
         const ranges = day.ranges && day.ranges.length ? day.ranges : [];
         return '<section class="availabilityDay" data-availability-day="' + safe(key) + '">' +
           '<h4>' + safe(label) + '</h4>' +
-          '<label class="availabilityAllDay"><input type="checkbox" data-availability-allday="' + safe(user.id + '|' + key) + '" ' + (day.allDay ? 'checked' : '') + '> <span>All day</span></label>' +
-          '<p class="availabilitySubhead">Specific times</p>' +
+          '<p class="availabilityAllDayHeading">All Day</p>' +
+          '<label class="availabilityAllDay"><input type="checkbox" data-availability-allday="' + safe(user.id + '|' + key) + '" ' + (day.allDay ? 'checked' : '') + '></label>' +
+          '<p class="availabilitySubhead">Specific<br>times</p>' +
           '<div class="availabilityRanges">' + (ranges.length ? ranges.map((range, index) => rangeRow(user.id, key, range, index)).join('') : '<p class="muted availabilityNoRanges">No specific times</p>') + '</div>' +
-          '<button type="button" class="availabilityAdd" data-availability-add="' + safe(user.id + '|' + key) + '">+</button>' +
+          '<button type="button" class="availabilityAdd" data-availability-add="' + safe(user.id + '|' + key) + '" aria-label="Add another time range">+</button>' +
         '</section>';
       }).join('') +
     '</div>';
@@ -91,7 +92,7 @@
       '<h3>Availability</h3>' + availabilityEditor(user);
   }
 
-  if (typeof centralProfileDetail === 'function' && !centralProfileDetail.__availabilityEditorWrapped) {
+  if (typeof centralProfileDetail === 'function' && !centralProfileDetail.__availabilityEditorWrappedV2) {
     const previousCentralProfileDetail = centralProfileDetail;
     centralProfileDetail = function centralProfileDetailWithAvailabilityEditor(user, section, shifts, training, docs, availabilityText) {
       if (section === 'employment' || section === 'shifts' || section === 'availability') {
@@ -99,7 +100,7 @@
       }
       return previousCentralProfileDetail(user, section, shifts, training, docs, availabilityText);
     };
-    centralProfileDetail.__availabilityEditorWrapped = true;
+    centralProfileDetail.__availabilityEditorWrappedV2 = true;
   }
 
   function parseKey(value) {
@@ -113,6 +114,23 @@
 
   function saveAvailabilityChange() {
     save();
+  }
+
+  function rerenderEmployment(user) {
+    const detail = document.getElementById('userModalDetail');
+    if (detail && typeof centralProfileDetail === 'function') {
+      let ctx = { shifts: [], training: [], docs: [], availabilityText: '' };
+      try {
+        const rs = readRotaState() || {};
+        ctx.shifts = (rs.shifts || []).filter(s => s.userId === user.id).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        ctx.training = (state.training || []).filter(t => t.userId === user.id);
+        ctx.docs = (state.trainingDocs || []).filter(d => d.userId === user.id);
+      } catch (_) {}
+      detail.innerHTML = centralProfileDetail(user, 'employment', ctx.shifts, ctx.training, ctx.docs, ctx.availabilityText);
+      bindAvailabilityEditor();
+    } else {
+      render();
+    }
   }
 
   function bindAvailabilityEditor() {
@@ -159,20 +177,7 @@
         availability[key.dayKey].allDay = false;
         availability[key.dayKey].ranges.push({ start: '09:00', end: '17:00' });
         saveAvailabilityChange();
-        const detail = document.getElementById('userModalDetail');
-        if (detail && typeof centralProfileDetail === 'function') {
-          let ctx = { shifts: [], training: [], docs: [], availabilityText: '' };
-          try {
-            const rs = readRotaState() || {};
-            ctx.shifts = (rs.shifts || []).filter(s => s.userId === user.id).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-            ctx.training = (state.training || []).filter(t => t.userId === user.id);
-            ctx.docs = (state.trainingDocs || []).filter(d => d.userId === user.id);
-          } catch (_) {}
-          detail.innerHTML = centralProfileDetail(user, 'employment', ctx.shifts, ctx.training, ctx.docs, ctx.availabilityText);
-          bindAvailabilityEditor();
-        } else {
-          render();
-        }
+        rerenderEmployment(user);
       };
     });
 
@@ -186,14 +191,13 @@
         const availability = migrateAvailability(user);
         availability[key.dayKey].ranges.splice(key.index, 1);
         saveAvailabilityChange();
-        const activeEmployment = document.querySelector('[data-user-modal-section="employment"].active');
-        if (activeEmployment) activeEmployment.click(); else render();
+        rerenderEmployment(user);
       };
     });
   }
 
   const style = document.createElement('style');
-  style.textContent = '.availabilityEditor{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:4px!important;width:100%!important;box-sizing:border-box!important;overflow:hidden!important}.availabilityDay{min-width:0!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:10px!important;padding:5px 3px!important;box-sizing:border-box!important}.availabilityDay h4{font-size:8px!important;line-height:1!important;text-align:center!important;margin:0 0 5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.availabilityAllDay{display:flex!important;align-items:center!important;justify-content:center!important;gap:2px!important;font-size:7px!important;line-height:1!important;margin:0 0 5px!important;white-space:nowrap!important}.availabilityAllDay input{width:13px!important;height:13px!important;min-height:13px!important;margin:0!important;padding:0!important}.availabilitySubhead{font-size:7px!important;line-height:1!important;text-align:center!important;margin:0 0 4px!important;color:#d0ad58!important;white-space:nowrap!important}.availabilityRanges{display:grid!important;gap:3px!important}.availabilityRange{display:grid!important;grid-template-columns:1fr!important;gap:2px!important;position:relative!important}.availabilityRange select{width:100%!important;min-width:0!important;height:24px!important;min-height:24px!important;padding:1px!important;border-radius:6px!important;font-size:7px!important;line-height:1!important;text-align:center!important}.availabilityRemove{position:absolute!important;top:-4px!important;right:-3px!important;width:13px!important;height:13px!important;min-width:13px!important;min-height:13px!important;border-radius:50%!important;padding:0!important;font-size:9px!important;line-height:1!important;background:#d83b2d!important;color:#fff!important;border:0!important}.availabilityAdd{width:100%!important;height:22px!important;min-height:22px!important;margin-top:4px!important;border-radius:7px!important;font-size:14px!important;line-height:1!important;padding:0!important}.availabilityNoRanges{display:none!important}@media(max-width:430px){.availabilityEditor{gap:3px!important}.availabilityDay{padding:4px 2px!important}.availabilityDay h4{font-size:7px!important}.availabilityAllDay span{display:none!important}.availabilitySubhead{font-size:6px!important}.availabilityRange select{font-size:6px!important;height:22px!important;min-height:22px!important}}';
+  style.textContent = '#modal.userInfoModalOpen .userModalDetail{padding-left:10px!important;padding-right:10px!important}.availabilityEditor{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:2px!important;width:calc(100% + 16px)!important;margin-left:-8px!important;margin-right:-8px!important;box-sizing:border-box!important;overflow:visible!important}.availabilityDay{min-width:0!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:9px!important;padding:5px 2px!important;box-sizing:border-box!important}.availabilityDay h4{font-size:8px!important;line-height:1!important;text-align:center!important;margin:0 0 6px!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;letter-spacing:-.08em!important}.availabilityAllDayHeading{font-size:7px!important;font-weight:850!important;line-height:1!important;text-align:center!important;margin:0 0 2px!important;color:#aaa194!important;white-space:nowrap!important}.availabilityAllDay{display:flex!important;align-items:center!important;justify-content:center!important;gap:0!important;line-height:1!important;margin:0 0 6px!important}.availabilityAllDay input{width:13px!important;height:13px!important;min-height:13px!important;margin:0!important;padding:0!important}.availabilitySubhead{font-size:7px!important;font-weight:850!important;line-height:.92!important;text-align:center!important;margin:0 0 4px!important;color:#d0ad58!important;white-space:normal!important}.availabilityRanges{display:grid!important;gap:2px!important}.availabilityRange{display:grid!important;grid-template-columns:1fr!important;gap:2px!important;position:relative!important}.availabilityRange select{width:100%!important;min-width:0!important;height:23px!important;min-height:23px!important;padding:1px!important;border-radius:6px!important;font-size:7px!important;line-height:1!important;text-align:center!important}.availabilityRemove{position:absolute!important;top:-4px!important;right:-3px!important;width:12px!important;height:12px!important;min-width:12px!important;min-height:12px!important;border-radius:50%!important;padding:0!important;font-size:8px!important;line-height:1!important;background:#d83b2d!important;color:#fff!important;border:0!important}.availabilityAdd{width:100%!important;height:15px!important;min-height:15px!important;margin-top:3px!important;border-radius:6px!important;font-size:12px!important;line-height:1!important;padding:0!important}.availabilityNoRanges{display:none!important}@media(max-width:430px){#modal.userInfoModalOpen .userModalCard{padding-left:10px!important;padding-right:10px!important}.availabilityEditor{width:calc(100% + 16px)!important;margin-left:-8px!important;margin-right:-8px!important;gap:1px!important}.availabilityDay{padding:4px 1px!important;border-radius:7px!important}.availabilityDay h4{font-size:7px!important;letter-spacing:-.11em!important}.availabilityAllDayHeading{font-size:6px!important}.availabilitySubhead{font-size:6px!important}.availabilityRange select{font-size:6px!important;height:21px!important;min-height:21px!important}.availabilityAdd{height:14px!important;min-height:14px!important}}';
   document.head.appendChild(style);
 
   if (Array.isArray(state.users)) {
@@ -206,13 +210,13 @@
     if (changed) save();
   }
 
-  if (typeof bind === 'function' && !bind.__availabilityEditorWrapped) {
+  if (typeof bind === 'function' && !bind.__availabilityEditorWrappedV2) {
     const previousBind = bind;
     bind = function bindWithAvailabilityEditor() {
       previousBind();
       bindAvailabilityEditor();
     };
-    bind.__availabilityEditorWrapped = true;
+    bind.__availabilityEditorWrappedV2 = true;
   }
 
   document.addEventListener('change', event => {
