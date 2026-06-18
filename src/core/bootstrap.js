@@ -69,10 +69,12 @@
     .shoppingListItems { list-style: none !important; padding: 0 !important; margin: 0 !important; display: grid !important; gap: 8px !important; }
     .shoppingListItems li { display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; gap: 10px !important; align-items: center !important; padding: 10px 12px !important; border-radius: 14px !important; background: rgba(255,255,255,.04) !important; border: 1px solid rgba(255,255,255,.08) !important; }
     .shoppingListItems span { color: #fff8ea !important; font-weight: 800 !important; }
-    .homeReportIssue summary { cursor: pointer !important; font-size: 22px !important; font-weight: 900 !important; color: #fff8ea !important; list-style: none !important; }
+    .rotaHomePanel > h2, .rotaHomePanel .homeShiftList { display: none !important; }
+    .homeReportIssue { margin-top: 18px !important; }
+    .homeReportIssue summary { cursor: pointer !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; gap: 12px !important; font-size: 22px !important; font-weight: 900 !important; color: #d83b2d !important; list-style: none !important; }
     .homeReportIssue summary::-webkit-details-marker { display: none !important; }
-    .homeReportIssue summary::after { content: '⌄'; float: right; color: #d0ad58; }
-    .homeReportIssue[open] summary::after { transform: rotate(180deg); }
+    .homeReportIssue summary::after { content: '⌄'; color: #d83b2d !important; font-size: 24px !important; line-height: 1 !important; transition: transform .16s ease !important; }
+    .homeReportIssue[open] summary::after { transform: rotate(180deg) !important; }
     .homeReportIssue form { margin-top: 16px !important; }
   `;
   document.head.appendChild(maintenanceStyle);
