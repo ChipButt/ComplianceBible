@@ -1,7 +1,7 @@
 // Final shared document upload system. Single source of truth for all document upload UI.
 (function () {
-  if (window.__finalDocumentSystemClean6) return;
-  window.__finalDocumentSystemClean6 = true;
+  if (window.__finalDocumentSystemClean7) return;
+  window.__finalDocumentSystemClean7 = true;
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
@@ -17,8 +17,33 @@
 
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   function uidx() { try { return uid(); } catch { return 'id_' + Math.random().toString(36).slice(2); } }
-  function reqs() { try { const r = JSON.parse(localStorage.getItem(REQ_KEY) || '[]'); return Array.isArray(r) ? r : []; } catch { return []; } }
-  function group(user) { return user.jobArea || user.area || 'FOH'; }
+  function defaultReqs() {
+    return [
+      { id: uidx(), title: 'Right to Work document', staffGroups: ['FOH', 'Kitchen', 'Office', 'WFH', 'Housekeeping', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' },
+      { id: uidx(), title: 'Food Hygiene certificate', staffGroups: ['Kitchen', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' },
+      { id: uidx(), title: 'Allergen Awareness certificate', staffGroups: ['FOH', 'Kitchen', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' }
+    ];
+  }
+  function reqs() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(REQ_KEY) || 'null');
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch {}
+    const defaults = defaultReqs();
+    try { localStorage.setItem(REQ_KEY, JSON.stringify(defaults)); } catch {}
+    return defaults;
+  }
+  function norm(value) { return String(value || '').trim().toLowerCase(); }
+  function group(user) { return user.jobArea || user.area || user.role || user.permissionSetId || 'FOH'; }
+  function userGroupKeys(user) {
+    return new Set([user.jobArea, user.area, user.role, user.permissionSetId, 'Staff', 'All staff'].map(norm).filter(Boolean));
+  }
+  function requirementAppliesToUser(req, user) {
+    const groups = Array.isArray(req.staffGroups) ? req.staffGroups : [];
+    if (!groups.length) return false;
+    const keys = userGroupKeys(user);
+    return groups.some(g => keys.has(norm(g)) || norm(g) === 'all staff' || norm(g) === 'staff');
+  }
   function userDocs() { state.userRequiredDocuments = state.userRequiredDocuments || []; return state.userRequiredDocuments; }
   function saveNow() { try { save(); } catch {} }
   function readFile(file, done) { const r = new FileReader(); r.onload = () => done(r.result || ''); r.readAsDataURL(file); }
@@ -41,8 +66,14 @@
     const parts = key.split('|'); return getUserRecord(parts[0], parts[1]);
   }
   function filterKey(value) { return String(value || '').toLowerCase(); }
+  function selectedFilters() { return Array.from(selectedDocFilters); }
+  function hasSectionFilter(label) { return selectedFilters().some(v => filterKey(v) === filterKey(label)); }
+  function hasOnlySectionFilter(label) {
+    const filters = selectedFilters();
+    return filters.length && filters.every(v => filterKey(v) === filterKey(label));
+  }
   function matchesSelectedFilters(kind, text) {
-    const filters = Array.from(selectedDocFilters);
+    const filters = selectedFilters();
     if (!filters.length) return true;
     const haystack = filterKey(text);
     return filters.some(value => {
@@ -59,6 +90,7 @@
     });
     return labels;
   }
+  function allRecords() { return (state.docs || []).concat(state.userRequiredDocuments || []); }
   function thumb(record) {
     if (!record?.fileData) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
     if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(record.id) + '"><img src="' + record.fileData + '" alt="Document preview"></button>';
@@ -97,21 +129,28 @@
     '</article>';
   }
 
-  function premisesList() {
-    const docs = (state.docs || []).filter(d => matchesSelectedFilters('premises', (d.title || '') + ' ' + (d.cat || '')));
-    return docs.map(d => card({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' })).join('') || '<p class="muted">No premises documents match this filter.</p>';
+  function premisesItems() {
+    if (hasOnlySectionFilter('Staff documents')) return [];
+    return (state.docs || []).filter(d => matchesSelectedFilters('premises', (d.title || '') + ' ' + (d.cat || '')));
   }
-  function staffList() {
+  function staffItems() {
+    if (hasOnlySectionFilter('Premises documents')) return [];
     const out = [];
     (state.users || []).forEach(user => reqs().forEach(req => {
-      const needed = (req.staffGroups || []).includes(group(user));
-      const r = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
-      if (!needed && !r) return;
+      const required = requirementAppliesToUser(req, user);
+      const existing = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
+      if (!required && !existing) return;
       const hay = ((req.title || '') + ' ' + (user.name || '') + ' ' + (user.nickname || '') + ' ' + group(user)).toLowerCase();
       if (!matchesSelectedFilters('userdoc', hay)) return;
-      out.push(card({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:(user.nickname || user.name) + ' · ' + group(user), record:r, required:needed, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' }));
+      const record = required ? getUserRecord(user.id, req.id) : existing;
+      out.push({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:(user.nickname || user.name) + ' · ' + group(user), record, required, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' });
     }));
-    return out.join('') || '<p class="muted">No staff documents match this filter.</p>';
+    return out;
+  }
+  function renderSection(title, items, emptyText, forceShow) {
+    if (!items.length && !forceShow) return '';
+    const body = items.length ? items.map(card).join('') : '<p class="muted">' + esc(emptyText) + '</p>';
+    return '<section class="fdocSection"><h2>' + esc(title) + '</h2>' + body + '</section>';
   }
   function filterButtons() {
     return '<div class="buttonRow docFinderButtons"><details class="docFilterDrop"><summary>Filter document groups</summary><div class="docFilterOptions">' +
@@ -121,15 +160,31 @@
   function addForm() {
     return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span><small>Add a licence, certificate, policy, inspection record or other venue document</small></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
   }
-  documents = function () { return '<section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section><section class="fdocSection"><h2>Premises documents</h2>' + premisesList() + '</section><section class="fdocSection"><h2>Staff documents</h2>' + staffList() + '</section><section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm(); };
+  documents = function () {
+    const premises = premisesItems();
+    const staff = staffItems();
+    const forcePremises = hasSectionFilter('Premises documents');
+    const forceStaff = hasSectionFilter('Staff documents');
+    return '<section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section>' +
+      renderSection('Premises documents', premises.map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' })), 'No premises documents match this filter.', forcePremises) +
+      renderSection('Staff documents', staff, 'No staff documents match this filter.', forceStaff) +
+      '<section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm();
+  };
 
   if (typeof centralProfileDetail === 'function') {
     const oldDetail = centralProfileDetail;
     centralProfileDetail = function (user, section, shifts, training, docs, availabilityText) {
       if (section !== 'training') return oldDetail(user, section, shifts, training, docs, availabilityText);
-      const blocks = reqs().filter(req => (req.staffGroups || []).includes(group(user))).map(req => card({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:group(user), record:userDocs().find(r => r.userId === user.id && r.requirementId === req.id), required:true, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' })).join('') || '<p class="muted">No required documents for this staff group.</p>';
+      const blocks = reqs().filter(req => requirementAppliesToUser(req, user)).map(req => card({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:group(user), record:getUserRecord(user.id, req.id), required:true, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' })).join('') || '<p class="muted">No required documents for this staff group.</p>';
       return '<h2>Training & required documents</h2><section class="fdocSection">' + blocks + '</section><h3>Training records</h3>' + (training.length ? training.map(t => '<div class="listItem"><strong>' + esc(t.course) + '</strong><p>' + esc(t.status) + (t.expiry ? ' · Expires ' + esc(t.expiry) : '') + '</p><p class="muted">' + esc(t.evidence || '') + '</p></div>').join('') : '<p class="muted">No training records.</p>');
     };
+  }
+
+  function viewer(record) {
+    if (!record?.fileData) return;
+    modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2>' + (image(record) ? '<img class="fdocFull" src="' + record.fileData + '" alt="Document preview">' : '<div class="fdocFileBig">Document file</div><a class="ghost evidenceOpenLink" href="' + record.fileData + '" download="' + esc(record.fileName || 'document') + '">Open / Download</a>') + '</div>';
+    modalRoot.classList.remove('hidden');
+    document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
   }
 
   const oldBind = bind;
@@ -154,9 +209,10 @@
     });
     document.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
       const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
-      readFile(file, data => { r.fileData = data; r.fileName = file.name; r.fileType = file.type; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
+      readFile(file, data => { r.fileData = data; r.fileName = file.name || 'Photo'; r.fileType = file.type || 'image/jpeg'; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
     });
     document.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
     document.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
+    document.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => { e.stopPropagation(); viewer(allRecords().find(r => r.id === btn.dataset.fdocThumb)); });
   };
 })();
