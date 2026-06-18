@@ -1,7 +1,7 @@
 // Employment type rules and staff-document buttons in user profiles.
 (function employmentDocumentProfilePatch() {
-  if (window.__employmentDocumentProfilePatchV1) return;
-  window.__employmentDocumentProfilePatchV1 = true;
+  if (window.__employmentDocumentProfilePatchV2) return;
+  window.__employmentDocumentProfilePatchV2 = true;
 
   const DOC_REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const CONTRACT_TITLE = 'Signed Contract';
@@ -119,6 +119,14 @@
     if (!docs.length) return '<p class="muted">No staff documents linked to this profile.</p>';
     return '<div class="staffProfileDocumentsList">' + docs.map(req => docButton(user, req)).join('') + '</div>';
   }
+  function shiftList(shifts) {
+    const upcoming = (shifts || []).filter(s => !s.date || s.date >= today()).slice(0, 5);
+    if (!upcoming.length) return '<p class="muted">No upcoming shifts.</p>';
+    return upcoming.map(s => '<div class="listItem"><strong>' + safe(s.date || 'Upcoming shift') + '</strong><p>' + safe((s.start || '') + (s.end ? ' - ' + s.end : '')) + '</p><p class="muted">' + safe(s.section || '') + (s.notes ? ' · ' + safe(s.notes) : '') + '</p></div>').join('');
+  }
+  function availabilityBox(availabilityText) {
+    return '<div class="listItem"><p>' + safe(availabilityText || 'No availability set.') + '</p></div>';
+  }
   function openDocUpload(key) {
     const [userId, requirementId] = String(key || '').split('|');
     const user = state.users.find(item => item.id === userId);
@@ -175,15 +183,15 @@
     if (before && before.parentNode) before.parentNode.insertBefore(wrapper, before);
     else form.appendChild(wrapper);
   }
-  if (typeof openUserEditor === 'function' && !openUserEditor.__employmentTypeWrapped) {
+  if (typeof openUserEditor === 'function' && !openUserEditor.__employmentTypeWrappedV2) {
     const previousOpenUserEditor = openUserEditor;
     openUserEditor = function employmentTypeOpenUserEditor(id) {
       previousOpenUserEditor(id);
       setTimeout(addEmploymentFieldToModal, 0);
     };
-    openUserEditor.__employmentTypeWrapped = true;
+    openUserEditor.__employmentTypeWrappedV2 = true;
   }
-  if (typeof openCentralAddUserModal === 'function' && !openCentralAddUserModal.__employmentTypeWrapped) {
+  if (typeof openCentralAddUserModal === 'function' && !openCentralAddUserModal.__employmentTypeWrappedV2) {
     openCentralAddUserModal = function openCentralAddUserModalWithEmploymentType() {
       if (!isAdminUser()) return;
       modalRoot.innerHTML = '<div class="modalCard userModalCard"><button class="close" id="closeModal" type="button">×</button><h2>Add User</h2><form id="centralAddUserForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown on rota/checks" required><input name="email" type="email" placeholder="Email"><select name="employmentType"><option>Employee</option><option>Contractor</option></select><select name="role">' + optionList(['Staff', 'Supervisor', 'Admin'], 'Staff') + '</select><select name="area">' + optionList(state.areas, state.areas[0] || '') + '</select><button class="primary">Add User</button></form></div>';
@@ -199,20 +207,21 @@
         render();
       };
     };
-    openCentralAddUserModal.__employmentTypeWrapped = true;
+    openCentralAddUserModal.__employmentTypeWrappedV2 = true;
   }
-  if (typeof centralProfileDetail === 'function' && !centralProfileDetail.__employmentDocumentProfileWrapped) {
+  if (typeof centralProfileDetail === 'function' && !centralProfileDetail.__employmentDocumentProfileWrappedV2) {
     const previousCentralProfileDetail = centralProfileDetail;
     centralProfileDetail = function centralProfileDetailWithEmploymentDocs(user, section, shifts, training, docs, availabilityText) {
       if (section === 'employment') {
-        return '<h2>Employment / rota details</h2><div class="listItem"><p>Employment type: ' + safe(employmentType(user)) + '</p><p>Job area: ' + safe(user.jobArea || user.area || '') + '</p><p>Role: ' + safe(user.role || '') + '</p><p>Permission set: ' + safe(user.permissionSetId || '') + '</p><p>Pay rate: £' + Number(user.wage || 0).toFixed(2) + '</p><p>Account status: ' + safe(user.accountStatus || '') + '</p></div>';
+        return '<h2>Employment</h2><div class="listItem"><p>Employment type: ' + safe(employmentType(user)) + '</p><p>Job area: ' + safe(user.jobArea || user.area || '') + '</p><p>Role: ' + safe(user.role || '') + '</p><p>Permission set: ' + safe(user.permissionSetId || '') + '</p><p>Pay rate: £' + Number(user.wage || 0).toFixed(2) + '</p><p>Account status: ' + safe(user.accountStatus || '') + '</p></div><h3>Upcoming shifts</h3>' + shiftList(shifts) + '<h3>Availability</h3>' + availabilityBox(availabilityText);
       }
       if (section === 'training') {
         return '<h2>Training & Staff Documents</h2><h3>Staff documents</h3>' + staffDocumentList(user) + '<h3>Training records</h3>' + (training.length ? training.map(t => '<div class="listItem"><strong>' + safe(t.course) + '</strong><p>' + safe(t.status) + (t.expiry ? ' · Expires ' + safe(t.expiry) : '') + '</p><p class="muted">' + safe(t.evidence || '') + '</p></div>').join('') : '<p class="muted">No training records.</p>');
       }
+      if (section === 'shifts' || section === 'availability') return centralProfileDetailWithEmploymentDocs(user, 'employment', shifts, training, docs, availabilityText);
       return previousCentralProfileDetail(user, section, shifts, training, docs, availabilityText);
     };
-    centralProfileDetail.__employmentDocumentProfileWrapped = true;
+    centralProfileDetail.__employmentDocumentProfileWrappedV2 = true;
   }
   if (Array.isArray(state.users)) {
     let changed = false;
@@ -221,7 +230,7 @@
     if (changed) save();
   }
   const style = document.createElement('style');
-  style.textContent = '#modal.userInfoModalOpen .userModalEditCog{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;color:#d0ad58!important;width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important}#modal.userInfoModalOpen .userModalTabs{display:flex!important;grid-template-columns:none!important;gap:4px!important;overflow-x:auto!important;scrollbar-width:none!important;padding:0 0 2px!important}#modal.userInfoModalOpen .userModalTabs::-webkit-scrollbar{display:none!important}#modal.userInfoModalOpen .userModalTabs button{flex:1 0 auto!important;min-height:30px!important;height:30px!important;border-radius:10px!important;font-size:10px!important;line-height:1!important;padding:3px 7px!important;white-space:nowrap!important}.staffProfileDocumentsList{display:grid!important;gap:10px!important}.userProfileDocumentButton{padding:0!important}.userProfileDocumentButton .fdocBar{width:100%!important}';
+  style.textContent = '#modal.userInfoModalOpen .userModalEditCog{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;color:#d0ad58!important;width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important}#modal.userInfoModalOpen .userModalTabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;overflow:visible!important;padding:0!important}#modal.userInfoModalOpen .userModalTabs button{min-height:30px!important;height:30px!important;border-radius:10px!important;font-size:10px!important;line-height:1!important;padding:3px 7px!important;white-space:nowrap!important}#modal.userInfoModalOpen .userModalTabs [data-user-modal-section="shifts"],#modal.userInfoModalOpen .userModalTabs [data-user-modal-section="availability"],.centralProfilePage .profileLinks [data-central-section="shifts"],.centralProfilePage .profileLinks [data-central-section="availability"]{display:none!important}.centralProfilePage .profileLinks{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}.centralProfilePage .profileLinks button{min-height:34px!important;height:34px!important;padding:4px 8px!important;font-size:11px!important;white-space:nowrap!important}.staffProfileDocumentsList{display:grid!important;gap:10px!important}.userProfileDocumentButton{padding:0!important}.userProfileDocumentButton .fdocBar{width:100%!important}';
   document.head.appendChild(style);
   const previousBind = bind;
   bind = function employmentDocumentProfileBind() {
