@@ -1,4 +1,4 @@
-const CACHE = 'compliance-bible-clean-slate-v20260618-9';
+const CACHE = 'compliance-bible-clean-slate-v20260618-10';
 const ASSETS = [
   './',
   './index.html',
