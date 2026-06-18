@@ -183,8 +183,19 @@ function resetRouteScroll() {
   window.scrollTo(0, 0);
 }
 
+function closeActiveModal() {
+  if (!modalRoot || modalRoot.classList.contains('hidden')) return;
+  modalRoot.classList.add('hidden');
+  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen');
+  modalRoot.innerHTML = '';
+  document.body.classList.remove('edit-user-modal-open', 'report-modal-open');
+  document.body.style.top = '';
+  document.documentElement.style.overflow = '';
+}
+
 function navigateRoute(nextRoute) {
   if (!nextRoute) return;
+  closeActiveModal();
   if (nextRoute === route) {
     resetRouteScroll();
     return;
