@@ -5,7 +5,17 @@
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const GROUP_KEY = 'complianceStaffDocumentGroupsV1';
+  const CLEAN_FLAG = 'complianceStaffDocGroupsCleanedToSevenV1';
   const PERMISSION_KEYS = ['checks','documents','logs','users','rota','inspection','settings'];
+  const CORE_STAFF_GROUPS = [
+    {id:'Office',label:'Office'},
+    {id:'FOH',label:'FOH'},
+    {id:'Kitchen',label:'Kitchen'},
+    {id:'KP',label:'KP'},
+    {id:'Housekeeping',label:'Housekeeping'},
+    {id:'WFH',label:'WFH'},
+    {id:'Hybrid',label:'Hybrid'}
+  ];
   const openPermissionGroups = {};
   const openDocGroups = {};
   let openCreatePermission = false;
@@ -21,39 +31,42 @@
   function userSearchText(user){return String((user&&user.name||'')+' '+(user&&user.nickname||'')+' '+(user&&user.email||'')).toLowerCase();}
   function isNamedAdminUserLocal(user){return ['chip','vicky','rihanna'].some(name=>userSearchText(user).includes(name));}
 
-  function defaultDocGroups(){
-    const base=[{id:'Office',label:'Office'},{id:'FOH',label:'Front of House'},{id:'Kitchen',label:'Kitchen'}];
-    (state.areas||[]).forEach(area=>{if(area&&!base.some(group=>normalise(group.id)===normalise(area)||normalise(group.label)===normalise(area)))base.push({id:area,label:area});});
-    return base;
-  }
+  function coreGroupIds(){return CORE_STAFF_GROUPS.map(group=>group.id);}
+  function isCoreGroup(groupId){return CORE_STAFF_GROUPS.some(group=>normalise(group.id)===normalise(groupId)||normalise(group.label)===normalise(groupId));}
   function getDocGroups(){
+    const wasCleaned=localStorage.getItem(CLEAN_FLAG)==='true';
     const saved=readJSON(GROUP_KEY,[]);
-    const byId=new Map(defaultDocGroups().map(group=>[normalise(group.id),group]));
-    if(Array.isArray(saved))saved.forEach(group=>{if(group&&group.id)byId.set(normalise(group.id),{id:group.id,label:group.label||group.id});});
+    const byId=new Map(CORE_STAFF_GROUPS.map(group=>[normalise(group.id),{...group}]));
+    if(wasCleaned&&Array.isArray(saved))saved.forEach(group=>{if(group&&group.id&&!byId.has(normalise(group.id)))byId.set(normalise(group.id),{id:group.id,label:group.label||group.id});});
     const groups=Array.from(byId.values());
     writeJSON(GROUP_KEY,groups);
+    localStorage.setItem(CLEAN_FLAG,'true');
     return groups;
   }
+  function validStaffGroups(groups){
+    const valid=new Set(getDocGroups().map(group=>normalise(group.id)));
+    return (Array.isArray(groups)?groups:[]).filter(group=>valid.has(normalise(group)));
+  }
   function defaultRequirements(){
-    const all=['Office','FOH','Kitchen','Housekeeping','KP','Kitchen PotWash','Bar','Staff','Supervisor','Admin'];
-    const kitchen=['Kitchen','KP','Kitchen PotWash'];
+    const all=coreGroupIds();
+    const kitchen=['Kitchen','KP'];
     return [
       ['New Starter Pay Information',all,'none'],['New Starter Medical Questionnaire',all,'none'],['Piston Club Handbook Declaration',all,'none'],['Fire Safety & Training',all,'none'],['Food Allergy and Intolerance',all,'none'],['Safer Food Better Business Health & Safety Awareness',all,'none'],['Signed Contract',all,'none'],['Working Hours Opt Out',all,'none'],['Kitchen Oil & Fryer Training',kitchen,'none'],['Food Safety & Hygiene Level 2',kitchen,'optional'],['Challenge 25 Training',[],'none'],['COSHH Awareness',[],'none'],['Fire Marshal',[],'optional'],['Food Safety & Hygiene Level 3',[],'optional'],['HACCP',[],'optional'],['First Aid',[],'optional'],['Cellar Management',[],'none']
     ].map(([title,staffGroups,expiryMode])=>({id:stableReqId(title),title,staffGroups,expiryMode}));
   }
   function migrateRequirement(req){
     const title=normalise(req&&req.title);
-    if(title==='food hygiene certificate')return{...req,id:req.id||stableReqId('Food Safety & Hygiene Level 2'),title:'Food Safety & Hygiene Level 2',staffGroups:['Kitchen','KP','Kitchen PotWash'],expiryMode:req.expiryMode||'optional'};
-    if(title==='allergen awareness certificate')return{...req,id:req.id||stableReqId('Food Allergy and Intolerance'),title:'Food Allergy and Intolerance',staffGroups:['Office','FOH','Kitchen','Housekeeping','KP','Kitchen PotWash','Bar','Staff','Supervisor','Admin'],expiryMode:'none'};
-    if(title==='signed contract')return{...req,id:req.id||stableReqId('Signed Contract'),title:'Signed Contract',staffGroups:Array.isArray(req.staffGroups)?req.staffGroups:defaultRequirements().find(x=>x.title==='Signed Contract').staffGroups,expiryMode:'none'};
-    if(title==='working hours opt out')return{...req,id:req.id||stableReqId('Working Hours Opt Out'),title:'Working Hours Opt Out',staffGroups:Array.isArray(req.staffGroups)?req.staffGroups:defaultRequirements().find(x=>x.title==='Working Hours Opt Out').staffGroups,expiryMode:'none'};
-    return{...req,id:req.id||stableReqId(req.title),staffGroups:Array.isArray(req.staffGroups)?req.staffGroups:[],expiryMode:req.expiryMode||'optional'};
+    if(title==='food hygiene certificate')return{...req,id:req.id||stableReqId('Food Safety & Hygiene Level 2'),title:'Food Safety & Hygiene Level 2',staffGroups:['Kitchen','KP'],expiryMode:req.expiryMode||'optional'};
+    if(title==='allergen awareness certificate')return{...req,id:req.id||stableReqId('Food Allergy and Intolerance'),title:'Food Allergy and Intolerance',staffGroups:coreGroupIds(),expiryMode:'none'};
+    if(title==='signed contract')return{...req,id:req.id||stableReqId('Signed Contract'),title:'Signed Contract',staffGroups:validStaffGroups(Array.isArray(req.staffGroups)?req.staffGroups:defaultRequirements().find(x=>x.title==='Signed Contract').staffGroups),expiryMode:'none'};
+    if(title==='working hours opt out')return{...req,id:req.id||stableReqId('Working Hours Opt Out'),title:'Working Hours Opt Out',staffGroups:validStaffGroups(Array.isArray(req.staffGroups)?req.staffGroups:defaultRequirements().find(x=>x.title==='Working Hours Opt Out').staffGroups),expiryMode:'none'};
+    return{...req,id:req.id||stableReqId(req.title),staffGroups:validStaffGroups(req.staffGroups),expiryMode:req.expiryMode||'optional'};
   }
   function getRequirements(){
     const saved=readJSON(REQ_KEY,[]);
     const byTitle=new Map((Array.isArray(saved)?saved:[]).map(migrateRequirement).map(req=>[normalise(req.title),req]));
-    defaultRequirements().forEach(req=>{if(!byTitle.has(normalise(req.title)))byTitle.set(normalise(req.title),req);});
-    const reqs=Array.from(byTitle.values());
+    defaultRequirements().forEach(req=>{const key=normalise(req.title);const existing=byTitle.get(key);if(!existing)byTitle.set(key,req);else if(!(existing.staffGroups||[]).length&&req.staffGroups.length)byTitle.set(key,{...existing,staffGroups:req.staffGroups});});
+    const reqs=Array.from(byTitle.values()).map(req=>({...req,staffGroups:validStaffGroups(req.staffGroups)}));
     writeJSON(REQ_KEY,reqs);
     return reqs;
   }
@@ -62,11 +75,11 @@
     state.permissionMatrix=state.permissionMatrix||{};
     const defaults={Admin:{checks:true,documents:true,logs:true,users:true,rota:true,inspection:true,settings:true},Supervisor:{checks:true,documents:true,logs:true,users:true,rota:true,inspection:true,settings:true},Staff:{checks:true,documents:false,logs:true,users:false,rota:true,inspection:false,settings:false}};
     Object.keys(defaults).forEach(group=>{state.permissionMatrix[group]=state.permissionMatrix[group]||{};PERMISSION_KEYS.forEach(key=>{if(typeof state.permissionMatrix[group][key]!=='boolean')state.permissionMatrix[group][key]=defaults[group][key];});});
-    state.areas=state.areas||[];
+    state.areas=getDocGroups().map(group=>group.id);
     state.rotaSettings=state.rotaSettings||{sections:[]};
     state.rotaSettings.sections=state.rotaSettings.sections||[];
     (state.users||[]).forEach(user=>{if(isNamedAdminUserLocal(user)){user.permissionSetId='Admin';user.role='Admin';return;}if(!user.permissionSetId)user.permissionSetId=user.role||'Staff';if(!state.permissionMatrix[user.permissionSetId])user.permissionSetId='Staff';user.role=user.permissionSetId;});
-    getDocGroups();getRequirements();
+    getRequirements();
   }
   function canUseSettings(){try{return typeof isAdminUser==='function'&&isAdminUser();}catch(_){return false;}}
   function permLabel(key){return({checks:'Checks',documents:'Documents',logs:'Logs',users:'Users',rota:'Rota',inspection:'Inspection',settings:'Settings'}[key]||key);}
@@ -78,7 +91,7 @@
   function permissions(){const roles=Object.keys(state.permissionMatrix||{}).sort((a,b)=>({Admin:1,Supervisor:2,Staff:3}[a]||99)-(({Admin:1,Supervisor:2,Staff:3}[b]||99))||a.localeCompare(b));return'<section class="settingsBlock permissionSettingsBlock"><h2>Permissions</h2><p class="muted">Each group opens like a document button. Users can only belong to one permissions group at a time.</p><div class="permissionGroupList">'+roles.map(permissionButton).join('')+createPermissionGroup()+'</div></section>';}
 
   function docReqCount(groupId){return getRequirements().filter(req=>(req.staffGroups||[]).some(g=>normalise(g)===normalise(groupId))).length;}
-  function docGroupButton(group){const open=!!openDocGroups[group.id];const reqs=getRequirements();return'<article class="permissionGroupCard staffDocGroupCard '+(open?'open':'')+'"><button type="button" class="fdocBar permissionGroupButton" data-toggle-staff-doc-group="'+h(group.id)+'"><span class="fdocIcon">□</span><span class="fdocName"><strong>'+h(group.label)+'</strong><em>'+docReqCount(group.id)+' required documents</em></span><span class="fdocArrow">⌄</span></button><div class="permissionGroupPanel '+(open?'':'closed')+'"><form class="staffDocGroupForm" data-staff-doc-group-form="'+h(group.id)+'"><div class="permissionTickList staffDocRequirementTickList"><h3>Required documents</h3>'+reqs.map(req=>'<label class="settingsTick permissionTick staffDocRequirementTick"><input type="checkbox" name="req__'+h(req.id)+'" '+((req.staffGroups||[]).some(g=>normalise(g)===normalise(group.id))?'checked':'')+'><span>'+h(req.title)+'</span></label>').join('')+'</div><button class="primary">Save required documents</button></form></div></article>';}
+  function docGroupButton(group){const open=!!openDocGroups[group.id];const reqs=getRequirements();const deleteButton=isCoreGroup(group.id)?'':'<button type="button" class="secondary" data-delete-staff-doc-group="'+h(group.id)+'">Delete group</button>';return'<article class="permissionGroupCard staffDocGroupCard '+(open?'open':'')+'"><button type="button" class="fdocBar permissionGroupButton" data-toggle-staff-doc-group="'+h(group.id)+'"><span class="fdocIcon">□</span><span class="fdocName"><strong>'+h(group.label)+'</strong><em>'+docReqCount(group.id)+' required documents</em></span><span class="fdocArrow">⌄</span></button><div class="permissionGroupPanel '+(open?'':'closed')+'"><form class="staffDocGroupForm" data-staff-doc-group-form="'+h(group.id)+'"><div class="permissionTickList staffDocRequirementTickList"><h3>Required documents</h3>'+reqs.map(req=>'<label class="settingsTick permissionTick staffDocRequirementTick"><input type="checkbox" name="req__'+h(req.id)+'" '+((req.staffGroups||[]).some(g=>normalise(g)===normalise(group.id))?'checked':'')+'><span>'+h(req.title)+'</span></label>').join('')+'</div><div class="permissionActions">'+deleteButton+'<button class="primary">Save required documents</button></div></form></div></article>';}
   function createDocGroup(){const open=openCreateDocGroup;return'<article class="permissionGroupCard createStaffDocGroupCard '+(open?'open':'')+'"><button type="button" class="fdocBar permissionGroupButton" data-toggle-create-staff-doc-group="true"><span class="fdocIcon">+</span><span class="fdocName"><strong>Create staff document group</strong><em>Add another job area or staff grouping</em></span><span class="fdocArrow">⌄</span></button><div class="permissionGroupPanel '+(open?'':'closed')+'"><form id="createStaffDocGroupForm" class="permissionGroupForm"><label class="settingsField"><span>Group title</span><input name="title" placeholder="e.g. Cellar Team" required></label><button class="primary">Create group</button></form></div></article>';}
   function requiredDocs(){return'<section class="settingsBlock staffDocSettingsBlock"><h2>Required staff documents</h2><p class="muted">Set the documents required for each job area. These feed the staff profile Training tab and Staff Documents in Docs.</p><div class="permissionGroupList staffDocGroupList">'+getDocGroups().map(docGroupButton).join('')+createDocGroup()+'</div></section>';}
 
@@ -95,6 +108,7 @@
     document.querySelectorAll('[data-toggle-staff-doc-group]').forEach(button=>button.onclick=event=>{event.preventDefault();toggleCard(button,openDocGroups,button.dataset.toggleStaffDocGroup);});
     document.querySelectorAll('[data-toggle-create-staff-doc-group]').forEach(button=>button.onclick=event=>{event.preventDefault();openCreateDocGroup=!openCreateDocGroup;render();});
     document.querySelectorAll('[data-staff-doc-group-form]').forEach(form=>form.onsubmit=event=>{event.preventDefault();const groupId=form.dataset.staffDocGroupForm;const reqs=getRequirements();reqs.forEach(req=>{req.staffGroups=Array.isArray(req.staffGroups)?req.staffGroups.filter(g=>normalise(g)!==normalise(groupId)):[];if(fieldChecked(form,'req__'+req.id))req.staffGroups.push(groupId);});saveRequirements(reqs);render();});
+    document.querySelectorAll('[data-delete-staff-doc-group]').forEach(button=>button.onclick=event=>{event.preventDefault();event.stopPropagation();const groupId=button.dataset.deleteStaffDocGroup;if(isCoreGroup(groupId))return;const groups=getDocGroups().filter(group=>normalise(group.id)!==normalise(groupId));writeJSON(GROUP_KEY,groups);state.areas=groups.map(group=>group.id);saveRequirements(getRequirements().map(req=>({...req,staffGroups:(req.staffGroups||[]).filter(group=>normalise(group)!==normalise(groupId))})));delete openDocGroups[groupId];saveSafe();render();});
     const createDoc=document.getElementById('createStaffDocGroupForm');if(createDoc)createDoc.onsubmit=event=>{event.preventDefault();const title=String(createDoc.elements.title.value||'').trim();if(!title)return;const groups=getDocGroups();if(!groups.some(group=>normalise(group.id)===normalise(title)))groups.push({id:title,label:title});writeJSON(GROUP_KEY,groups);if(!state.areas.some(area=>normalise(area)===normalise(title)))state.areas.push(title);openCreateDocGroup=false;openDocGroups[title]=true;saveSafe();render();};
     document.querySelectorAll('[data-toggle-permission-group]').forEach(button=>button.onclick=event=>{event.preventDefault();toggleCard(button,openPermissionGroups,button.dataset.togglePermissionGroup);});
     document.querySelectorAll('[data-toggle-create-permission]').forEach(button=>button.onclick=event=>{event.preventDefault();openCreatePermission=!openCreatePermission;render();});
@@ -103,7 +117,7 @@
     document.querySelectorAll('[data-open-users-tab]').forEach(button=>button.onclick=()=>{route='staff';render();});
   }
 
-  const style=document.createElement('style');style.textContent='.cleanedSettingsHub .settingsBlock{margin-bottom:14px!important}.staffDocGroupList .permissionGroupCard,.cleanedSettingsHub .permissionGroupCard{padding:0!important}.staffDocRequirementTickList{display:grid!important;grid-template-columns:1fr!important;gap:6px!important}.compactSettingsBlock{padding:12px!important}.settingsPillList{display:flex!important;flex-wrap:wrap!important;gap:6px!important;margin:8px 0!important}.settingsPill{display:inline-flex!important;align-items:center!important;gap:6px!important;min-height:30px!important;padding:4px 8px!important;border-radius:999px!important;background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;font-size:12px!important;font-weight:800!important}.settingsPill button{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;padding:0!important;border-radius:999px!important;font-size:12px!important;line-height:1!important}.settingsCompactForm{display:grid!important;grid-template-columns:minmax(0,1fr) 70px!important;gap:8px!important;margin-top:8px!important}.settingsCompactForm input,.settingsCompactForm button{min-height:38px!important;height:38px!important;border-radius:12px!important}.cleanedSettingsHub .settingsActionRow{padding:10px 12px!important;border-radius:16px!important}.cleanedSettingsHub .settingsExpander summary{min-height:42px!important;padding:10px 12px!important}.cleanedSettingsHub .settingsExpanderBody{padding-top:10px!important}';document.head.appendChild(style);
+  const style=document.createElement('style');style.textContent='.cleanedSettingsHub .settingsBlock{margin-bottom:14px!important}.staffDocGroupList .permissionGroupCard,.cleanedSettingsHub .permissionGroupCard{padding:0!important}.staffDocRequirementTickList{display:grid!important;grid-template-columns:1fr!important;gap:6px!important}.staffDocGroupCard .permissionActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.staffDocGroupCard [data-delete-staff-doc-group]{color:#d83b2d!important}.compactSettingsBlock{padding:12px!important}.settingsPillList{display:flex!important;flex-wrap:wrap!important;gap:6px!important;margin:8px 0!important}.settingsPill{display:inline-flex!important;align-items:center!important;gap:6px!important;min-height:30px!important;padding:4px 8px!important;border-radius:999px!important;background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;font-size:12px!important;font-weight:800!important}.settingsPill button{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;padding:0!important;border-radius:999px!important;font-size:12px!important;line-height:1!important}.settingsCompactForm{display:grid!important;grid-template-columns:minmax(0,1fr) 70px!important;gap:8px!important;margin-top:8px!important}.settingsCompactForm input,.settingsCompactForm button{min-height:38px!important;height:38px!important;border-radius:12px!important}.cleanedSettingsHub .settingsActionRow{padding:10px 12px!important;border-radius:16px!important}.cleanedSettingsHub .settingsExpander summary{min-height:42px!important;padding:10px 12px!important}.cleanedSettingsHub .settingsExpanderBody{padding-top:10px!important}';document.head.appendChild(style);
   if(typeof bind==='function'&&!bind.__completeSettingsHubCleanV1){const oldBind=bind;bind=function(){oldBind();bindCleanSettings();};bind.__completeSettingsHubCleanV1=true;}
   ensureSettingsState();saveSafe();
 })();

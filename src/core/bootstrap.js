@@ -6,7 +6,7 @@
 
   const originalDashboard = dashboard;
   dashboard = function dashboardWithReportIssue() {
-    return originalDashboard() + `<details class="card homeReportIssue"><summary>Report an Issue</summary><form id="homeLogForm" class="stack"><select name="type"><option>Incident</option><option>Alcohol Refusal</option><option>Accident</option><option>Pest Sighting</option></select><input name="summary" placeholder="Short summary" required><textarea name="details" placeholder="Details, witnesses, action taken"></textarea><button class="primary">Report Issue</button></form></details>`;
+    return originalDashboard() + `<button class="card reportIssueButton homeReportIssue" type="button" data-open-home-report-issue>Report an Issue</button>`;
   };
 
   function activeMaintenanceIssues() {
@@ -23,14 +23,19 @@
     return items.length ? `<ul class="shoppingListItems">${items.map(item => `<li><span>${esc(item.title)}</span><button type="button" class="ghost small" data-shopping-complete="${item.id}">Done</button></li>`).join('')}</ul>` : '<p class="muted">Nothing on the shopping list yet.</p>';
   }
 
+  function reportedIssueMarkup() {
+    const items = [...(state.logs || [])].reverse();
+    return items.length ? `<div class="reportedIssueList">${items.map(log => `<details class="reportedIssueItem"><summary><span><strong>${esc(log.type || 'Reported issue')}</strong><small>${esc(log.summary || 'No summary')}</small></span><span class="maintenanceExpandIcon">⌄</span></summary><div class="issueBody"><p>${esc(log.details || 'No extra details added.')}</p></div></details>`).join('')}</div>` : '<p class="muted">No reported issues yet.</p>';
+  }
+
   function maintenanceIssueMarkup() {
     const issues = activeMaintenanceIssues();
-    return issues.length ? `<div class="maintenanceIssueList">${issues.map(issue => `<details class="maintenanceIssueItem"><summary><span><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')}</small></span><span class="maintenanceExpandIcon">⌄</span></summary><div class="maintenanceIssueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="primary" data-issue="${issue.id}">Mark as complete</button></div></details>`).join('')}</div>` : '<p class="muted">No open maintenance issues.</p>';
+    return issues.length ? `<div class="maintenanceIssueList">${issues.map(issue => `<details class="maintenanceIssueItem"><summary><span><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')}</small></span><span class="maintenanceExpandIcon">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="primary" data-issue="${issue.id}">Mark as complete</button></div></details>`).join('')}</div>` : '<p class="muted">No open maintenance issues.</p>';
   }
 
   logs = function maintenancePage() {
     shoppingItems();
-    return `<section class="maintenancePage"><article class="card maintenanceCard"><h2>Report an issue</h2><form id="issueForm" class="maintenanceIssueForm stack"><input name="title" placeholder="Issue title" required><input name="area" placeholder="Location" required><textarea name="notes" placeholder="What needs fixing?" required></textarea><input type="hidden" name="severity" value="Maintenance"><button class="primary">Report issue</button></form><h2 class="maintenanceListTitle">Open maintenance issues</h2>${maintenanceIssueMarkup()}</article><article class="card shoppingListCard"><div class="shoppingListHeader"><div><h2>Shopping list</h2><p class="muted">Add things the team are running low on.</p></div><div class="shoppingListIcon" aria-hidden="true">▤</div></div><form id="shoppingForm" class="shoppingForm"><input name="title" placeholder="Add item, e.g. mint tea" required><button class="primary">Add</button></form>${shoppingListMarkup()}</article></section>`;
+    return `<section class="maintenancePageNew"><article class="card maintenanceSection"><h2 class="maintenanceSectionTitle">Issues reported</h2>${reportedIssueMarkup()}<button class="card reportIssueButton" type="button" data-open-report-issue>Report an Issue</button></article><article class="card maintenanceSection"><h2 class="maintenanceSectionTitle">Maintenance issues</h2>${maintenanceIssueMarkup()}<button class="card reportMaintenanceButton" type="button" data-open-maintenance-issue>Report Maintenance Issue</button></article><article class="card shoppingListCard"><div class="shoppingListHeader"><div><h2>Shopping list</h2><p class="muted">Add things the team are running low on.</p></div><div class="shoppingListIcon" aria-hidden="true">▤</div></div><form id="shoppingForm" class="shoppingForm"><input name="title" placeholder="Add item, e.g. mint tea" required><button class="primary">Add</button></form>${shoppingListMarkup()}</article></section>`;
   };
 
   logList = function maintenanceLogList() {
@@ -48,20 +53,22 @@
   const maintenanceStyle = document.createElement('style');
   maintenanceStyle.id = 'maintenance-page-clean-layout';
   maintenanceStyle.textContent = `
-    .maintenancePage { display: grid !important; gap: 16px !important; }
+    .maintenancePageNew { display: grid !important; gap: 16px !important; }
+    .maintenanceSection { display: grid !important; gap: 12px !important; }
+    .maintenanceSectionTitle { margin: 0 !important; }
     .maintenanceCard,.shoppingListCard { overflow: hidden !important; }
-    .maintenanceIssueForm { margin-bottom: 20px !important; }
-    .maintenanceListTitle { margin-top: 10px !important; }
-    .maintenanceIssueList { display: grid !important; gap: 10px !important; }
-    .maintenanceIssueItem { border: 1px solid rgba(255,255,255,.09) !important; border-radius: 18px !important; background: rgba(255,255,255,.035) !important; overflow: hidden !important; }
-    .maintenanceIssueItem summary { list-style: none !important; cursor: pointer !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; gap: 12px !important; padding: 14px !important; }
-    .maintenanceIssueItem summary::-webkit-details-marker { display: none !important; }
-    .maintenanceIssueItem strong { display: block !important; color: #fff8ea !important; font-size: 17px !important; line-height: 1.15 !important; }
-    .maintenanceIssueItem small { display: block !important; color: #aaa194 !important; font-size: 13px !important; margin-top: 4px !important; }
+    .reportIssueButton,.reportMaintenanceButton { width: 100% !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; font-size: 22px !important; font-weight: 900 !important; color: #d83b2d !important; border: 1px solid rgba(255,255,255,.09) !important; }
+    .reportMaintenanceButton { color: #d0ad58 !important; }
+    .reportedIssueList,.maintenanceIssueList { display: grid !important; gap: 10px !important; }
+    .reportedIssueItem,.maintenanceIssueItem { border: 1px solid rgba(255,255,255,.09) !important; border-radius: 18px !important; background: rgba(255,255,255,.035) !important; overflow: hidden !important; }
+    .reportedIssueItem summary,.maintenanceIssueItem summary { list-style: none !important; cursor: pointer !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; gap: 12px !important; padding: 14px !important; }
+    .reportedIssueItem summary::-webkit-details-marker,.maintenanceIssueItem summary::-webkit-details-marker { display: none !important; }
+    .reportedIssueItem strong,.maintenanceIssueItem strong { display: block !important; color: #fff8ea !important; font-size: 17px !important; line-height: 1.15 !important; }
+    .reportedIssueItem small,.maintenanceIssueItem small { display: block !important; color: #aaa194 !important; font-size: 13px !important; margin-top: 4px !important; }
     .maintenanceExpandIcon { color: #d0ad58 !important; font-size: 24px !important; line-height: 1 !important; transition: transform .16s ease !important; }
-    .maintenanceIssueItem[open] .maintenanceExpandIcon { transform: rotate(180deg) !important; }
-    .maintenanceIssueBody { padding: 0 14px 14px !important; display: grid !important; gap: 12px !important; }
-    .maintenanceIssueBody p { margin: 0 !important; }
+    .reportedIssueItem[open] .maintenanceExpandIcon,.maintenanceIssueItem[open] .maintenanceExpandIcon { transform: rotate(180deg) !important; }
+    .issueBody { padding: 0 14px 14px !important; display: grid !important; gap: 12px !important; }
+    .issueBody p { margin: 0 !important; }
     .shoppingListHeader { display: grid !important; grid-template-columns: minmax(0,1fr) 58px !important; gap: 12px !important; align-items: center !important; }
     .shoppingListHeader h2 { margin-bottom: 4px !important; }
     .shoppingListIcon { width: 58px !important; height: 58px !important; border-radius: 18px !important; display: grid !important; place-items: center !important; color: #d0ad58 !important; background: rgba(176,145,74,.16) !important; font-size: 34px !important; font-weight: 900 !important; }
@@ -71,12 +78,94 @@
     .shoppingListItems span { color: #fff8ea !important; font-weight: 800 !important; }
     .rotaHomePanel > h2, .rotaHomePanel .homeShiftList { display: none !important; }
     .homeReportIssue { margin-top: 18px !important; }
-    .homeReportIssue summary { cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; width: 100% !important; font-size: 22px !important; font-weight: 900 !important; color: #d83b2d !important; list-style: none !important; }
-    .homeReportIssue summary::-webkit-details-marker { display: none !important; }
-    .homeReportIssue summary::after { content: none !important; display: none !important; }
-    .homeReportIssue form { margin-top: 16px !important; }
+    body.report-modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; left: 0 !important; right: 0 !important; }
+    #modal.reportModalOpen { position: fixed !important; inset: calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px)) 0 0 0 !important; z-index: 1000 !important; display: flex !important; align-items: flex-start !important; justify-content: center !important; padding: 16px 14px max(16px,env(safe-area-inset-bottom)) !important; background: rgba(0,0,0,.58) !important; box-sizing: border-box !important; overflow: hidden !important; }
+    #modal.reportModalOpen.hidden { display: none !important; }
+    #modal.reportModalOpen .reportModalCard { width: min(680px,100%) !important; max-height: 100% !important; margin: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; box-sizing: border-box !important; border-radius: 24px !important; padding: 18px !important; }
+    #modal.reportModalOpen .reportModalHeader { display: grid !important; grid-template-columns: minmax(0,1fr) 38px !important; align-items: center !important; gap: 12px !important; margin-bottom: 14px !important; }
+    #modal.reportModalOpen .reportModalHeader h2 { margin: 0 !important; color: #d83b2d !important; }
+    #modal.reportModalOpen .reportModalClose { width: 38px !important; height: 38px !important; min-width: 38px !important; min-height: 38px !important; border-radius: 999px !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 0 !important; margin: 0 !important; border: 0 !important; background: rgba(8,10,12,.72) !important; color: #fff8ea !important; font-size: 26px !important; line-height: 1 !important; }
+    .reportSummaryBox { min-height: 92px !important; resize: vertical !important; }
+    .reportOtherType { display: none !important; }
+    .reportOtherType.active { display: block !important; }
   `;
   document.head.appendChild(maintenanceStyle);
+
+  let reportModalLockedScrollY = 0;
+  function lockReportModalBackground() {
+    reportModalLockedScrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    document.body.style.top = `-${reportModalLockedScrollY}px`;
+    document.body.classList.add('report-modal-open');
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function unlockReportModalBackground() {
+    document.body.classList.remove('report-modal-open');
+    document.body.style.top = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, reportModalLockedScrollY || 0);
+  }
+
+  function closeReportModal() {
+    modalRoot.classList.add('hidden');
+    modalRoot.classList.remove('reportModalOpen');
+    modalRoot.innerHTML = '';
+    unlockReportModalBackground();
+  }
+
+  function syncOtherReportType() {
+    const type = document.getElementById('reportType');
+    const other = document.getElementById('reportOtherType');
+    if (!type || !other) return;
+    const active = type.value === 'Other';
+    other.classList.toggle('active', active);
+    other.required = active;
+    if (!active) other.value = '';
+  }
+
+  function openIncidentReportModal() {
+    lockReportModalBackground();
+    modalRoot.innerHTML = `<div class="modalCard reportModalCard" role="dialog" aria-modal="true"><div class="reportModalHeader"><h2>Report an Issue</h2><button class="reportModalClose" id="closeReportModal" type="button">×</button></div><form id="reportIssueForm" class="stack"><select id="reportType" name="type"><option>Incident</option><option>Alcohol Refusal</option><option>Accident</option><option>Pest Sighting</option><option>Other</option></select><input class="reportOtherType" id="reportOtherType" name="otherType" placeholder="One-time incident type"><textarea class="reportSummaryBox" name="summary" placeholder="Short summary" required></textarea><textarea name="details" placeholder="Details, witnesses, action taken"></textarea><button class="primary">Report Issue</button></form></div>`;
+    modalRoot.classList.add('reportModalOpen');
+    modalRoot.classList.remove('hidden');
+    document.getElementById('closeReportModal').onclick = closeReportModal;
+    modalRoot.onclick = event => { if (event.target === modalRoot) closeReportModal(); };
+    document.getElementById('reportType').onchange = syncOtherReportType;
+    syncOtherReportType();
+    document.getElementById('reportIssueForm').onsubmit = event => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      const type = data.get('type');
+      const other = String(data.get('otherType') || '').trim();
+      if (type === 'Other' && !other) {
+        document.getElementById('reportOtherType').reportValidity();
+        return;
+      }
+      state.logs = state.logs || [];
+      state.logs.push({ id: uid(), type: type === 'Other' ? other : type, summary: data.get('summary'), details: data.get('details'), userId: state.currentUser, created: new Date().toISOString() });
+      save();
+      closeReportModal();
+      render();
+    };
+  }
+
+  function openMaintenanceReportModal() {
+    lockReportModalBackground();
+    modalRoot.innerHTML = `<div class="modalCard reportModalCard" role="dialog" aria-modal="true"><div class="reportModalHeader"><h2>Report Maintenance Issue</h2><button class="reportModalClose" id="closeReportModal" type="button">×</button></div><form id="reportMaintenanceForm" class="stack"><input name="title" placeholder="Issue title" required><input name="area" placeholder="Location" required><textarea name="notes" placeholder="What needs fixing?" required></textarea><button class="primary">Report maintenance issue</button></form></div>`;
+    modalRoot.classList.add('reportModalOpen');
+    modalRoot.classList.remove('hidden');
+    document.getElementById('closeReportModal').onclick = closeReportModal;
+    modalRoot.onclick = event => { if (event.target === modalRoot) closeReportModal(); };
+    document.getElementById('reportMaintenanceForm').onsubmit = event => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      state.issues = state.issues || [];
+      state.issues.push({ id: uid(), title: data.get('title'), area: data.get('area'), severity: 'Maintenance', notes: data.get('notes'), status: 'Open', created: new Date().toISOString(), userId: state.currentUser });
+      save();
+      closeReportModal();
+      render();
+    };
+  }
 
   let editUserLockedScrollY = 0;
   const editUserStyle = document.createElement('style');
@@ -136,7 +225,7 @@
     window.__returnToUserProfileId = id;
     const nameParts = splitNameParts(u);
     lockEditUserBackground();
-    modalRoot.innerHTML = `<div class="modalCard editUserModalCard"><form id="editUserForm" class="stack"><div class="editUserTopBar"><button class="primary saveUserButton" type="submit">Save</button><h2>Edit profile</h2><button class="close" id="closeModal" type="button">×</button></div><div class="editUserFormBody"><div class="editUserPhotoRow"><span class="avatarText">${esc(userInitials(u.name))}</span><span>Profile photo</span></div>${field('First name','firstName',nameParts.first,'required')}${field('Last name','lastName',nameParts.last)}${field('Nickname','nickname',u.nickname || '')}${field('Email','email',u.email || '', 'type="email"')}${field('Mobile','mobile',u.mobile || '')}${field('Emergency contact name','emergencyContactName',u.emergencyContactName || '')}${field('Emergency phone number','emergencyPhone',u.emergencyPhone || '')}${textareaField('Address','address',u.address || '')}${field('Date of birth','dob',u.dob || '')}${field('Pronouns','pronouns',u.pronouns || '')}<label class="editUserField"><span>Job area</span><select name="area">${optionList(state.areas, u.area || u.jobArea)}</select></label><label class="editUserField"><span>Role</span><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select></label>${field('Pay rate','wage',u.wage || 0,'type="number" step="0.01"')}</div></form></div>`;
+    modalRoot.innerHTML = `<div class="modalCard editUserModalCard"><form id="editUserForm" class="stack"><div class="editUserTopBar"><button class="primary saveUserButton" type="submit">Save</button><h2>Edit profile</h2><button class="close" id="closeModal" type="button">×</button></div><div class="editUserFormBody"><div class="editUserPhotoRow"><span class="avatarText">${esc(userInitials(u.name))}</span><span>Profile photo</span></div>${field('First name','firstName',nameParts.first,'required')}${field('Last name','lastName',nameParts.last)}${field('Nickname','nickname',u.nickname || '')}${field('Email','email',u.email || '', 'type="email"')}${field('Mobile','mobile',u.mobile || '')}${field('Emergency contact name','emergencyContactName',u.emergencyContactName || '')}${field('Emergency phone number','emergencyPhone',u.emergencyPhone || '')}${textareaField('Address','address',u.address || '')}${field('Date of birth','dob',u.dob || '')}${field('Pronouns','pronouns',u.pronouns || '')}<label class="editUserField"><span>Job area</span><select name="area">${optionList(state.areas, u.area || u.jobArea)}</select></label><label class="editUserField"><span>Employment type</span><select name="employmentType">${optionList(['Employee', 'Contractor'], u.employmentType || 'Employee')}</select></label><label class="editUserField"><span>Role</span><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select></label>${field('Pay rate','wage',u.wage || 0,'type="number" step="0.01"')}</div></form></div>`;
     modalRoot.classList.add('editUserModalOpen');
     modalRoot.classList.remove('hidden');
     document.getElementById('closeModal').onclick = () => closeEditUserModal(true);
@@ -152,16 +241,22 @@
   };
 
   function bindMaintenanceExtras() {
-    const homeLogForm = document.getElementById('homeLogForm');
-    if (homeLogForm && !homeLogForm.dataset.bound) {
-      homeLogForm.dataset.bound = '1';
-      homeLogForm.onsubmit = event => {
-        const data = fd(event);
-        state.logs.push({ id: uid(), type: data.type, summary: data.summary, details: data.details, userId: state.currentUser, created: new Date().toISOString() });
-        save();
-        render();
+    document.querySelectorAll('[data-open-report-issue],[data-open-home-report-issue]').forEach(button => {
+      if (button.dataset.boundReportIssue) return;
+      button.dataset.boundReportIssue = '1';
+      button.onclick = event => {
+        event.preventDefault();
+        openIncidentReportModal();
       };
-    }
+    });
+    document.querySelectorAll('[data-open-maintenance-issue]').forEach(button => {
+      if (button.dataset.boundMaintenanceIssue) return;
+      button.dataset.boundMaintenanceIssue = '1';
+      button.onclick = event => {
+        event.preventDefault();
+        openMaintenanceReportModal();
+      };
+    });
     const shopForm = document.getElementById('shoppingForm');
     if (shopForm && !shopForm.dataset.bound) {
       shopForm.dataset.bound = '1';
@@ -198,10 +293,15 @@
     if (!event.target.closest('.editUserModalCard')) event.preventDefault();
   }, { passive: false });
 
+  document.addEventListener('touchmove', event => {
+    if (!modalRoot.classList.contains('reportModalOpen')) return;
+    if (!event.target.closest('.reportModalCard')) event.preventDefault();
+  }, { passive: false });
+
   function countPendingChecksForBadge() {
     try {
       if (typeof hasPermission === 'function' && !hasPermission('checks')) return 0;
-      return (state.checks || []).filter(check => typeof done === 'function' && !done(check.id)).length;
+      return (state.checks || []).filter(check => !check.hiddenFromChecksPage && typeof done === 'function' && !done(check.id)).length;
     } catch (_) {
       return 0;
     }

@@ -171,15 +171,6 @@
       '<section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm();
   };
 
-  if (typeof centralProfileDetail === 'function') {
-    const oldDetail = centralProfileDetail;
-    centralProfileDetail = function (user, section, shifts, training, docs, availabilityText) {
-      if (section !== 'training') return oldDetail(user, section, shifts, training, docs, availabilityText);
-      const blocks = reqs().filter(req => requirementAppliesToUser(req, user)).map(req => card({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:group(user), record:getUserRecord(user.id, req.id), required:true, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' })).join('') || '<p class="muted">No required documents for this staff group.</p>';
-      return '<h2>Training & required documents</h2><section class="fdocSection">' + blocks + '</section><h3>Training records</h3>' + (training.length ? training.map(t => '<div class="listItem"><strong>' + esc(t.course) + '</strong><p>' + esc(t.status) + (t.expiry ? ' · Expires ' + esc(t.expiry) : '') + '</p><p class="muted">' + esc(t.evidence || '') + '</p></div>').join('') : '<p class="muted">No training records.</p>');
-    };
-  }
-
   function viewer(record) {
     if (!record?.fileData) return;
     modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2>' + (image(record) ? '<img class="fdocFull" src="' + record.fileData + '" alt="Document preview">' : '<div class="fdocFileBig">Document file</div><a class="ghost evidenceOpenLink" href="' + record.fileData + '" download="' + esc(record.fileName || 'document') + '">Open / Download</a>') + '</div>';

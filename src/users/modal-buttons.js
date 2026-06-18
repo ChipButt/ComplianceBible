@@ -101,27 +101,10 @@
     if(!event.target.closest('.userModalCard')) event.preventDefault();
   },{passive:false});
 
-  function loadScriptOnce(id, src, guardName){
-    if((guardName && window[guardName])||document.getElementById(id)) return;
-    var script=document.createElement('script');
-    script.id=id;
-    script.src=src;
-    script.async=false;
-    script.defer=true;
-    document.body.appendChild(script);
-  }
-  function loadProfilePatches(){
-    loadScriptOnce('jobAreaForceScript','src/settings/job-area-force.js?v=20260618-1','__jobAreaForcePatchV1');
-    loadScriptOnce('employmentDocumentProfileScript','src/users/employment-document-profile.js?v=20260618-3','__employmentDocumentProfilePatchV2');
-    loadScriptOnce('profileAvailabilityEditorScript','src/users/profile-availability-editor.js?v=20260618-2','__profileAvailabilityEditorPatchV2');
-    loadScriptOnce('profileTrainingDocButtonsScript','src/users/profile-training-doc-buttons.js?v=20260618-1','__profileTrainingDocButtonsPatchV1');
-  }
-  loadProfilePatches();
-
   if(typeof bind==='function'&&!bind.__userButtonsModalStyle){
     var oldBind=bind;
-    bind=function(){oldBind();loadProfilePatches();var search=document.getElementById('centralPeopleSearch');document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
+    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
     bind.__userButtonsModalStyle=true;
   }
-  setTimeout(function(){loadProfilePatches();var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
+  setTimeout(function(){var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
 })();

@@ -200,6 +200,157 @@ body.user-info-modal-open { overflow: hidden !important; }
   max-height: none !important;
   overflow: visible !important;
 }
+.centralProfilePage .profileLinks {
+  display: grid !important;
+  grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+  gap: 6px !important;
+}
+.centralProfilePage .profileLinks button {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+#modal.userInfoModalOpen .userModalDetail {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+.profileTrainingDocSection .fdocIcon,
+.profileTrainingDocSection .fdocIcon svg {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+}
+.profileTrainingDocSection .fdocBar {
+  min-height: 64px !important;
+  height: auto !important;
+  padding: 10px 12px !important;
+}
+.profileTrainingDocSection .fdoc {
+  border-radius: 18px !important;
+  overflow: hidden !important;
+}
+.profileTrainingDocSection .fdocName strong {
+  font-size: 15px !important;
+  line-height: 1.15 !important;
+}
+.profileTrainingDocSection .fdocName em { font-size: 11px !important; }
+.profileTrainingDocSection .fdocThumb {
+  width: 74px !important;
+  height: 74px !important;
+  min-width: 74px !important;
+  max-width: 74px !important;
+}
+.profileTrainingDocSection .fdocPanel { overflow: hidden !important; }
+.availabilityEditor {
+  display: grid !important;
+  grid-template-columns: repeat(7,minmax(0,1fr)) !important;
+  gap: 2px !important;
+  width: calc(100% + 16px) !important;
+  margin-left: -8px !important;
+  margin-right: -8px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+.availabilityDay {
+  min-width: 0 !important;
+  background: rgba(255,255,255,.035) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+  border-radius: 9px !important;
+  padding: 5px 2px !important;
+  box-sizing: border-box !important;
+}
+.availabilityDay h4 {
+  font-size: 8px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  margin: 0 0 6px !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  letter-spacing: 0 !important;
+}
+.availabilityAllDayHeading,
+.availabilitySubhead {
+  font-size: 7px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  margin: 0 0 2px !important;
+  color: #aaa194 !important;
+  white-space: nowrap !important;
+}
+.availabilitySubhead {
+  line-height: .92 !important;
+  margin-bottom: 4px !important;
+  color: #d0ad58 !important;
+  white-space: normal !important;
+}
+.availabilityAllDay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  line-height: 1 !important;
+  margin: 0 0 6px !important;
+}
+.availabilityAllDay input {
+  width: 13px !important;
+  height: 13px !important;
+  min-height: 13px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.availabilityRanges {
+  display: grid !important;
+  gap: 2px !important;
+}
+.availabilityRange {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 2px !important;
+  position: relative !important;
+}
+.availabilityRange select {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 23px !important;
+  min-height: 23px !important;
+  padding: 1px !important;
+  border-radius: 6px !important;
+  font-size: 7px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+.availabilityRemove {
+  position: absolute !important;
+  top: -4px !important;
+  right: -3px !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  background: #d83b2d !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+.availabilityAdd {
+  width: 100% !important;
+  height: 15px !important;
+  min-height: 15px !important;
+  margin-top: 3px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+.availabilityNoRanges { display: none !important; }
 @media (max-width: 390px) {
   #app .rotaPeopleShell {
     grid-template-columns: 112px minmax(0,1fr) !important;
@@ -212,6 +363,35 @@ body.user-info-modal-open { overflow: hidden !important; }
     font-size: 13px !important;
   }
   .userModalTabs button { font-size: 8px !important; }
+  #modal.userInfoModalOpen .userModalCard {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  .availabilityEditor {
+    width: calc(100% + 16px) !important;
+    margin-left: -8px !important;
+    margin-right: -8px !important;
+    gap: 1px !important;
+  }
+  .availabilityDay {
+    padding: 4px 1px !important;
+    border-radius: 7px !important;
+  }
+  .availabilityDay h4 {
+    font-size: 7px !important;
+    letter-spacing: 0 !important;
+  }
+  .availabilityAllDayHeading,
+  .availabilitySubhead { font-size: 6px !important; }
+  .availabilityRange select {
+    font-size: 6px !important;
+    height: 21px !important;
+    min-height: 21px !important;
+  }
+  .availabilityAdd {
+    height: 14px !important;
+    min-height: 14px !important;
+  }
 }
 @media (min-width:560px) {
   .userModalTabs button { font-size: 12px !important; }

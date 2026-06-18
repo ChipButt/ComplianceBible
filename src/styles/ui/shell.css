@@ -3,13 +3,13 @@ html,body{background:var(--dark)!important;color:var(--ink)!important;font-famil
 #appShell{background:linear-gradient(180deg,#080a0c,#050607)!important;padding-bottom:96px!important;min-height:100svh!important}
 #app{max-width:520px!important;margin:0 auto!important;padding:16px 14px 110px!important}
 .topbar{background:#050607!important;color:var(--ink)!important;border-bottom:1px solid var(--line)!important;padding:18px!important;box-shadow:0 12px 28px rgba(0,0,0,.28)!important}
-.topbar h1{color:var(--ink)!important;font-size:30px!important;line-height:1!important;letter-spacing:-.04em!important}
+.topbar h1{color:var(--ink)!important;font-size:30px!important;line-height:1!important;letter-spacing:0!important}
 .eyebrow{color:var(--gold)!important;letter-spacing:.2em!important;font-size:12px!important}
 body.is-rota-route{overflow:hidden!important}
 body.is-rota-route #appShell{min-height:100svh!important;padding-bottom:0!important;overflow:hidden!important}
 body.is-rota-route #app{height:100svh!important;max-width:none!important;padding-left:0!important;padding-right:0!important;padding-bottom:0!important;overflow:hidden!important}
 nav.mainNav,.profileSwitch+.mainNav{display:none!important}
-h2,h3,h4{color:var(--ink)!important;letter-spacing:-.03em!important}
+h2,h3,h4{color:var(--ink)!important;letter-spacing:0!important}
 p,.muted,small{color:var(--muted)!important}
 .card,.hero,.profileSwitch,.statusStrip>div,.docItem,.plainList li,.rowButton,.staffCard,.rotaPeopleShell,.profilePage,.panel,.workCard,.listItem,.issueCard{background:linear-gradient(180deg,var(--panel2),var(--panel))!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:24px!important;box-shadow:0 10px 28px rgba(0,0,0,.22)!important;padding:16px!important}
 .grid.two,.grid.cards{grid-template-columns:1fr!important}
