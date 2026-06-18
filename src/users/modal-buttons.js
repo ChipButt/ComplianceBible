@@ -111,7 +111,7 @@
   }
   function loadProfilePatches(){
     loadScriptOnce('employmentDocumentProfileScript','src/users/employment-document-profile.js?v=20260618-3','__employmentDocumentProfilePatchV2');
-    loadScriptOnce('profileAvailabilityEditorScript','src/users/profile-availability-editor.js?v=20260618-1','__profileAvailabilityEditorPatchV1');
+    loadScriptOnce('profileAvailabilityEditorScript','src/users/profile-availability-editor.js?v=20260618-2','__profileAvailabilityEditorPatchV2');
   }
   loadProfilePatches();
 
