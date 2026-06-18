@@ -1,4 +1,4 @@
-const CACHE = 'compliance-bible-clean-slate-v20260618-8';
+const CACHE = 'compliance-bible-clean-slate-v20260618-9';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,7 @@ const ASSETS = [
   './src/rota/bridge.js',
   './src/users/users.js',
   './src/users/document-requirements.js',
+  './src/users/employment-document-profile.js',
   './src/rota/home-integration.js',
   './src/documents/hub.js',
   './src/ui/profile-circle.js',
