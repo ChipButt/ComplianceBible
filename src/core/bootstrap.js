@@ -6,7 +6,7 @@
 
   const originalDashboard = dashboard;
   dashboard = function dashboardWithReportIssue() {
-    return originalDashboard() + `<details class="card homeReportIssue"><summary>Report an Issue</summary><form id="homeLogForm" class="stack"><select name="type"><option>Incident</option><option>Alcohol Refusal</option><option>Accident</option><option>Pest Sighting</option></select><input name="summary" placeholder="Short summary" required><textarea name="details" placeholder="Details, witnesses, action taken"></textarea><button class="primary">Add log</button></form></details>`;
+    return originalDashboard() + `<details class="card homeReportIssue"><summary>Report an Issue</summary><form id="homeLogForm" class="stack"><select name="type"><option>Incident</option><option>Alcohol Refusal</option><option>Accident</option><option>Pest Sighting</option></select><input name="summary" placeholder="Short summary" required><textarea name="details" placeholder="Details, witnesses, action taken"></textarea><button class="primary">Report Issue</button></form></details>`;
   };
 
   function activeMaintenanceIssues() {
