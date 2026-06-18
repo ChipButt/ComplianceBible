@@ -16,10 +16,10 @@
       { id: uid(), title: 'Fire Safety & Training', staffGroups: allStaffGroups(), expiryMode: 'none' },
       { id: uid(), title: 'Food Allergy and Intolerance', staffGroups: allStaffGroups(), expiryMode: 'none' },
       { id: uid(), title: 'Safer Food Better Business Health & Safety Awareness', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Signed Contract', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Working Hours Opt Out', staffGroups: allStaffGroups(), expiryMode: 'none' },
       { id: uid(), title: 'Kitchen Oil & Fryer Training', staffGroups: kitchenStaffGroups(), expiryMode: 'none' },
       { id: uid(), title: 'Food Safety & Hygiene Level 2', staffGroups: kitchenStaffGroups(), expiryMode: 'optional' },
-      { id: uid(), title: 'Signed Contract', staffGroups: [], expiryMode: 'none' },
-      { id: uid(), title: 'Working Hours Opt Out', staffGroups: [], expiryMode: 'none' },
       { id: uid(), title: 'Challenge 25 Training', staffGroups: [], expiryMode: 'none' },
       { id: uid(), title: 'COSHH Awareness', staffGroups: [], expiryMode: 'none' },
       { id: uid(), title: 'Fire Marshal', staffGroups: [], expiryMode: 'optional' },
@@ -37,6 +37,8 @@
     if (title === 'food hygiene certificate') return { ...req, title: 'Food Safety & Hygiene Level 2', staffGroups: kitchenStaffGroups(), expiryMode: req.expiryMode || 'optional' };
     if (title === 'allergen awareness certificate') return { ...req, title: 'Food Allergy and Intolerance', staffGroups: allStaffGroups(), expiryMode: 'none' };
     if (title === 'right to work document') return { ...req, staffGroups: [], expiryMode: req.expiryMode || 'optional' };
+    if (title === 'signed contract') return { ...req, staffGroups: allStaffGroups(), expiryMode: 'none' };
+    if (title === 'working hours opt out') return { ...req, staffGroups: allStaffGroups(), expiryMode: 'none' };
     return req;
   }
   function mergeDefaultRequirements(saved) {
@@ -144,6 +146,8 @@
       </div>`;
     }).join('')}</div>`;
   }
+
+  getDocRequirements();
 
   const previousSettingsContentForDocs = settingsContent;
   settingsContent = function settingsContentWithDocRequirements() {
