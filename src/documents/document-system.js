@@ -1,7 +1,7 @@
 // Final shared document upload system. Single source of truth for all document upload UI.
 (function () {
-  if (window.__finalDocumentSystemClean7) return;
-  window.__finalDocumentSystemClean7 = true;
+  if (window.__finalDocumentSystemClean8) return;
+  window.__finalDocumentSystemClean8 = true;
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
@@ -128,6 +128,13 @@
       '</div>' +
     '</article>';
   }
+
+  window.approvedDocumentUI = {
+    renderCard: card,
+    getUserRecord,
+    getRequirements: reqs,
+    requirementAppliesToUser
+  };
 
   function premisesItems() {
     if (hasOnlySectionFilter('Staff documents')) return [];

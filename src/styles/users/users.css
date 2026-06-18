@@ -216,34 +216,6 @@ body.user-info-modal-open { overflow: hidden !important; }
   padding-left: 10px !important;
   padding-right: 10px !important;
 }
-.profileTrainingDocSection .fdocIcon,
-.profileTrainingDocSection .fdocIcon svg {
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
-  max-width: 28px !important;
-}
-.profileTrainingDocSection .fdocBar {
-  min-height: 64px !important;
-  height: auto !important;
-  padding: 10px 12px !important;
-}
-.profileTrainingDocSection .fdoc {
-  border-radius: 18px !important;
-  overflow: hidden !important;
-}
-.profileTrainingDocSection .fdocName strong {
-  font-size: 15px !important;
-  line-height: 1.15 !important;
-}
-.profileTrainingDocSection .fdocName em { font-size: 11px !important; }
-.profileTrainingDocSection .fdocThumb {
-  width: 74px !important;
-  height: 74px !important;
-  min-width: 74px !important;
-  max-width: 74px !important;
-}
-.profileTrainingDocSection .fdocPanel { overflow: hidden !important; }
 .availabilityEditor {
   display: grid !important;
   grid-template-columns: repeat(7,minmax(0,1fr)) !important;

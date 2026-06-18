@@ -1,4 +1,4 @@
-const CACHE = 'compliance-bible-clean-slate-v20260618-16';
+const CACHE = 'compliance-bible-clean-slate-v20260618-18';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

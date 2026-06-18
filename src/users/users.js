@@ -14,13 +14,6 @@ const AVAILABILITY_DAYS = [
   ['sat', 'Saturday'],
   ['sun', 'Sunday']
 ];
-const centralProfileOpenDocCards = {};
-const centralProfileDocIcon = {
-  doc: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 15h7M9 18h5"/></svg>',
-  upload: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 14v5h14v-5"/></svg>',
-  camera: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h4l2-3h4l2 3h4v11H4z"/><circle cx="12" cy="13" r="4"/></svg>',
-  calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v15H5z"/><path d="M8 3v4M16 3v4M5 10h14"/></svg>'
-};
 
 function normaliseUserValue(value) {
   return String(value || '').trim().toLowerCase();
@@ -136,43 +129,6 @@ function linkedUserRequirements(user) {
     if (contract) byId.set(contract.id, contract);
   }
   return Array.from(byId.values());
-}
-
-function isDocumentImage(record) {
-  return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/');
-}
-
-function readProfileDocumentFile(file, done) {
-  const reader = new FileReader();
-  reader.onload = () => done(reader.result || '');
-  reader.readAsDataURL(file);
-}
-
-function confirmedProfileDocument(record) {
-  return !!(record?.fileData && (record.noExpiry || record.expiryDate || record.expiry));
-}
-
-function profileDocumentStatus(record, required) {
-  if (confirmedProfileDocument(record)) return ['', 'complete'];
-  if (record?.fileData) return ['Uploaded', 'warn'];
-  return [required ? 'Required' : 'Missing', 'danger'];
-}
-
-function profileDocumentExpiryText(record) {
-  if (record?.noExpiry) return 'Does not expire';
-  const raw = record?.expiryDate || record?.expiry || '';
-  if (!raw) return 'No expiry set';
-  try {
-    return new Date(raw + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (_) {
-    return raw;
-  }
-}
-
-function profileDocumentThumb(record) {
-  if (!record?.fileData) return '<button type="button" class="fdocThumb empty" data-training-doc-thumb="">No document</button>';
-  if (isDocumentImage(record)) return `<button type="button" class="fdocThumb" data-training-doc-thumb="${esc(record.id)}"><img src="${record.fileData}" alt="Document preview"></button>`;
-  return `<button type="button" class="fdocThumb file" data-training-doc-thumb="${esc(record.id)}">DOC</button>`;
 }
 
 function userInitials(name) {
@@ -301,21 +257,29 @@ function shiftList(shifts) {
   return upcoming.map(s => `<div class="listItem"><strong>${esc(s.date || 'Upcoming shift')}</strong><p>${esc((s.start || '') + (s.end ? ' - ' + s.end : ''))}</p><p class="muted">${esc(s.section || '')}${s.notes ? ' · ' + esc(s.notes) : ''}</p></div>`).join('');
 }
 
-function profileDocumentCard(user, req) {
+function approvedTrainingDocumentCard(user, req) {
+  const renderer = window.approvedDocumentUI && window.approvedDocumentUI.renderCard;
   const required = userDocumentApplies(req, user);
   const record = userDocumentRecordFor(user.id, req.id);
-  const status = profileDocumentStatus(record, required);
-  const badge = status[0] ? `<span class="fdocBadge ${status[1]}">${esc(status[0])}</span>` : '<span class="fdocBadge fdocBadgeEmpty" aria-hidden="true"></span>';
-  const key = user.id + '|' + req.id;
-  const cardKey = 'userdoc:' + key;
-  const expanded = !!centralProfileOpenDocCards[cardKey];
-  return `<article class="fdoc ${expanded ? 'open' : ''}" data-profile-training-doc="true" data-user-id="${esc(user.id)}" data-req-id="${esc(req.id)}"><button type="button" class="fdocBar" data-profile-training-toggle="${esc(cardKey)}"><span class="fdocIcon">${centralProfileDocIcon.doc}</span><span class="fdocName"><strong>${esc(req.title)}</strong><em>${esc((user.nickname || user.name) + ' · ' + (user.jobArea || user.area || user.role || 'Staff'))}</em></span>${badge}<span class="fdocDate">${esc(profileDocumentExpiryText(record))}</span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="fdocPanel ${expanded ? '' : 'closed'}"><p class="fdocInstruction">Upload evidence for ${esc(user.nickname || user.name)} and set expiry status.</p><div class="fdocBody">${profileDocumentThumb(record)}<div class="fdocControls"><div class="fdocUploads"><label>${centralProfileDocIcon.upload}<span>Choose File</span><input type="file" data-profile-training-file accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>${centralProfileDocIcon.camera}<span>Take Photo</span><input type="file" data-profile-training-photo accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input type="checkbox" data-profile-training-noexpiry ${record.noExpiry ? 'checked' : ''}><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">${centralProfileDocIcon.calendar}<span class="fdocExpiryText">Expiry Date</span><input type="date" data-profile-training-expiry value="${esc(record.expiryDate || record.expiry || '')}" ${record.noExpiry ? 'disabled' : ''}></span></label></div></div></div></div></article>`;
+  const staffLabel = (user.nickname || user.name) + ' · ' + (user.jobArea || user.area || user.role || 'Staff');
+  if (renderer) {
+    return renderer({
+      kind: 'userdoc',
+      key: user.id + '|' + req.id,
+      title: req.title,
+      cat: staffLabel,
+      record,
+      required,
+      note: 'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.'
+    });
+  }
+  return `<div class="listItem"><strong>${esc(req.title)}</strong><p>${esc(staffLabel)}</p><p class="muted">Document controls are loading.</p></div>`;
 }
 
 function trainingDocumentBlock(user, training) {
   const reqs = linkedUserRequirements(user);
-  const docs = reqs.length ? reqs.map(req => profileDocumentCard(user, req)).join('') : '<p class="muted">No staff documents linked to this profile.</p>';
-  return `<h2>Training & Staff Documents</h2><h3>Staff documents</h3><section class="fdocSection profileTrainingDocSection">${docs}</section><h3>Training records</h3>${training.length ? training.map(t => `<div class="listItem"><strong>${esc(t.course)}</strong><p>${esc(t.status)}${t.expiry ? ' · Expires ' + esc(t.expiry) : ''}</p><p class="muted">${esc(t.evidence || '')}</p></div>`).join('') : '<p class="muted">No training records.</p>'}`;
+  const docs = reqs.length ? reqs.map(req => approvedTrainingDocumentCard(user, req)).join('') : '<p class="muted">No staff documents linked to this profile.</p>';
+  return `<h2>Training & Staff Documents</h2><h3>Staff documents</h3><section class="fdocSection">${docs}</section><h3>Training records</h3>${training.length ? training.map(t => `<div class="listItem"><strong>${esc(t.course)}</strong><p>${esc(t.status)}${t.expiry ? ' · Expires ' + esc(t.expiry) : ''}</p><p class="muted">${esc(t.evidence || '')}</p></div>`).join('') : '<p class="muted">No training records.</p>'}`;
 }
 
 function centralUserProfilePage() {
@@ -373,85 +337,6 @@ function refreshActiveProfileSection() {
     return;
   }
   render();
-}
-
-function openProfileDocumentViewer(record) {
-  if (!record?.fileData) return;
-  modalRoot.innerHTML = `<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>${esc(record.fileName || 'Document evidence')}</h2>${isDocumentImage(record) ? `<img class="fdocFull" src="${record.fileData}" alt="Document preview">` : `<div class="fdocFileBig">Document file</div><a class="ghost evidenceOpenLink" href="${record.fileData}" download="${esc(record.fileName || 'document')}">Open / Download</a>`}</div>`;
-  modalRoot.classList.remove('hidden');
-  document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
-}
-
-function bindTrainingDocumentControls() {
-  document.querySelectorAll('[data-profile-training-toggle]').forEach(button => {
-    if (button.dataset.boundTrainingToggle) return;
-    button.dataset.boundTrainingToggle = '1';
-    button.onclick = () => {
-      const key = button.dataset.profileTrainingToggle;
-      const card = button.closest('.fdoc');
-      const panel = card && card.querySelector('.fdocPanel');
-      const isOpen = !(card && card.classList.contains('open'));
-      centralProfileOpenDocCards[key] = isOpen;
-      if (card) card.classList.toggle('open', isOpen);
-      if (panel) panel.classList.toggle('closed', !isOpen);
-    };
-  });
-  document.querySelectorAll('[data-profile-training-file],[data-profile-training-photo]').forEach(input => {
-    if (input.dataset.boundTrainingFile) return;
-    input.dataset.boundTrainingFile = '1';
-    input.onchange = () => {
-      const card = input.closest('[data-profile-training-doc]');
-      const file = input.files && input.files[0];
-      if (!card || !file) return;
-      const record = userDocumentRecordFor(card.dataset.userId, card.dataset.reqId);
-      readProfileDocumentFile(file, data => {
-        record.fileData = data;
-        record.fileName = file.name || 'Photo';
-        record.fileType = file.type || 'image/jpeg';
-        record.uploadedAt = new Date().toISOString();
-        save();
-        refreshActiveProfileSection();
-      });
-    };
-  });
-  document.querySelectorAll('[data-profile-training-noexpiry]').forEach(input => {
-    if (input.dataset.boundNoExpiry) return;
-    input.dataset.boundNoExpiry = '1';
-    input.onchange = () => {
-      const card = input.closest('[data-profile-training-doc]');
-      if (!card) return;
-      const record = userDocumentRecordFor(card.dataset.userId, card.dataset.reqId);
-      record.noExpiry = input.checked;
-      if (input.checked) {
-        record.expiryDate = '';
-        record.expiry = '';
-      }
-      save();
-      refreshActiveProfileSection();
-    };
-  });
-  document.querySelectorAll('[data-profile-training-expiry]').forEach(input => {
-    if (input.dataset.boundExpiry) return;
-    input.dataset.boundExpiry = '1';
-    input.onchange = () => {
-      const card = input.closest('[data-profile-training-doc]');
-      if (!card) return;
-      const record = userDocumentRecordFor(card.dataset.userId, card.dataset.reqId);
-      record.expiryDate = input.value;
-      record.expiry = input.value;
-      record.noExpiry = false;
-      save();
-      refreshActiveProfileSection();
-    };
-  });
-  document.querySelectorAll('[data-training-doc-thumb]').forEach(button => {
-    if (button.dataset.boundDocThumb) return;
-    button.dataset.boundDocThumb = '1';
-    button.onclick = event => {
-      event.stopPropagation();
-      openProfileDocumentViewer(userDocumentRecords().find(record => record.id === button.dataset.trainingDocThumb));
-    };
-  });
 }
 
 function bindAvailabilityEditor() {
@@ -523,7 +408,6 @@ function bindCentralUsers() {
     centralUserActiveSection = btn.dataset.centralSection || 'personal';
     render();
   });
-  bindTrainingDocumentControls();
   bindAvailabilityEditor();
 }
 
