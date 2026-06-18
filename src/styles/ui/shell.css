@@ -35,3 +35,31 @@ button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!impo
 .rotaEmbedCard{padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
 .rotaScheduleEmbed{width:100%!important;height:calc(100svh - var(--fixed-topbar-height,74px) - var(--fixed-mainnav-height,80px) - 28px)!important;max-width:none!important;margin:0!important;overflow:hidden!important}
 .rotaFrame{display:block!important;width:100%!important;height:100%!important;min-height:0!important;border:0!important;border-radius:0!important;background:#050607!important}
+#modal .close,#modal .modalClose,.modalClose,button.close,button.reportModalClose{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;border-radius:999px!important;border:1px solid rgba(208,173,88,.56)!important;background:#071522!important;color:#d0ad58!important;box-shadow:0 8px 18px rgba(0,0,0,.30)!important;font-size:25px!important;font-weight:900!important;line-height:1!important;text-align:center!important}
+.inspectionGrid{gap:14px!important}
+.inspectionDocumentsCard,.inspectionTrainingCard{display:grid!important;gap:10px!important}
+.inspectionDocRow{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:7px 10px!important;align-items:center!important;padding:10px 0!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
+.inspectionDocRow:last-child{border-bottom:0!important}
+.inspectionDocTitle{min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;text-align:left!important;font-size:14px!important;font-weight:900!important;line-height:1.15!important;text-decoration:underline!important;text-decoration-color:rgba(208,173,88,.58)!important;text-underline-offset:3px!important}
+.inspectionDocRow>span{grid-column:1/-1!important;color:#aaa194!important;font-size:12px!important;font-weight:700!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.inspectionDocRow>.badge{justify-self:end!important;grid-column:2!important;grid-row:1!important}
+.inspectionUserList{display:grid!important;gap:10px!important}
+.inspectionUserCard{border:1px solid rgba(255,255,255,.09)!important;border-radius:18px!important;overflow:hidden!important;background:rgba(255,255,255,.035)!important}
+.inspectionUserButton{width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto 24px!important;gap:10px!important;align-items:center!important;min-height:62px!important;padding:11px 12px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff8ea!important;text-align:left!important}
+.inspectionUserButton strong,.inspectionUserButton em{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.inspectionUserButton strong{font-size:16px!important;color:#fff8ea!important}
+.inspectionUserButton em,.inspectionUserButton small{font-style:normal!important;color:#aaa194!important;font-size:12px!important;font-weight:760!important}
+.inspectionUserPanel{display:grid!important;gap:10px!important;padding:0 12px 12px!important}
+.inspectionUserPanel.closed{display:none!important}
+.inspectionUserPanel h4{margin:6px 0 0!important;font-size:13px!important;color:#d0ad58!important}
+.inspectionTrainingRow{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:4px 8px!important;align-items:center!important;padding:8px 0!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
+.inspectionTrainingRow span{font-weight:850!important;color:#fff8ea!important}
+.inspectionTrainingRow small{grid-column:1/-1!important}
+#modal.inspectDocViewerOpen{position:fixed!important;inset:0!important;z-index:1000!important;display:flex!important;align-items:stretch!important;justify-content:center!important;padding:0!important;background:rgba(0,0,0,.86)!important;overflow:hidden!important}
+#modal.inspectDocViewerOpen.hidden{display:none!important}
+#modal .inspectDocViewerModal{width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;margin:0!important;border-radius:0!important;overflow-y:auto!important;overflow-x:hidden!important;display:grid!important;grid-template-rows:auto auto minmax(0,1fr)!important;gap:10px!important;padding:16px!important;box-sizing:border-box!important}
+#modal .inspectDocViewerModal .close{position:fixed!important;top:14px!important;right:14px!important;z-index:3!important}
+#modal .inspectDocViewerModal h2{padding-right:52px!important;margin:0!important}
+.inspectFullDocument{width:100%!important;height:auto!important;max-height:calc(100svh - 120px)!important;object-fit:contain!important;border-radius:16px!important;background:#050607!important}
+.inspectFullFrame{width:100%!important;height:calc(100svh - 160px)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:16px!important;background:#fff!important}
+.inspectMissingDocument{min-height:45svh!important;display:grid!important;place-items:center!important;text-align:center!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:18px!important;background:rgba(255,255,255,.04)!important;padding:18px!important}

@@ -337,6 +337,25 @@ main > .toolbar {
   transform: none !important;
 }
 
+.modalClose {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(208, 173, 88, 0.56) !important;
+  background: #071522 !important;
+  color: #d0ad58 !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3) !important;
+  font-size: 25px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
 .rotaDraggableShift {
   cursor: grab !important;
   user-select: none !important;

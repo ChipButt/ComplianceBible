@@ -65,6 +65,7 @@ let route = 'dashboard';
 let settingsTab = 'checks';
 let lastPermittedRoute = 'dashboard';
 let deferredInstallPrompt = null;
+let openInspectionUserDocs = {};
 const PERMISSION_KEYS = ['checks', 'documents', 'logs', 'users', 'rota', 'inspection', 'settings'];
 
 try {
@@ -256,13 +257,169 @@ function staff() {
   const courses = ['Food Hygiene', 'Allergen Awareness', 'Fire Safety', 'Challenge 25', 'Manual Handling'];
   return `<section class="grid two"><article class="card"><h2>Staff</h2>${state.users.map(u => `<div class="staffCard"><strong>${esc(u.nickname)}</strong><span>${esc(u.name)} · ${esc(u.role)} · ${esc(u.area)}</span><small>${esc(u.email || '')}</small></div>`).join('')}</article><article class="card"><h2>Add staff member</h2><form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown internally" required><input name="email" type="email" placeholder="Email"><select name="role"><option>Staff</option><option>Supervisor</option><option>Admin</option></select><select name="area">${state.areas.map(a => `<option>${esc(a)}</option>`).join('')}</select><button class="primary">Add staff</button></form></article></section><section class="card"><h2>Training matrix</h2><div class="tableWrap"><table><thead><tr><th>Staff</th>${courses.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${state.users.map(u => `<tr><td>${esc(u.nickname)}</td>${courses.map(course => { const t = state.training.find(x => x.userId === u.id && x.course === course); return `<td>${t ? badge(t.status, t.status === 'Valid' ? 'ok' : 'warn') : badge('Missing', 'danger')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div><h3>Add training record</h3><form id="trainingForm" class="inlineForm"><select name="userId">${state.users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status"><option>Valid</option><option>Due Soon</option><option>Missing</option></select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form></section>`;
 }
+
+function inspectRequirements() {
+  try {
+    if (window.approvedDocumentUI && typeof window.approvedDocumentUI.getRequirements === 'function') return window.approvedDocumentUI.getRequirements();
+  } catch (_) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem('complianceUserDocumentRequirementsV1') || '[]');
+    return Array.isArray(saved) ? saved : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function inspectUserGroupKeys(u) {
+  return new Set([u?.jobArea, u?.area, u?.role, u?.permissionSetId, 'Staff', 'All staff'].map(value => String(value || '').trim().toLowerCase()).filter(Boolean));
+}
+
+function inspectRequirementApplies(req, u) {
+  if (!req || !u) return false;
+  const groups = Array.isArray(req.staffGroups) ? req.staffGroups : [];
+  if (!groups.length) return false;
+  const keys = inspectUserGroupKeys(u);
+  return groups.some(group => {
+    const key = String(group || '').trim().toLowerCase();
+    return key === 'staff' || key === 'all staff' || keys.has(key);
+  });
+}
+
+function inspectUserDocumentRecord(userId, reqId) {
+  return (state.userRequiredDocuments || []).find(record => record.userId === userId && record.requirementId === reqId);
+}
+
+function inspectDocumentComplete(record) {
+  return !!(record && record.fileData && (record.noExpiry || record.expiryDate || record.expiry));
+}
+
+function inspectDocumentStatus(record, required) {
+  if (inspectDocumentComplete(record)) return { label: 'Complete', kind: 'ok' };
+  if (record && record.fileData) return { label: 'Uploaded', kind: 'warn' };
+  return { label: required ? 'Required' : 'Missing', kind: 'danger' };
+}
+
+function inspectExpiryText(record) {
+  if (!record) return 'No document uploaded';
+  if (record.noExpiry) return 'Does not expire';
+  const raw = record.expiryDate || record.expiry || '';
+  if (!raw) return record.fileData ? 'No expiry set' : 'No document uploaded';
+  return 'Expires ' + raw;
+}
+
+function inspectIsImage(record) {
+  return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/');
+}
+
+function inspectUserDocumentRows(u) {
+  const requirements = inspectRequirements();
+  const byId = new Map();
+  requirements.filter(req => inspectRequirementApplies(req, u)).forEach(req => byId.set(req.id, req));
+  (state.userRequiredDocuments || []).filter(record => record.userId === u.id && record.requirementId).forEach(record => {
+    const req = requirements.find(item => item.id === record.requirementId);
+    if (req) byId.set(req.id, req);
+  });
+  return Array.from(byId.values()).map(req => {
+    const record = inspectUserDocumentRecord(u.id, req.id);
+    const required = inspectRequirementApplies(req, u);
+    return { user: u, req, record, required, status: inspectDocumentStatus(record, required) };
+  });
+}
+
+function inspectDocRef(kind, key) {
+  return `${kind}::${key}`;
+}
+
+function inspectFindDocument(ref) {
+  const [kind, ...rest] = String(ref || '').split('::');
+  const key = rest.join('::');
+  if (kind === 'premises') {
+    const record = (state.docs || []).find(doc => doc.id === key);
+    if (!record) return null;
+    return { title: record.title || 'Premises document', subtitle: record.cat || 'Premises document', record };
+  }
+  if (kind === 'userdoc') {
+    const [userId, reqId] = key.split('|');
+    const userRecord = user(userId);
+    const req = inspectRequirements().find(item => item.id === reqId);
+    const record = inspectUserDocumentRecord(userId, reqId);
+    return { title: req?.title || 'Staff document', subtitle: `${userRecord?.nickname || userRecord?.name || 'Staff'} · ${userRecord?.jobArea || userRecord?.area || userRecord?.role || 'Staff'}`, record };
+  }
+  return null;
+}
+
+function inspectionDocumentButton(title, ref, meta, status) {
+  return `<div class="inspectionDocRow"><button type="button" class="inspectionDocTitle" data-inspect-doc-view="${esc(ref)}">${esc(title)}</button><span>${esc(meta)}</span>${badge(status.label, status.kind)}</div>`;
+}
+
+function inspectionDocuments() {
+  const rows = (state.docs || []).map(doc => {
+    const status = doc.fileData || doc.status === 'Stored' ? { label: 'Stored', kind: 'ok' } : { label: doc.status || 'Missing', kind: 'warn' };
+    const meta = `${doc.cat || 'Document'} · ${doc.expiry ? 'Expires ' + doc.expiry : 'No expiry set'}`;
+    return inspectionDocumentButton(doc.title || 'Untitled document', inspectDocRef('premises', doc.id), meta, status);
+  });
+  return `<article class="card inspectionDocumentsCard"><h3>Documents</h3>${rows.length ? rows.join('') : '<p class="muted">No premises documents have been added.</p>'}</article>`;
+}
+
+function inspectionStaffTraining() {
+  const cards = (state.users || []).map(u => {
+    const training = (state.training || []).filter(item => item.userId === u.id);
+    const docs = inspectUserDocumentRows(u);
+    const completeCount = docs.filter(row => row.status.kind === 'ok').length;
+    const open = !!openInspectionUserDocs[u.id];
+    const docRows = docs.length ? docs.map(row => {
+      const title = row.req.title || 'Staff document';
+      const meta = `${inspectExpiryText(row.record)}${row.record?.fileName ? ' · ' + row.record.fileName : ''}`;
+      return inspectionDocumentButton(title, inspectDocRef('userdoc', `${u.id}|${row.req.id}`), meta, row.status);
+    }).join('') : '<p class="muted">No document requirements linked to this user.</p>';
+    const trainingRows = training.length ? training.map(item => `<div class="inspectionTrainingRow"><span>${esc(item.course)}</span>${badge(item.status || 'Missing', item.status === 'Valid' ? 'ok' : 'warn')}<small>${esc(item.expiry ? 'Expires ' + item.expiry : item.evidence || 'No expiry set')}</small></div>`).join('') : '<p class="muted">No training records.</p>';
+    return `<article class="inspectionUserCard ${open ? 'open' : ''}">
+      <button type="button" class="inspectionUserButton" data-inspect-user-toggle="${esc(u.id)}"><span><strong>${esc(u.nickname || u.name)}</strong><em>${esc(u.name)} · ${esc(u.jobArea || u.area || u.role || 'Staff')}</em></span><small>${completeCount}/${docs.length} docs complete</small><span class="fdocArrow">⌄</span></button>
+      <div class="inspectionUserPanel ${open ? '' : 'closed'}"><h4>Documents</h4>${docRows}<h4>Training records</h4>${trainingRows}</div>
+    </article>`;
+  });
+  return `<article class="card inspectionTrainingCard"><h3>Staff Training</h3><p class="muted">Open a user to view every required document and training record.</p><div class="inspectionUserList">${cards.join('')}</div></article>`;
+}
+
 function inspection() {
-  return `<section class="hero card"><div><p class="eyebrow">Read-only pack</p><h2>Inspection Mode</h2><p>Show the current compliance position without exposing private admin settings.</p></div><button class="primary" id="exportBtn">Export report</button></section><section class="grid two"><article class="card"><h3>Pub details</h3><p><strong>${esc(state.pub.name)}</strong><br>${esc(state.pub.address)}<br>Premises licence: ${esc(state.pub.licence)}<br>DPS: ${esc(state.pub.dps)}</p></article><article class="card"><h3>Today’s checks</h3><p>${state.done.filter(c => c.date === today()).length}/${state.checks.length} completed today.</p>${state.checks.map(c => `<div class="miniRow"><span>${esc(c.title)}</span>${done(c.id) ? badge('Done', 'ok') : overdue(c) ? badge('Overdue', 'danger') : badge('Pending', 'warn')}</div>`).join('')}</article><article class="card"><h3>Required documents</h3>${state.docs.map(d => `<div class="miniRow"><span>${esc(d.title)}</span>${badge(d.status, d.status === 'Stored' ? 'ok' : 'warn')}</div>`).join('')}</article><article class="card"><h3>Staff training</h3>${state.training.map(t => `<div class="miniRow"><span>${esc(user(t.userId).nickname)} · ${esc(t.course)}</span>${badge(t.status, t.status === 'Valid' ? 'ok' : 'warn')}</div>`).join('')}</article></section>`;
+  const completedToday = state.done.filter(c => c.date === today()).length;
+  return `<section class="hero card"><div><p class="eyebrow">Read-only pack</p><h2>Inspection Mode</h2><p>Current checks, documents, staff requirements, training and open issues.</p></div><button class="primary" id="exportBtn">Export report</button></section>
+  <section class="grid two inspectionGrid">
+    <article class="card"><h3>Pub details</h3><p><strong>${esc(state.pub.name)}</strong><br>${esc(state.pub.address)}<br>Premises licence: ${esc(state.pub.licence)}<br>DPS: ${esc(state.pub.dps)}</p></article>
+    <article class="card"><h3>Today's checks</h3><p>${completedToday}/${state.checks.length} completed today.</p>${state.checks.map(c => `<div class="miniRow"><span>${esc(c.title)}</span>${done(c.id) ? badge('Done', 'ok') : overdue(c) ? badge('Overdue', 'danger') : badge('Pending', 'warn')}</div>`).join('')}</article>
+    ${inspectionDocuments()}
+    ${inspectionStaffTraining()}
+    <article class="card"><h3>Open issues</h3>${state.issues.filter(issue => issue.status !== 'Resolved').length ? state.issues.filter(issue => issue.status !== 'Resolved').map(issue => `<div class="miniRow"><span>${esc(issue.title)}<small>${esc(issue.area || '')}</small></span>${badge(issue.severity || 'Open', issue.severity === 'Critical' ? 'danger' : 'warn')}</div>`).join('') : '<p class="muted">No open issues.</p>'}</article>
+  </section>`;
+}
+
+function closeInspectionDocumentViewer() {
+  modalRoot.classList.add('hidden');
+  modalRoot.classList.remove('inspectDocViewerOpen');
+  modalRoot.innerHTML = '';
+  modalRoot.onclick = null;
+}
+
+function openInspectionDocumentViewer(ref) {
+  const item = inspectFindDocument(ref);
+  if (!item) return;
+  const record = item.record || {};
+  const hasFile = !!record.fileData;
+  const body = hasFile
+    ? inspectIsImage(record)
+      ? `<img class="inspectFullDocument" src="${record.fileData}" alt="${esc(item.title)}">`
+      : `<iframe class="inspectFullFrame" src="${record.fileData}" title="${esc(item.title)}"></iframe><a class="ghost evidenceOpenLink" href="${record.fileData}" download="${esc(record.fileName || item.title || 'document')}">Open / Download</a>`
+    : `<div class="inspectMissingDocument"><strong>No document uploaded</strong><p class="muted">This requirement is visible in Inspect, but no file has been attached yet.</p></div>`;
+  modalRoot.innerHTML = `<div class="modalCard inspectDocViewerModal" role="dialog" aria-modal="true"><button class="close" id="inspectDocClose" type="button">×</button><h2>${esc(item.title)}</h2><p class="muted">${esc(item.subtitle || '')}${record.fileName ? ' · ' + esc(record.fileName) : ''}</p>${body}</div>`;
+  modalRoot.classList.add('inspectDocViewerOpen');
+  modalRoot.classList.remove('hidden');
+  document.getElementById('inspectDocClose').onclick = closeInspectionDocumentViewer;
+  modalRoot.onclick = event => { if (event.target === modalRoot) closeInspectionDocumentViewer(); };
 }
 
 function rota() {
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-12"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260618-1"></iframe>
   </section>`;
 }
 
@@ -365,6 +522,15 @@ function bind() {
   document.querySelectorAll('[data-settings-tab]').forEach(b => b.onclick = () => { settingsTab = b.dataset.settingsTab; render(); });
   document.querySelectorAll('[data-edit-user]').forEach(b => b.onclick = () => openUserEditor(b.dataset.editUser));
   document.querySelectorAll('[data-doc]').forEach(b => b.onclick = () => { const d = state.docs.find(x => x.id === b.dataset.doc); if (d) d.status = d.status === 'Stored' ? 'Missing' : 'Stored'; save(); render(); });
+  document.querySelectorAll('[data-inspect-user-toggle]').forEach(b => b.onclick = () => {
+    const card = b.closest('.inspectionUserCard');
+    const panel = card && card.querySelector('.inspectionUserPanel');
+    const isOpen = !(card && card.classList.contains('open'));
+    openInspectionUserDocs[b.dataset.inspectUserToggle] = isOpen;
+    if (card) card.classList.toggle('open', isOpen);
+    if (panel) panel.classList.toggle('closed', !isOpen);
+  });
+  document.querySelectorAll('[data-inspect-doc-view]').forEach(b => b.onclick = () => openInspectionDocumentViewer(b.dataset.inspectDocView));
   document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) i.status = i.status === 'Resolved' ? 'Open' : 'Resolved'; save(); render(); });
   on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: d.freq, due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
   on('docForm', e => { const d = fd(e); state.docs.push({ id: uid(), title: d.title, cat: d.cat, expiry: d.expiry, notes: d.notes, status: 'Missing' }); save(); render(); });
@@ -452,6 +618,7 @@ function openCheck(id) {
   };
 }
 function exportReport() {
+  const staffDocumentLines = (state.users || []).flatMap(u => inspectUserDocumentRows(u).map(row => `${u.nickname || u.name} - ${row.req.title}: ${row.status.label} (${inspectExpiryText(row.record)})`));
   const lines = [
     `${state.pub.name} - Inspection Report`,
     `Generated: ${new Date().toLocaleString()}`,
@@ -463,6 +630,9 @@ function exportReport() {
     '',
     'DOCUMENTS',
     ...state.docs.map(d => `${d.cat} - ${d.title}: ${d.status}${d.expiry ? ' expiry ' + d.expiry : ''}`),
+    '',
+    'STAFF DOCUMENTS',
+    ...(staffDocumentLines.length ? staffDocumentLines : ['No staff document requirements found']),
     '',
     'TRAINING',
     ...state.training.map(t => `${user(t.userId).nickname} - ${t.course}: ${t.status}`),
