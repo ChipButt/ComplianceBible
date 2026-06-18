@@ -2,21 +2,61 @@
 (function userDocumentRequirementsPatch() {
   const DOC_REQ_KEY = 'complianceUserDocumentRequirementsV1';
 
+  function allStaffGroups() {
+    return ['FOH', 'Bar', 'Kitchen', 'Office', 'WFH', 'Housekeeping', 'KP', 'Kitchen PotWash', 'Staff', 'Supervisor', 'Admin'];
+  }
+  function kitchenStaffGroups() {
+    return ['Kitchen', 'KP', 'Kitchen PotWash'];
+  }
   function defaultDocRequirements() {
     return [
-      { id: uid(), title: 'Right to Work document', staffGroups: ['FOH', 'Kitchen', 'Office', 'WFH', 'Housekeeping', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' },
-      { id: uid(), title: 'Food Hygiene certificate', staffGroups: ['Kitchen', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' },
-      { id: uid(), title: 'Allergen Awareness certificate', staffGroups: ['FOH', 'Kitchen', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' }
+      { id: uid(), title: 'New Starter Pay Information', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'New Starter Medical Questionnaire', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Piston Club Handbook Declaration', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Fire Safety & Training', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Food Allergy and Intolerance', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Safer Food Better Business Health & Safety Awareness', staffGroups: allStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Kitchen Oil & Fryer Training', staffGroups: kitchenStaffGroups(), expiryMode: 'none' },
+      { id: uid(), title: 'Food Safety & Hygiene Level 2', staffGroups: kitchenStaffGroups(), expiryMode: 'optional' },
+      { id: uid(), title: 'Signed Contract', staffGroups: [], expiryMode: 'none' },
+      { id: uid(), title: 'Working Hours Opt Out', staffGroups: [], expiryMode: 'none' },
+      { id: uid(), title: 'Challenge 25 Training', staffGroups: [], expiryMode: 'none' },
+      { id: uid(), title: 'COSHH Awareness', staffGroups: [], expiryMode: 'none' },
+      { id: uid(), title: 'Fire Marshal', staffGroups: [], expiryMode: 'optional' },
+      { id: uid(), title: 'Food Safety & Hygiene Level 3', staffGroups: [], expiryMode: 'optional' },
+      { id: uid(), title: 'HACCP', staffGroups: [], expiryMode: 'optional' },
+      { id: uid(), title: 'First Aid', staffGroups: [], expiryMode: 'optional' },
+      { id: uid(), title: 'Cellar Management', staffGroups: [], expiryMode: 'none' }
     ];
   }
+  function normaliseTitle(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+  function migrateLegacyRequirement(req) {
+    const title = normaliseTitle(req.title);
+    if (title === 'food hygiene certificate') return { ...req, title: 'Food Safety & Hygiene Level 2', staffGroups: kitchenStaffGroups(), expiryMode: req.expiryMode || 'optional' };
+    if (title === 'allergen awareness certificate') return { ...req, title: 'Food Allergy and Intolerance', staffGroups: allStaffGroups(), expiryMode: 'none' };
+    if (title === 'right to work document') return { ...req, staffGroups: [], expiryMode: req.expiryMode || 'optional' };
+    return req;
+  }
+  function mergeDefaultRequirements(saved) {
+    const migrated = (Array.isArray(saved) ? saved : []).map(migrateLegacyRequirement);
+    const byTitle = new Map(migrated.map(req => [normaliseTitle(req.title), req]));
+    defaultDocRequirements().forEach(req => {
+      const key = normaliseTitle(req.title);
+      if (!byTitle.has(key)) byTitle.set(key, req);
+    });
+    return Array.from(byTitle.values());
+  }
   function getDocRequirements() {
+    let saved = [];
     try {
-      const saved = JSON.parse(localStorage.getItem(DOC_REQ_KEY) || 'null');
-      if (Array.isArray(saved) && saved.length) return saved;
+      const parsed = JSON.parse(localStorage.getItem(DOC_REQ_KEY) || 'null');
+      if (Array.isArray(parsed)) saved = parsed;
     } catch {}
-    const defaults = defaultDocRequirements();
-    localStorage.setItem(DOC_REQ_KEY, JSON.stringify(defaults));
-    return defaults;
+    const merged = mergeDefaultRequirements(saved);
+    localStorage.setItem(DOC_REQ_KEY, JSON.stringify(merged));
+    return merged;
   }
   function saveDocRequirements(requirements) {
     localStorage.setItem(DOC_REQ_KEY, JSON.stringify(requirements));
@@ -36,7 +76,7 @@
     return getUserDocRecords(userId).find(record => record.requirementId === requirementId);
   }
   function groupOptions() {
-    const groups = Array.from(new Set([...(state.areas || []), 'FOH', 'Kitchen', 'Office', 'WFH', 'Housekeeping', 'KP', 'Kitchen PotWash']));
+    const groups = Array.from(new Set([...(state.areas || []), ...allStaffGroups()]));
     return groups.filter(Boolean);
   }
 
@@ -46,7 +86,7 @@
     return `<h2>User document requirements</h2>
       <p class="muted">Choose which staff groups need which documents. User uploads are handled inside each user profile.</p>
       <div class="docList">${requirements.map(req => `<div class="docItem">
-        <div><strong>${esc(req.title)}</strong><span>Required for: ${(req.staffGroups || []).map(esc).join(', ') || 'No groups selected'}</span><p>${req.expiryMode === 'none' ? 'No expiry required' : 'Expiry date or No Expiry Date option available'}</p></div>
+        <div><strong>${esc(req.title)}</strong><span>Required for: ${(req.staffGroups || []).map(esc).join(', ') || 'Optional / manually assign later'}</span><p>${req.expiryMode === 'none' ? 'No expiry required' : 'Expiry date or No Expiry Date option available'}</p></div>
         <div><button class="ghost small" data-edit-doc-req="${req.id}">Edit</button><button class="ghost small" data-delete-doc-req="${req.id}">Remove</button></div>
       </div>`).join('')}</div>
       <h3>Add required document</h3>
