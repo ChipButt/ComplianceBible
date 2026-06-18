@@ -71,10 +71,9 @@
     .shoppingListItems span { color: #fff8ea !important; font-weight: 800 !important; }
     .rotaHomePanel > h2, .rotaHomePanel .homeShiftList { display: none !important; }
     .homeReportIssue { margin-top: 18px !important; }
-    .homeReportIssue summary { cursor: pointer !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; gap: 12px !important; font-size: 22px !important; font-weight: 900 !important; color: #d83b2d !important; list-style: none !important; }
+    .homeReportIssue summary { cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; width: 100% !important; font-size: 22px !important; font-weight: 900 !important; color: #d83b2d !important; list-style: none !important; }
     .homeReportIssue summary::-webkit-details-marker { display: none !important; }
-    .homeReportIssue summary::after { content: '⌄'; color: #d83b2d !important; font-size: 24px !important; line-height: 1 !important; transition: transform .16s ease !important; }
-    .homeReportIssue[open] summary::after { transform: rotate(180deg) !important; }
+    .homeReportIssue summary::after { content: none !important; display: none !important; }
     .homeReportIssue form { margin-top: 16px !important; }
   `;
   document.head.appendChild(maintenanceStyle);
