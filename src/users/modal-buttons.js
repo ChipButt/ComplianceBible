@@ -106,12 +106,14 @@
     var script=document.createElement('script');
     script.id=id;
     script.src=src;
+    script.async=false;
     script.defer=true;
     document.body.appendChild(script);
   }
   function loadProfilePatches(){
     loadScriptOnce('employmentDocumentProfileScript','src/users/employment-document-profile.js?v=20260618-3','__employmentDocumentProfilePatchV2');
     loadScriptOnce('profileAvailabilityEditorScript','src/users/profile-availability-editor.js?v=20260618-2','__profileAvailabilityEditorPatchV2');
+    loadScriptOnce('profileTrainingDocButtonsScript','src/users/profile-training-doc-buttons.js?v=20260618-1','__profileTrainingDocButtonsPatchV1');
   }
   loadProfilePatches();
 
