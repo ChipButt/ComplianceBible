@@ -43,7 +43,9 @@
   }
 
   function assignedCheckDueToday(check) {
-    if (!check || check.assignedUserId !== currentUserId()) return false;
+    if (!check) return false;
+    const assignedUserId = check.assignedUserId || '';
+    if (assignedUserId && assignedUserId !== currentUserId()) return false;
     try { if (typeof done === 'function' && done(check.id)) return false; } catch (e) {}
     const freq = String(check.freq || 'Daily');
     const now = new Date();

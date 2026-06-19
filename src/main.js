@@ -455,7 +455,7 @@ function settingsContent() {
 
 function settingsChecks() {
   return `<h2>Checklist setup</h2>
-  <div class="docList">${state.checks.map(c => `<div class="docItem"><div><strong>${esc(c.title)}</strong><span>${esc(c.area)} · ${esc(c.freq)} · Due ${esc(c.due)}</span><p>${esc((c.items || []).length)} checklist items</p></div><div><button class="ghost small" data-edit-check="${c.id}">Edit</button><button class="primary small" data-complete="${c.id}">Test</button></div></div>`).join('')}</div>
+  <div class="docList">${state.checks.map(c => `<div class="docItem"><div><strong>${esc(c.title)}</strong><span>${esc(c.area)} · ${esc(c.freq)} · Due ${esc(c.due)}</span><p>${esc((c.items || []).length)} checklist items</p></div><div><button class="ghost small" data-edit-check="${c.id}">Edit</button></div></div>`).join('')}</div>
   <h3>Add new Check</h3>
   <form id="checkForm" class="stack">
     <input name="title" placeholder="Check title" required>

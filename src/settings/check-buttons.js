@@ -3,6 +3,7 @@
   window.__settingsCheckButtonsUnified=true;
 
   function e(v){try{return esc(v);}catch(_){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c];});}}
+  function cog(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z"/><path d="M19.4 13.5a7.9 7.9 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8.2 8.2 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A8.2 8.2 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.9 7.9 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8.2 8.2 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a8.2 8.2 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5Z"/></svg>';}
 
   window.settingsChecks=function(){
     var rows=(state.checks||[]).map(function(c){
@@ -12,9 +13,8 @@
           '<em>'+e(c.area)+' · '+e(c.freq)+' · Due '+e(c.due||'')+'</em>'+
           '<span>'+e((c.items||[]).length)+' checklist items</span>'+
         '</div>'+
-        '<div class="settingsCheckActions">'+
-          '<button class="settingsActionButton settingsEditButton" data-edit-check="'+e(c.id)+'">Edit</button>'+
-          '<button class="settingsActionButton settingsTestButton" data-complete="'+e(c.id)+'">Test</button>'+
+        '<div class="settingsCheckActions settingsCheckCogActions">'+
+          '<button class="settingsActionButton settingsEditButton settingsCogButton" aria-label="Edit '+e(c.title)+'" data-edit-check="'+e(c.id)+'">'+cog()+'</button>'+
         '</div>'+
       '</article>';
     }).join('');
