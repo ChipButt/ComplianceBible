@@ -419,7 +419,7 @@ function openInspectionDocumentViewer(ref) {
 
 function rota() {
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260618-1"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260619-1"></iframe>
   </section>`;
 }
 

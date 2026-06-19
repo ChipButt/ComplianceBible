@@ -430,3 +430,65 @@ main > .toolbar {
 .rotaGrid h3 {
   color: #fff8ea !important;
 }
+
+.sectionBandTitle.rotaVisibilityHeader {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 34px !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 36px !important;
+  padding: 4px 4px 4px 10px !important;
+  text-align: left !important;
+}
+
+.rotaSectionTitleText {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  color: #f0b84a !important;
+  font-size: inherit !important;
+  font-weight: 950 !important;
+  line-height: 1.1 !important;
+  text-align: center !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.rotaVisibilityToggle {
+  display: grid !important;
+  place-items: center !important;
+  justify-self: end !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(240, 184, 74, 0.42) !important;
+  border-radius: 999px !important;
+  background: rgba(5, 6, 7, 0.68) !important;
+  color: #f0b84a !important;
+  box-shadow: none !important;
+}
+
+.rotaVisibilityToggle svg {
+  width: 18px !important;
+  height: 18px !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  stroke-width: 2.2 !important;
+}
+
+.rotaVisibilityToggle svg circle {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+
+.rotaVisibilityToggle.is-hidden {
+  color: #aaa194 !important;
+  border-color: rgba(170, 161, 148, 0.34) !important;
+}
+
+.rotaSectionHidden .bandWeekGrid {
+  display: none !important;
+}

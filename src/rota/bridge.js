@@ -198,7 +198,7 @@ window.__rotaScheduleScrollReset = resetRotaScheduleScroll;
 rota = function rotaSchedulePage() {
   writeRotaStateFromCompliance();
   return `<section class="rotaEmbedCard rotaScheduleEmbed">
-    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260617-12"></iframe>
+    <iframe id="rotaScheduleFrame" class="rotaFrame" title="Rota schedule" src="rota-app.html?v=20260619-1"></iframe>
   </section>`;
 };
 

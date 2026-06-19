@@ -31,6 +31,36 @@
     });
   }
 
+  function sectionKey(section) {
+    return String(section || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  }
+
+  function rotaVisibilityPrefs() {
+    state.rotaSectionVisibility = state.rotaSectionVisibility || {};
+    var userId = state.currentUserId || 'default';
+    state.rotaSectionVisibility[userId] = state.rotaSectionVisibility[userId] || {};
+    return state.rotaSectionVisibility[userId];
+  }
+
+  function rotaSectionHidden(section) {
+    var key = sectionKey(section);
+    return !!(key && rotaVisibilityPrefs()[key]);
+  }
+
+  function setRotaSectionHidden(section, hidden) {
+    var key = sectionKey(section);
+    if (!key) return;
+    var prefs = rotaVisibilityPrefs();
+    if (hidden) prefs[key] = true;
+    else delete prefs[key];
+    if (typeof save === 'function') save();
+  }
+
+  function eyeIcon(open) {
+    if (open) return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.6 12s3.5-6 9.4-6 9.4 6 9.4 6-3.5 6-9.4 6-9.4-6-9.4-6Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.6 12s3.5-6 9.4-6c2 0 3.7.7 5 1.6M21.4 12s-3.5 6-9.4 6c-2 0-3.7-.7-5-1.6"/><path d="M4 4l16 16"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/></svg>';
+  }
+
   function currentWeekDates() {
     var start = window.__rbWeekStart ? new Date(window.__rbWeekStart + 'T12:00:00') : mondayDate(new Date());
     start = mondayDate(start);
@@ -377,6 +407,41 @@
     document.querySelectorAll('.bandDayHead').forEach(formatBandDayHeader);
   }
 
+  function syncRotaSectionVisibility(sectionBand) {
+    var title = sectionBand && sectionBand.querySelector('.sectionBandTitle');
+    if (!title) return;
+
+    var section = sectionBand.dataset.rotaSection || title.dataset.rotaSectionTitle || (title.querySelector('.rotaSectionTitleText')?.textContent || title.textContent || '').trim();
+    section = section.replace(/\s+/g, ' ');
+    if (!section) return;
+
+    sectionBand.dataset.rotaSection = section;
+    title.dataset.rotaSectionTitle = section;
+    title.classList.add('rotaVisibilityHeader');
+
+    var hidden = rotaSectionHidden(section);
+    var label = hidden ? 'Show ' + section + ' on rota' : 'Hide ' + section + ' on rota';
+    title.innerHTML = '<span class="rotaSectionTitleText">' + escapeHtml(section) + '</span><button type="button" class="rotaVisibilityToggle ' + (hidden ? 'is-hidden' : 'is-visible') + '" aria-label="' + escapeHtml(label) + '" title="' + escapeHtml(label) + '" aria-pressed="' + String(!hidden) + '">' + eyeIcon(!hidden) + '</button>';
+
+    var button = title.querySelector('.rotaVisibilityToggle');
+    var weekGrid = sectionBand.querySelector('.bandWeekGrid');
+    sectionBand.classList.toggle('rotaSectionHidden', hidden);
+    if (weekGrid) weekGrid.hidden = hidden;
+    if (button) {
+      button.onclick = function toggleRotaSectionVisibility(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        setRotaSectionHidden(section, !rotaSectionHidden(section));
+        syncRotaSectionVisibility(sectionBand);
+        sendHeight();
+      };
+    }
+  }
+
+  function applyRotaSectionVisibility() {
+    document.querySelectorAll('.rotaSectionBand').forEach(syncRotaSectionVisibility);
+  }
+
   function bindWeekArrow(button, direction, label, className) {
     var freshButton = button.cloneNode(true);
     freshButton.removeAttribute('onclick');
@@ -682,6 +747,7 @@
     });
 
     formatDateHeaders();
+    applyRotaSectionVisibility();
     enhancePlanningTools();
     wireScheduleDragDrop();
     sendHeight();
