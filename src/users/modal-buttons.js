@@ -12,6 +12,7 @@
   function initials(user){try{return userInitials(user.name);}catch(_){var p=String(user.name||user.nickname||'').trim().split(/\s+/);return ((p[0]||'')[0]||'')+((p[1]||'')[0]||'');}}
   function status(user){try{return userStatusLine(user);}catch(_){return user.jobArea||user.area||user.role||'';}}
   function approvedCogIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z"/><path d="M19.4 13.5a7.9 7.9 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8.2 8.2 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A8.2 8.2 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.9 7.9 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8.2 8.2 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a8.2 8.2 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5Z"/></svg>';}
+  function decorateApprovedSettingsCogs(){document.querySelectorAll('[data-settings-users-entry] .settingsSectionCog').forEach(function(cog){if(!String(cog.innerHTML||'').trim())cog.innerHTML=approvedCogIcon();});}
   function lockPageScroll(){
     lockedScrollY=window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0;
     document.body.style.top='-'+lockedScrollY+'px';
@@ -104,8 +105,9 @@
 
   if(typeof bind==='function'&&!bind.__userButtonsModalStyle){
     var oldBind=bind;
-    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}};
+    bind=function(){oldBind();var search=document.getElementById('centralPeopleSearch');document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(search){search.placeholder='Search Staff..';search.oninput=window.drawCentralPeopleList;window.drawCentralPeopleList();}decorateApprovedSettingsCogs();};
     bind.__userButtonsModalStyle=true;
   }
-  setTimeout(function(){var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();},0);
+  document.addEventListener('click',function(){setTimeout(decorateApprovedSettingsCogs,0);},true);
+  setTimeout(function(){var search=document.getElementById('centralPeopleSearch');if(search)search.placeholder='Search Staff..';document.querySelectorAll('[data-new-user]').forEach(function(button){button.textContent='Add User';button.setAttribute('aria-label','Add User');});if(document.getElementById('centralPeopleList'))window.drawCentralPeopleList();decorateApprovedSettingsCogs();},0);
 })();
