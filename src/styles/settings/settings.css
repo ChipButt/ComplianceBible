@@ -25,3 +25,36 @@
 .settingsItemRow span{min-width:0!important;color:#fff8ea!important;font-size:15px!important;font-weight:850!important;line-height:1.2!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:normal!important}
 .settingsCompactForm{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:10px!important}
 .settingsCompactForm input,.settingsCompactForm button{width:100%!important;min-height:48px!important;height:48px!important;border-radius:14px!important}
+.checklistSetupHub{display:grid!important;gap:12px!important}
+.checkSetupAddButton{width:100%!important}
+.settingsAreaButtonList,.checkSetupCheckList{display:grid!important;gap:10px!important}
+.settingsAreaButton,.checkSetupCheckButton{width:100%!important;min-height:58px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 28px!important;align-items:center!important;gap:12px!important;padding:10px 12px!important;border-radius:16px!important;background:#b0914a!important;color:#080a0c!important;border:1px solid rgba(0,0,0,.18)!important;text-align:left!important}
+.settingsAreaButton strong,.settingsAreaButton small,.checkSetupCheckButton strong,.checkSetupCheckButton small{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;color:#080a0c!important}
+.settingsAreaButton strong,.checkSetupCheckButton strong{font-size:15px!important;font-weight:900!important}
+.settingsAreaButton small,.checkSetupCheckButton small{margin-top:4px!important;font-size:12px!important;font-weight:780!important;opacity:.76!important}
+.checkSetupAreaView{display:grid!important;gap:12px!important}
+.checkSetupAreaActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}
+.checkSetupCheckRow{display:grid!important;gap:8px!important;padding:0!important;border:0!important;background:transparent!important}
+.checkSetupCheckActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+.checkBuilderForm{display:grid!important;gap:12px!important;width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+.checkBuilderTopActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}
+.checkBuilderTopActions .danger{color:#ff6f61!important}
+.checkTypeTabs{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+.checkTypeButton{display:flex!important;align-items:center!important;justify-content:center!important;min-height:46px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.09)!important}
+.checkTypeButton.active{background:#b0914a!important;color:#080a0c!important;border-color:rgba(0,0,0,.18)!important}
+.checkTypeButton strong{color:inherit!important;font-size:13px!important;font-weight:900!important}
+.checkBuilderPreview{margin:0!important}
+.checkBuilderBar{border:0!important}
+.checkBuilderBar input{width:100%!important;min-height:34px!important;height:34px!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;font-size:15px!important;font-weight:900!important}
+.checkBuilderBar input::placeholder{color:#aaa194!important;opacity:1!important}
+.checkBuilderMetaGrid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-bottom:10px!important}
+.checkBuilderMetaGrid label,.checkTypePanel label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
+.checkBuilderMetaGrid input,.checkBuilderMetaGrid select,.checkTypePanel input,.checkTypePanel textarea{width:100%!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important}
+.checkTypePanel{display:grid!important;gap:10px!important}
+.checkTypePanel[hidden]{display:none!important}
+.checkTypePanel textarea{min-height:104px!important;resize:vertical!important}
+.checkBuilderSign{margin:0!important;color:#fff8ea!important}
+.checkBuilderSave{width:100%!important}
+.documentCheckPreview{display:grid!important;gap:7px!important}
+.checkEvidenceDrop{min-height:54px!important;display:grid!important;place-items:center!important;text-align:center!important;border-radius:14px!important;background:#10151b!important;border:1px dashed rgba(208,173,88,.52)!important;color:#fff8ea!important;font-weight:900!important}
+@media(min-width:520px){.checkTypeTabs{grid-template-columns:repeat(3,1fr)!important}.checkBuilderMetaGrid{grid-template-columns:1fr 1fr 120px!important}}
