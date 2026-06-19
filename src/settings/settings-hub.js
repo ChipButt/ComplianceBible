@@ -1,19 +1,10 @@
 // Test Settings Page branch loader.
-// The full prototype lives in src/settings/test-settings-page.js so this branch can be reviewed and discarded safely.
+// Emergency-safe version: only load the stable prototype, not the broken refinement layer.
 (function loadTestSettingsPagePrototype(){
   if(window.__testSettingsPagePrototypeLoader) return;
   window.__testSettingsPagePrototypeLoader = true;
-  function load(src){
-    var script = document.createElement('script');
-    script.src = src;
-    script.defer = false;
-    document.head.appendChild(script);
-    return script;
-  }
-  var prototype = load('src/settings/test-settings-page.js?v=20260620-2');
-  prototype.onload = function(){
-    window.modalRoot = window.modalRoot || document.getElementById('modal');
-    var refinements = load('src/settings/test-settings-page-refinements.js?v=20260620-2');
-    refinements.onload = function(){ load('src/settings/test-settings-page-touch-fixes.js?v=20260620-1'); };
-  };
+  var script = document.createElement('script');
+  script.src = 'src/settings/test-settings-page.js?v=20260620-3';
+  script.defer = false;
+  document.head.appendChild(script);
 })();
