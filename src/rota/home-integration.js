@@ -65,7 +65,10 @@
   function assignedChecksHomeBlock() {
     const checks = (state.checks || []).filter(assignedCheckDueToday);
     if (!checks.length) return '';
-    return `<div class="homeAssignedChecks"><h2>Assigned checks</h2>${checks.map(check => `<button type="button" data-open-assigned-check="${esc(check.id)}" class="homeAssignedCheck"><span>${esc(check.title)}</span><small>${esc(check.area || '')} · ${esc(normaliseFrequency(check.freq))} · Due ${esc(check.due || '')}</small></button>`).join('')}</div>`;
+    return `<div class="homeAssignedChecks"><h2>Assigned checks</h2>${checks.map(check => {
+      if (typeof window.renderHomeAssignedCheckButton === 'function') return window.renderHomeAssignedCheckButton(check);
+      return `<button type="button" data-open-assigned-check="${esc(check.id)}" class="homeAssignedCheck"><span>${esc(check.title)}</span><small>${esc(check.area || '')} · ${esc(normaliseFrequency(check.freq))} · Due ${esc(check.due || '')}</small></button>`;
+    }).join('')}</div>`;
   }
 
   function upcomingShifts(data, userId) {
@@ -165,7 +168,6 @@
       ${unscheduledBox(data, live)}
       ${assignedChecksHomeBlock()}
       <div class="quickActions rotaHomeActions">
-        <button data-route="rota">Open Schedule</button>
         <button data-route="staff">Open Users</button>
         <button data-route="documents">Open Docs</button>
       </div>
@@ -282,7 +284,7 @@
     .homeAssignedCheck { width: 100%; display: grid; gap: 4px; min-height: 58px; padding: 12px 14px; text-align: left; border-radius: 16px; background: linear-gradient(180deg, rgba(27,33,39,.96), rgba(17,22,27,.96)); border: 1px solid rgba(208,173,88,.36); color: #fff8ea; }
     .homeAssignedCheck span { color: #fff8ea; font-size: 15px; font-weight: 900; }
     .homeAssignedCheck small { color: #d0ad58; font-size: 12px; font-weight: 780; }
-    .rotaHomeActions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .rotaHomeActions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
     @media(max-width:430px){ .rotaHomeActions { grid-template-columns: 1fr; } .rotaHomeIdentity { grid-template-columns: auto 1fr; } .rotaHomeIdentity .badge { grid-column: 1 / -1; justify-self: start; } }
   `;
   document.head.appendChild(style);

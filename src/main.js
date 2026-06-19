@@ -251,7 +251,7 @@ function resetRouteScroll() {
 function closeActiveModal() {
   if (!modalRoot || modalRoot.classList.contains('hidden')) return;
   modalRoot.classList.add('hidden');
-  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen');
+  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen', 'homeCheckModalOpen');
   modalRoot.innerHTML = '';
   document.body.classList.remove('edit-user-modal-open', 'report-modal-open');
   document.body.style.top = '';
@@ -586,8 +586,10 @@ function bind() {
   const userSwitch = document.getElementById('userSwitch');
   if (userSwitch) userSwitch.onchange = e => { state.currentUser = e.target.value; save(); render(); };
   document.querySelectorAll('[data-complete]').forEach(b => b.onclick = () => openCheck(b.dataset.complete));
-  document.querySelectorAll('[data-open-assigned-check]').forEach(b => b.onclick = () => {
-    if (typeof window.openCheckInChecks === 'function') window.openCheckInChecks(b.dataset.openAssignedCheck);
+  document.querySelectorAll('[data-open-assigned-check]').forEach(b => b.onclick = event => {
+    event.preventDefault();
+    if (typeof window.openAssignedCheckOnHome === 'function') window.openAssignedCheckOnHome(b.dataset.openAssignedCheck);
+    else if (typeof window.openCheckInChecks === 'function') window.openCheckInChecks(b.dataset.openAssignedCheck);
     else navigateRoute('checks');
   });
   document.querySelectorAll('[data-edit-check]').forEach(b => b.onclick = () => openEditCheck(b.dataset.editCheck));

@@ -1,7 +1,7 @@
 (function () {
   const originalNav = nav;
   nav = function maintenanceAwareNav(id, label) {
-    return originalNav(id, id === 'logs' ? 'Maintenance' : label);
+    return originalNav(id, id === 'logs' ? 'Issues' : label);
   };
 
   const originalDashboard = dashboard;
@@ -62,7 +62,7 @@
   setNavIcons = function maintenanceNavIcons() {
     originalSetNavIcons();
     document.querySelectorAll('[data-route="logs"]').forEach(button => {
-      button.textContent = 'Maintenance';
+      button.textContent = 'Issues';
     });
   };
 
