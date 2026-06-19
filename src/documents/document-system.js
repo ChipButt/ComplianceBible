@@ -114,10 +114,6 @@
       '<label><span>Document title</span><input name="title" value="' + esc(record.title || o.title || '') + '" required></label>' +
       '<label><span>Section</span><select name="cat">' + docCategoryOptions(record.cat || o.cat || 'Licensing') + '</select></label>' +
       '<label><span>Notes</span><textarea name="notes">' + esc(record.notes || '') + '</textarea></label>' +
-      '<div class="fdocEditMeta">' +
-        '<label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox" ' + (record.noExpiry ? 'checked' : '') + '><span class="fdocSwitchTrack"></span></label>' +
-        '<label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date" value="' + esc((record.expiryDate || record.expiry) || '') + '" ' + (record.noExpiry ? 'disabled' : '') + '></span></label>' +
-      '</div>' +
       '<button class="primary fdocSaveDocument" type="submit">Save Document</button>' +
       '<button class="fdocDeleteDocument" type="button" data-fdoc-delete-document>Delete Document</button>' +
     '</form>';
@@ -347,9 +343,6 @@
         record.title = String(data.get('title') || '').trim() || record.title;
         record.cat = String(data.get('cat') || record.cat || 'Licensing');
         record.notes = String(data.get('notes') || '');
-        record.noExpiry = !!data.get('noExpiry');
-        record.expiryDate = record.noExpiry ? '' : String(data.get('expiry') || '');
-        record.expiry = record.expiryDate;
         const key = article.dataset.fdocKind + ':' + article.dataset.fdocKey;
         editCards[key] = false;
         openCards[key] = false;

@@ -10,7 +10,6 @@ html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!import
 :is(#app,#modal) .fdocEditForm label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:850!important}
 :is(#app,#modal) .fdocEditForm input,:is(#app,#modal) .fdocEditForm select,:is(#app,#modal) .fdocEditForm textarea{width:100%!important;min-width:0!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;padding:10px 11px!important;box-sizing:border-box!important}
 :is(#app,#modal) .fdocEditForm textarea{min-height:76px!important;resize:vertical!important}
-:is(#app,#modal) .fdocEditMeta{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
 :is(#app,#modal) .fdocEditForm .fdocSaveDocument,:is(#app,#modal) .fdocEditForm .fdocDeleteDocument{width:100%!important;min-height:48px!important;border-radius:14px!important;font-size:15px!important;font-weight:900!important}
 :is(#app,#modal) .fdocEditForm .fdocSaveDocument{background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}
 :is(#app,#modal) .fdocEditForm .fdocDeleteDocument{background:#9d1f1f!important;color:#fff8ea!important;border:1px solid rgba(255,120,120,.48)!important}
