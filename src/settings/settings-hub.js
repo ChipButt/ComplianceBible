@@ -3,8 +3,13 @@
 (function loadTestSettingsPagePrototype(){
   if(window.__testSettingsPagePrototypeLoader) return;
   window.__testSettingsPagePrototypeLoader = true;
-  var script = document.createElement('script');
-  script.src = 'src/settings/test-settings-page.js?v=20260620-1';
-  script.defer = false;
-  document.head.appendChild(script);
+  function load(src){
+    var script = document.createElement('script');
+    script.src = src;
+    script.defer = false;
+    document.head.appendChild(script);
+    return script;
+  }
+  var prototype = load('src/settings/test-settings-page.js?v=20260620-2');
+  prototype.onload = function(){ load('src/settings/test-settings-page-refinements.js?v=20260620-1'); };
 })();
