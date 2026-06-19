@@ -124,9 +124,8 @@
   function syncBottomNavButtons() {
     document.querySelectorAll('.bottomNav .navBtn').forEach(function (btn) {
       var routeName = btn.getAttribute('data-route') || '';
-      var count = btn.getAttribute('data-alert-count') || '';
       btn.setAttribute('aria-label', navLabel(routeName));
-      btn.innerHTML = '<span class="navGlyph" ' + (count ? 'data-alert-count="' + count + '"' : '') + '>' + navIcon(routeName) + '</span><span class="navLabel">' + navLabel(routeName) + '</span>';
+      btn.innerHTML = '<span class="navGlyph">' + navIcon(routeName) + '</span><span class="navLabel">' + navLabel(routeName) + '</span>';
     });
   }
 
@@ -225,7 +224,6 @@
     '.bottomNav .navGlyph{position:relative!important;width:15px!important;height:15px!important;min-width:15px!important;display:inline-grid!important;place-items:center!important;color:currentColor!important}',
     '.bottomNav .navGlyph svg{width:15px!important;height:15px!important;display:block!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}',
     '.bottomNav .navLabel{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important}',
-    '.bottomNav .navGlyph[data-alert-count]::after{content:attr(data-alert-count)!important;position:absolute!important;right:-8px!important;top:-8px!important;min-width:15px!important;height:15px!important;padding:0 3px!important;border-radius:999px!important;background:#d90808!important;color:#fff!important;font-size:9px!important;font-weight:900!important;line-height:15px!important;text-align:center!important;box-shadow:0 0 0 2px rgba(8,9,10,.96)!important;z-index:3!important}',
     '#app{position:relative!important;z-index:1!important;padding-top:calc(var(--fixed-topbar-height,48px) + var(--fixed-mainnav-height,54px) + 20px)!important}',
     'body.is-staff-route .centralProfilePage{scroll-margin-top:calc(var(--fixed-topbar-height,48px) + var(--fixed-mainnav-height,54px) + 20px)!important}',
     'body.is-documents-route #app > .documentTopBanner{position:static!important;width:auto!important;margin:0 0 18px!important;padding:0!important;border-radius:0!important;min-height:0!important;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}',
