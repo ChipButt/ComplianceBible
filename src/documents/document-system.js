@@ -5,6 +5,7 @@
 
   const REQ_KEY = 'complianceUserDocumentRequirementsV1';
   const openCards = {};
+  const editCards = {};
   const selectedDocFilters = new Set();
   const baseFilterLabels = ['Premises documents','Staff documents','Licensing','Food Safety','Fire Safety','Health & Safety','Staff','Equipment','Allergen Awareness','Food Hygiene','Challenge 25','Right to Work'];
 
@@ -17,6 +18,7 @@
 
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   function uidx() { try { return uid(); } catch { return 'id_' + Math.random().toString(36).slice(2); } }
+  function isAdminNow() { try { return typeof isAdminUser === 'function' && isAdminUser(); } catch { return false; } }
   function defaultReqs() {
     return [
       { id: uidx(), title: 'Right to Work document', staffGroups: ['FOH', 'Kitchen', 'Office', 'WFH', 'Housekeeping', 'KP', 'Kitchen PotWash'], expiryMode: 'optional' },
@@ -50,6 +52,11 @@
   function image(record) { return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/'); }
   function confirmed(record) { return !!(record?.fileData && (record.noExpiry || record.expiryDate || record.expiry)); }
   function status(record, required) { if (confirmed(record)) return ['', 'complete']; if (record?.fileData) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
+  function statusText(record, required) {
+    const s = status(record, required);
+    if (s[0]) return s[0];
+    return confirmed(record) ? 'Stored' : (required ? 'Required' : 'Missing');
+  }
   function expiryText(record) {
     if (record?.noExpiry) return 'Does not expire';
     const raw = record?.expiryDate || record?.expiry;
@@ -97,17 +104,39 @@
     return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(record.id) + '">DOC</button>';
   }
 
+  function docCategoryOptions(selected) {
+    const cats = (state.documentCategories || ['Licensing','Food Safety','Fire Safety','Health & Safety','Equipment']).filter(cat => filterKey(cat) !== 'staff');
+    return cats.map(cat => '<option value="' + esc(cat) + '" ' + (cat === selected ? 'selected' : '') + '>' + esc(cat) + '</option>').join('');
+  }
+  function editForm(o, record, cardKey) {
+    if (!isAdminNow() || o.kind !== 'premises' || !editCards[cardKey]) return '';
+    return '<form class="fdocEditForm" data-fdoc-edit-form>' +
+      '<label><span>Document title</span><input name="title" value="' + esc(record.title || o.title || '') + '" required></label>' +
+      '<label><span>Section</span><select name="cat">' + docCategoryOptions(record.cat || o.cat || 'Licensing') + '</select></label>' +
+      '<label><span>Notes</span><textarea name="notes">' + esc(record.notes || '') + '</textarea></label>' +
+      '<div class="fdocEditMeta">' +
+        '<label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox" ' + (record.noExpiry ? 'checked' : '') + '><span class="fdocSwitchTrack"></span></label>' +
+        '<label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date" value="' + esc((record.expiryDate || record.expiry) || '') + '" ' + (record.noExpiry ? 'disabled' : '') + '></span></label>' +
+      '</div>' +
+      '<button class="primary fdocSaveDocument" type="submit">Save Document</button>' +
+      '<button class="fdocDeleteDocument" type="button" data-fdoc-delete-document>Delete Document</button>' +
+    '</form>';
+  }
   function card(o) {
     const record = o.record || {};
     const s = status(record, o.required);
-    const badge = s[0] ? '<span class="fdocBadge ' + s[1] + '">' + esc(s[0]) + '</span>' : '<span class="fdocBadge fdocBadgeEmpty" aria-hidden="true"></span>';
     const cardKey = o.kind + ':' + o.key;
     const expanded = !!openCards[cardKey];
+    const statusSubtitle = !!o.statusSubtitle;
+    const subtitle = statusSubtitle ? statusText(record, o.required) : (o.cat || 'Document');
+    const canEdit = isAdminNow() && o.kind === 'premises';
+    const badge = (!statusSubtitle && s[0]) ? '<span class="fdocBadge ' + s[1] + '">' + esc(s[0]) + '</span>' : '<span class="fdocBadge fdocBadgeEmpty" aria-hidden="true"></span>';
+    const cog = canEdit ? '<span class="fdocCog" role="button" tabindex="0" aria-label="Edit document" data-fdoc-edit>' + cogIcon() + '</span>' : badge;
     return '<article class="fdoc ' + (expanded ? 'open' : '') + '" data-fdoc-kind="' + esc(o.kind) + '" data-fdoc-key="' + esc(o.key) + '">' +
       '<button type="button" class="fdocBar" data-fdoc-toggle="' + esc(cardKey) + '">' +
         '<span class="fdocIcon">' + icon.doc + '</span>' +
-        '<span class="fdocName"><strong>' + esc(o.title) + '</strong><em>' + esc(o.cat || 'Document') + '</em></span>' +
-        badge +
+        '<span class="fdocName"><strong>' + esc(o.title) + '</strong><em>' + esc(subtitle) + '</em></span>' +
+        cog +
         '<span class="fdocDate">' + esc(expiryText(record)) + '</span>' +
         '<span class="fdocArrow" aria-hidden="true">⌄</span>' +
       '</button>' +
@@ -125,8 +154,13 @@
             '</div>' +
           '</div>' +
         '</div>' +
+        editForm(o, record, cardKey) +
       '</div>' +
     '</article>';
+  }
+
+  function cogIcon() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z"/><path d="M19.4 13.5a7.9 7.9 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8.2 8.2 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A8.2 8.2 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5a7.9 7.9 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8.2 8.2 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a8.2 8.2 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5Z"/></svg>';
   }
 
   window.approvedDocumentUI = {
@@ -169,9 +203,9 @@
   }
   function itemsForGroup(label) {
     const key = filterKey(label);
-    if (key === 'premises documents') return (state.docs || []).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
+    if (key === 'premises documents') return (state.docs || []).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, statusSubtitle:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
     if (key === 'staff documents') return allStaffItems();
-    const premises = (state.docs || []).filter(d => filterKey((d.cat || '') + ' ' + (d.title || '')).includes(key)).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
+    const premises = (state.docs || []).filter(d => filterKey((d.cat || '') + ' ' + (d.title || '')).includes(key)).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, statusSubtitle:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
     const staff = allStaffItems().filter(item => filterKey((item.title || '') + ' ' + (item.cat || '')).includes(key));
     return premises.concat(staff);
   }
@@ -179,10 +213,18 @@
     return '<button type="button" class="docGroupButton" data-open-doc-group="' + esc(label) + '"><span>' + esc(label) + '</span><small>' + itemsForGroup(label).length + ' docs</small></button>';
   }
   function addForm() {
-    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
+    if (!isAdminNow()) return '';
+    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat">' + docCategoryOptions('Licensing') + '</select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
+  }
+  function premiseSectionItems(cat) {
+    return (state.docs || []).filter(d => filterKey(d.cat || '') === filterKey(cat)).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, statusSubtitle:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
+  }
+  function premisesSections() {
+    const categories = (state.documentCategories || ['Licensing','Food Safety','Fire Safety','Health & Safety','Equipment']).filter(cat => filterKey(cat) !== 'staff');
+    return categories.map(cat => renderSection(cat, premiseSectionItems(cat), 'No documents in this section.', true)).join('');
   }
   documents = function () {
-    return '<section class="docGroupGrid">' + groupLabels().map(groupButton).join('') + '</section>' + addForm();
+    return '<section class="docTopAction">' + groupButton('Staff Documents') + '</section><section class="docsPremises"><h2>Premises Documents</h2>' + premisesSections() + addForm() + '</section>';
   };
 
   function closeDocumentGroupModal() {
@@ -207,7 +249,7 @@
       const existing = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
       if (!required && !existing) return null;
       const record = required ? getUserRecord(user.id, req.id) : existing;
-      return { kind:'userdoc', key:user.id + '|' + req.id, title:staffName(user) || user.nickname || 'Staff member', cat:group(user) + ' · ' + req.title, record, required, note:'Upload evidence for ' + (staffName(user) || user.nickname || 'this staff member') + ' and set expiry status.' };
+      return { kind:'userdoc', key:user.id + '|' + req.id, title:staffName(user) || user.nickname || 'Staff member', cat:group(user) + ' · ' + req.title, record, required, statusSubtitle:true, note:'Upload evidence for ' + (staffName(user) || user.nickname || 'this staff member') + ' and set expiry status.' };
     }).filter(Boolean);
   }
   function openStaffDocumentsModal() {
@@ -271,6 +313,19 @@
       if (panel) panel.classList.toggle('closed', !isOpen);
       btn.setAttribute('aria-expanded', String(isOpen));
     });
+    scope.querySelectorAll('[data-fdoc-edit]').forEach(btn => btn.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const article = btn.closest('.fdoc');
+      if (!article || article.dataset.fdocKind !== 'premises' || !isAdminNow()) return;
+      const key = article.dataset.fdocKind + ':' + article.dataset.fdocKey;
+      openCards[key] = true;
+      editCards[key] = true;
+      render();
+    });
+    scope.querySelectorAll('[data-fdoc-edit]').forEach(btn => btn.onkeydown = event => {
+      if (event.key === 'Enter' || event.key === ' ') btn.onclick(event);
+    });
     scope.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
       const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
       readFile(file, data => { r.fileData = data; r.fileName = file.name || 'Photo'; r.fileType = file.type || 'image/jpeg'; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
@@ -278,6 +333,43 @@
     scope.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
     scope.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
     scope.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => { e.stopPropagation(); viewer(allRecords().find(r => r.id === btn.dataset.fdocThumb)); });
+    scope.querySelectorAll('[data-fdoc-edit-form]').forEach(form => {
+      const article = form.closest('.fdoc');
+      if (!article || article.dataset.fdocKind !== 'premises') return;
+      const record = getRecord('premises', article.dataset.fdocKey);
+      const expiryInput = form.elements.expiry;
+      const noExpiry = form.elements.noExpiry;
+      if (noExpiry && expiryInput) noExpiry.onchange = () => { expiryInput.disabled = noExpiry.checked; if (noExpiry.checked) expiryInput.value = ''; };
+      form.onsubmit = event => {
+        event.preventDefault();
+        if (!record) return;
+        const data = new FormData(form);
+        record.title = String(data.get('title') || '').trim() || record.title;
+        record.cat = String(data.get('cat') || record.cat || 'Licensing');
+        record.notes = String(data.get('notes') || '');
+        record.noExpiry = !!data.get('noExpiry');
+        record.expiryDate = record.noExpiry ? '' : String(data.get('expiry') || '');
+        record.expiry = record.expiryDate;
+        const key = article.dataset.fdocKind + ':' + article.dataset.fdocKey;
+        editCards[key] = false;
+        openCards[key] = false;
+        saveNow();
+        render();
+      };
+    });
+    scope.querySelectorAll('[data-fdoc-delete-document]').forEach(button => button.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const article = button.closest('.fdoc');
+      if (!article || article.dataset.fdocKind !== 'premises' || !isAdminNow()) return;
+      const record = getRecord('premises', article.dataset.fdocKey);
+      if (!record || !confirm('Delete this document? Uploaded evidence on this document will also be removed.')) return;
+      state.docs = (state.docs || []).filter(doc => doc.id !== record.id);
+      delete openCards['premises:' + record.id];
+      delete editCards['premises:' + record.id];
+      saveNow();
+      render();
+    });
     const add = scope.getElementById ? scope.getElementById('finalDocAdd') : null;
     if (add) add.onsubmit = event => {
       event.preventDefault();
