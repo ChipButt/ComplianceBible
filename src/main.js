@@ -59,10 +59,36 @@ const defaults = {
   }
 };
 
+const NAVIGATION_KEY = 'complianceBible.navigation.v1';
+const VALID_ROUTES = new Set(['dashboard', 'checks', 'documents', 'logs', 'staff', 'rota', 'inspection', 'settings']);
+
+function readNavigationState() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(NAVIGATION_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeNavigationState(update) {
+  try {
+    const current = readNavigationState();
+    const next = { ...current, ...update, updatedAt: new Date().toISOString() };
+    if (!VALID_ROUTES.has(next.route)) next.route = 'dashboard';
+    localStorage.setItem(NAVIGATION_KEY, JSON.stringify(next));
+  } catch (_) {}
+}
+
+function savedInitialRoute() {
+  const savedRoute = readNavigationState().route;
+  return VALID_ROUTES.has(savedRoute) ? savedRoute : 'dashboard';
+}
+
 let state = load();
-let route = 'dashboard';
+let route = savedInitialRoute();
 let settingsTab = 'checks';
-let lastPermittedRoute = 'dashboard';
+let lastPermittedRoute = route === 'settings' ? 'dashboard' : route;
 let deferredInstallPrompt = null;
 let openInspectionUserDocs = {};
 const PERMISSION_KEYS = ['checks', 'documents', 'logs', 'users', 'rota', 'inspection', 'settings'];
@@ -207,6 +233,7 @@ function render() {
   if (route === 'settings' && !isAdminUser()) route = lastPermittedRoute || 'dashboard';
   if (!pages[route]) route = lastPermittedRoute || 'dashboard';
   if (route !== 'settings' || isAdminUser()) lastPermittedRoute = route;
+  writeNavigationState({ route });
   document.body.classList.toggle('is-rota-route', route === 'rota');
   appRoot.innerHTML = shell((pages[route] || dashboard)());
   bind();
@@ -239,8 +266,12 @@ function navigateRoute(nextRoute) {
     return;
   }
   route = nextRoute;
+  writeNavigationState({ route, activeCheckId: nextRoute === 'checks' ? readNavigationState().activeCheckId || '' : '' });
   render();
 }
+
+window.readAppNavigationState = readNavigationState;
+window.writeAppNavigationState = writeNavigationState;
 
 function setNavIcons() {
   const icons = { dashboard: '⌂', checks: '✓', documents: '□', logs: '!', staff: '◉', rota: '▦', inspection: '◇', settings: '⚙' };
