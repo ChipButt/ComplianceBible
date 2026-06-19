@@ -110,7 +110,7 @@ function ensureCoreState() {
   state.userRequiredDocuments = state.userRequiredDocuments || [];
   state.documentCategories = state.documentCategories || clone(defaults.documentCategories);
   state.rotaSettings = state.rotaSettings || clone(defaults.rotaSettings);
-  state.rotaSettings.sections = Array.from(new Set([...(state.rotaSettings.sections || []), ...defaults.rotaSettings.sections]));
+  if (!Array.isArray(state.rotaSettings.sections)) state.rotaSettings.sections = clone(defaults.rotaSettings.sections);
   state.permissionMatrix = state.permissionMatrix || {};
   Object.entries(defaults.permissionMatrix).forEach(([group, permissions]) => {
     state.permissionMatrix[group] = state.permissionMatrix[group] || {};
@@ -483,13 +483,13 @@ function settingsDocuments() {
 }
 
 function settingsAreas() {
-  return `<h2>Areas / sections</h2>
-  <ul class="plainList">${state.areas.map(a => `<li><span>${esc(a)}</span><button class="ghost small" data-delete-area="${esc(a)}">Remove</button></li>`).join('')}</ul>
-  <form id="areaForm" class="inlineForm"><input name="area" placeholder="New area / section" required><button class="primary">Add area</button></form>`;
+  return `<h2>Areas</h2>
+  <ul class="plainList">${state.areas.map(a => `<li><span>${esc(a)}</span><button class="ghost small settingsDeleteX" data-delete-area="${esc(a)}">×</button></li>`).join('')}</ul>
+  <form id="areaForm" class="inlineForm"><input name="area" placeholder="New area" required><button class="primary">Add area</button></form>`;
 }
 
 function settingsRota() {
-  return `<h2>Rota setup</h2><ul class="plainList">${state.rotaSettings.sections.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+  return `<h2>Rota setup</h2><ul class="plainList">${state.rotaSettings.sections.map(s => `<li><span>${esc(s)}</span><button class="ghost small settingsDeleteX" data-delete-rota-section="${esc(s)}">×</button></li>`).join('')}</ul>
   <form id="rotaSectionForm" class="inlineForm"><input name="section" placeholder="New rota section" required><button class="primary">Add rota section</button></form>`;
 }
 
@@ -531,7 +531,7 @@ function bind() {
     if (panel) panel.classList.toggle('closed', !isOpen);
   });
   document.querySelectorAll('[data-inspect-doc-view]').forEach(b => b.onclick = () => openInspectionDocumentViewer(b.dataset.inspectDocView));
-  document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) i.status = i.status === 'Resolved' ? 'Open' : 'Resolved'; save(); render(); });
+  document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) { const now = new Date().toISOString(); if (i.status === 'Resolved') { i.status = 'Open'; i.reopenedAt = now; delete i.resolvedAt; } else { i.status = 'Resolved'; i.resolvedAt = now; } } save(); render(); });
   on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: d.freq, due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
   on('docForm', e => { const d = fd(e); state.docs.push({ id: uid(), title: d.title, cat: d.cat, expiry: d.expiry, notes: d.notes, status: 'Missing' }); save(); render(); });
   on('tempForm', e => { const d = fd(e); const r = Number(d.reading); state.temps.push({ id: uid(), unit: d.unit, reading: r, action: d.action, status: r > 8 || r < -30 ? 'Check' : 'OK', userId: state.currentUser, created: new Date().toISOString() }); save(); render(); });
@@ -542,6 +542,7 @@ function bind() {
   on('areaForm', e => { const d = fd(e); if (d.area && !state.areas.includes(d.area)) state.areas.push(d.area); save(); render(); });
   document.querySelectorAll('[data-delete-area]').forEach(b => b.onclick = () => { state.areas = state.areas.filter(a => a !== b.dataset.deleteArea); save(); render(); });
   on('rotaSectionForm', e => { const d = fd(e); if (d.section && !state.rotaSettings.sections.includes(d.section)) state.rotaSettings.sections.push(d.section); save(); render(); });
+  document.querySelectorAll('[data-delete-rota-section]').forEach(b => b.onclick = () => { state.rotaSettings.sections = state.rotaSettings.sections.filter(section => section !== b.dataset.deleteRotaSection); save(); render(); });
   on('pubForm', e => { const d = fd(e); state.pub = { ...state.pub, ...d }; save(); render(); });
   const exportBtn = document.getElementById('exportBtn');
   if (exportBtn) exportBtn.onclick = exportReport;

@@ -18,24 +18,40 @@
     return state.shoppingItems;
   }
 
+  function formatStamp(value) {
+    if (!value) return 'No date set';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'No date set';
+    return date.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  function newestFirst(items, dateKey = 'created') {
+    return [...items].sort((a, b) => new Date(b[dateKey] || b.created || 0) - new Date(a[dateKey] || a.created || 0));
+  }
+
   function shoppingListMarkup() {
     const items = shoppingItems().filter(item => item.status !== 'Completed');
     return items.length ? `<ul class="shoppingListItems">${items.map(item => `<li><span>${esc(item.title)}</span><button type="button" class="ghost small" data-shopping-complete="${item.id}">Done</button></li>`).join('')}</ul>` : '<p class="muted">Nothing on the shopping list yet.</p>';
   }
 
   function reportedIssueMarkup() {
-    const items = [...(state.logs || [])].reverse();
-    return items.length ? `<div class="reportedIssueList">${items.map(log => `<details class="reportedIssueItem"><summary><span><strong>${esc(log.type || 'Reported issue')}</strong><small>${esc(log.summary || 'No summary')}</small></span><span class="maintenanceExpandIcon">⌄</span></summary><div class="issueBody"><p>${esc(log.details || 'No extra details added.')}</p></div></details>`).join('')}</div>` : '<p class="muted">No reported issues yet.</p>';
+    const items = newestFirst(state.logs || []);
+    return items.length ? `<div class="reportedIssueList">${items.map(log => `<details class="reportedIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(log.type || 'Reported issue')}</strong><small>${esc(log.summary || 'No summary')}</small></span><time class="maintenanceTimestamp" datetime="${esc(log.created || '')}">${esc(formatStamp(log.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(log.details || 'No extra details added.')}</p></div></details>`).join('')}</div>` : '<p class="muted">No reported issues yet.</p>';
   }
 
   function maintenanceIssueMarkup() {
     const issues = activeMaintenanceIssues();
-    return issues.length ? `<div class="maintenanceIssueList">${issues.map(issue => `<details class="maintenanceIssueItem"><summary><span><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')}</small></span><span class="maintenanceExpandIcon">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="primary" data-issue="${issue.id}">Mark as complete</button></div></details>`).join('')}</div>` : '<p class="muted">No open maintenance issues.</p>';
+    return issues.length ? `<div class="maintenanceIssueList">${newestFirst(issues).map(issue => `<details class="maintenanceIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')}</small></span><time class="maintenanceTimestamp" datetime="${esc(issue.created || '')}">${esc(formatStamp(issue.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="primary" data-issue="${issue.id}">Mark as complete</button></div></details>`).join('')}</div>` : '<p class="muted">No open maintenance issues.</p>';
+  }
+
+  function resolvedIssueMarkup() {
+    const issues = newestFirst((state.issues || []).filter(issue => issue.status === 'Resolved'), 'resolvedAt');
+    return issues.length ? `<div class="resolvedIssueList">${issues.map(issue => `<details class="maintenanceIssueItem resolvedIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')} · Resolved ${esc(formatStamp(issue.resolvedAt || issue.created))}</small></span><time class="maintenanceTimestamp" datetime="${esc(issue.resolvedAt || issue.created || '')}">${esc(formatStamp(issue.resolvedAt || issue.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="secondary" data-issue="${issue.id}">Reopen issue</button></div></details>`).join('')}</div>` : '<p class="muted">No resolved issues yet.</p>';
   }
 
   logs = function maintenancePage() {
     shoppingItems();
-    return `<section class="maintenancePageNew"><article class="card maintenanceSection"><h2 class="maintenanceSectionTitle">Issues reported</h2>${reportedIssueMarkup()}<button class="card reportIssueButton" type="button" data-open-report-issue>Report an Issue</button></article><article class="card maintenanceSection"><h2 class="maintenanceSectionTitle">Maintenance issues</h2>${maintenanceIssueMarkup()}<button class="card reportMaintenanceButton" type="button" data-open-maintenance-issue>Report Maintenance Issue</button></article><article class="card shoppingListCard"><div class="shoppingListHeader"><div><h2>Shopping list</h2><p class="muted">Add things the team are running low on.</p></div><div class="shoppingListIcon" aria-hidden="true">▤</div></div><form id="shoppingForm" class="shoppingForm"><input name="title" placeholder="Add item, e.g. mint tea" required><button class="primary">Add</button></form>${shoppingListMarkup()}</article></section>`;
+    return `<section class="maintenancePageNew"><article class="card maintenanceSection"><h2 class="maintenanceSectionTitle">Issues reported</h2>${reportedIssueMarkup()}<button class="card reportIssueButton" type="button" data-open-report-issue>Report an Issue</button></article><article class="card maintenanceSection"><h2 class="maintenanceSectionTitle">Maintenance issues</h2>${maintenanceIssueMarkup()}<button class="card reportMaintenanceButton" type="button" data-open-maintenance-issue>Report Maintenance Issue</button></article><article class="card shoppingListCard"><div class="shoppingListHeader"><div><h2>Shopping list</h2><p class="muted">Add things the team are running low on.</p></div><div class="shoppingListIcon" aria-hidden="true">▤</div></div><form id="shoppingForm" class="shoppingForm"><input name="title" placeholder="Add item, e.g. mint tea" required><button class="primary">Add</button></form>${shoppingListMarkup()}</article><article class="card maintenanceSection resolvedIssueSection"><h2 class="maintenanceSectionTitle">Resolved issues log</h2>${resolvedIssueMarkup()}</article></section>`;
   };
 
   logList = function maintenanceLogList() {
@@ -59,14 +75,16 @@
     .maintenanceCard,.shoppingListCard { overflow: hidden !important; }
     .reportIssueButton,.reportMaintenanceButton { width: 100% !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; font-size: 22px !important; font-weight: 900 !important; color: #d83b2d !important; border: 1px solid rgba(255,255,255,.09) !important; }
     .reportMaintenanceButton { color: #d0ad58 !important; }
-    .reportedIssueList,.maintenanceIssueList { display: grid !important; gap: 10px !important; }
+    .reportedIssueList,.maintenanceIssueList,.resolvedIssueList { display: grid !important; gap: 10px !important; }
     .reportedIssueItem,.maintenanceIssueItem { border: 1px solid rgba(255,255,255,.09) !important; border-radius: 18px !important; background: rgba(255,255,255,.035) !important; overflow: hidden !important; }
-    .reportedIssueItem summary,.maintenanceIssueItem summary { list-style: none !important; cursor: pointer !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; gap: 12px !important; padding: 14px !important; }
+    .reportedIssueItem summary,.maintenanceIssueItem summary { list-style: none !important; cursor: pointer !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto 28px !important; align-items: center !important; gap: 12px !important; padding: 14px !important; }
     .reportedIssueItem summary::-webkit-details-marker,.maintenanceIssueItem summary::-webkit-details-marker { display: none !important; }
     .reportedIssueItem strong,.maintenanceIssueItem strong { display: block !important; color: #fff8ea !important; font-size: 17px !important; line-height: 1.15 !important; }
     .reportedIssueItem small,.maintenanceIssueItem small { display: block !important; color: #aaa194 !important; font-size: 13px !important; margin-top: 4px !important; }
-    .maintenanceExpandIcon { color: #d0ad58 !important; font-size: 24px !important; line-height: 1 !important; transition: transform .16s ease !important; }
-    .reportedIssueItem[open] .maintenanceExpandIcon,.maintenanceIssueItem[open] .maintenanceExpandIcon { transform: rotate(180deg) !important; }
+    .maintenanceSummaryText { min-width: 0 !important; }
+    .maintenanceTimestamp { justify-self: end !important; align-self: center !important; color: #d0ad58 !important; font-size: 12px !important; font-weight: 850 !important; line-height: 1.1 !important; text-align: right !important; white-space: nowrap !important; }
+    .maintenanceExpandIcon { color: #d0ad58 !important; font-size: 0 !important; line-height: 0 !important; transition: none !important; transform: none !important; }
+    .reportedIssueItem[open] .maintenanceExpandIcon,.maintenanceIssueItem[open] .maintenanceExpandIcon { transform: none !important; }
     .issueBody { padding: 0 14px 14px !important; display: grid !important; gap: 12px !important; }
     .issueBody p { margin: 0 !important; }
     .shoppingListHeader { display: grid !important; grid-template-columns: minmax(0,1fr) 58px !important; gap: 12px !important; align-items: center !important; }

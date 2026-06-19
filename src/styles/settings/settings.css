@@ -20,3 +20,8 @@
 .settingsExpander:not([open])>.settingsExpanderBody,
 .settingsAddCheckDetails:not([open])>.settingsAddCheckBody,
 .permissionUsersDrop:not([open])>.permissionUserList{display:none!important}
+.settingsItemList{display:grid!important;gap:10px!important;margin:8px 0 14px!important}
+.settingsItemRow{display:grid!important;grid-template-columns:minmax(0,1fr) 40px!important;align-items:center!important;gap:12px!important;min-height:56px!important;padding:8px 10px 8px 14px!important;border-radius:16px!important;background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important}
+.settingsItemRow span{min-width:0!important;color:#fff8ea!important;font-size:15px!important;font-weight:850!important;line-height:1.2!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:normal!important}
+.settingsCompactForm{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:10px!important}
+.settingsCompactForm input,.settingsCompactForm button{width:100%!important;min-height:48px!important;height:48px!important;border-radius:14px!important}
