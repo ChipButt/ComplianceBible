@@ -1,7 +1,7 @@
 // Home/status integration fixes for the clean-slate Compliance Bible build.
 (function statusCardActions() {
-  if (window.__statusCardActionsV2) return;
-  window.__statusCardActionsV2 = true;
+  if (window.__statusCardActionsV3) return;
+  window.__statusCardActionsV3 = true;
 
   const ROTA_STORAGE_KEY = 'rotaAppUnifiedV2';
 
@@ -37,34 +37,30 @@
   function readRotaData() {
     try {
       const bridged = typeof readRotaState === 'function' && readRotaState();
-      if (bridged && typeof bridged === 'object') return {
-        sections: bridged.sections || [],
-        users: bridged.users || safeState().users || [],
-        shifts: bridged.shifts || [],
-        logs: bridged.logs || {},
-        publishedWeeks: bridged.publishedWeeks || {},
-        alerts: bridged.alerts || [],
-        rotaTemplates: bridged.rotaTemplates || []
-      };
+      if (bridged && typeof bridged === 'object') return normalisedRotaData(bridged);
     } catch (_) {}
     try {
       const parsed = JSON.parse(localStorage.getItem(ROTA_STORAGE_KEY) || 'null');
-      if (parsed && typeof parsed === 'object') {
-        parsed.sections = parsed.sections || [];
-        parsed.users = parsed.users || safeState().users || [];
-        parsed.shifts = parsed.shifts || [];
-        parsed.logs = parsed.logs || {};
-        parsed.publishedWeeks = parsed.publishedWeeks || {};
-        return parsed;
-      }
+      if (parsed && typeof parsed === 'object') return normalisedRotaData(parsed);
     } catch (_) {}
-    return {
+    return normalisedRotaData({
       sections: (safeState().rotaSettings && safeState().rotaSettings.sections) || [],
       users: safeState().users || [],
       shifts: [],
       logs: {},
       publishedWeeks: {}
-    };
+    });
+  }
+
+  function normalisedRotaData(data) {
+    data.sections = data.sections || [];
+    data.users = data.users || safeState().users || [];
+    data.shifts = data.shifts || [];
+    data.logs = data.logs || {};
+    data.publishedWeeks = data.publishedWeeks || {};
+    data.alerts = data.alerts || [];
+    data.rotaTemplates = data.rotaTemplates || [];
+    return data;
   }
 
   function writeRotaData(data) {
@@ -112,17 +108,17 @@
     return end;
   }
 
-  function isOpenBreak(log) {
-    return (log.breaks || []).some(function (item) { return item && item.start && !item.end; });
+  function openBreak(log) {
+    return (log && log.breaks || []).find(function (item) { return item && item.start && !item.end; }) || null;
   }
 
-  function openBreak(log) {
-    return (log.breaks || []).find(function (item) { return item && item.start && !item.end; }) || null;
+  function isOpenBreak(log) {
+    return !!openBreak(log);
   }
 
   function breakDurationMs(log) {
     const now = Date.now();
-    return (log.breaks || []).reduce(function (total, item) {
+    return (log && log.breaks || []).reduce(function (total, item) {
       if (!item || !item.start) return total;
       const start = new Date(item.start).getTime();
       const end = item.end ? new Date(item.end).getTime() : now;
@@ -185,7 +181,7 @@
 
   function countdownText(shift, log) {
     if (!shift) return 'No upcoming shift.';
-    if (log && log.in && !log.out) return 'On Shift';
+    if (log && log.in && !log.out) return isOpenBreak(log) ? 'On Break' : 'On Shift';
 
     const start = shiftStartDate(shift);
     const now = new Date();
@@ -333,7 +329,7 @@
     }
 
     if (started) {
-      return '<div class="homeShiftControlPanel" data-home-shift-panel="' + esc(shift.id) + '">' +
+      return '<div class="homeShiftControlPanel ' + (open ? 'homeBreakActive' : '') + '" data-home-shift-panel="' + esc(shift.id) + '">' +
         '<p class="homeShiftSubheading">' + esc(shiftLabel(shift)) + '</p>' +
         '<p class="homeShiftActual">Started: <strong>' + esc(formatClock(log.in)) + '</strong></p>' +
         breakLine +
@@ -362,14 +358,16 @@
     if (!shift) {
       if (countdown) countdown.textContent = 'No upcoming shift.';
       if (line) line.remove();
-      card.classList.remove('homeClockLate');
+      card.classList.remove('homeClockLate', 'homeClockOnBreak');
       removeHomeControlPanel(card);
       return;
     }
 
+    const breakActive = isOpenBreak(log);
     const message = countdownText(shift, log);
     const late = !!(!log.in && shiftStartDate(shift) < new Date(Date.now() - 60000));
     card.classList.toggle('homeClockLate', late);
+    card.classList.toggle('homeClockOnBreak', breakActive);
     if (countdown) countdown.textContent = message;
 
     let targetLine = line;
@@ -379,7 +377,10 @@
       card.appendChild(targetLine);
     }
     if (log.in && !log.out) {
-      targetLine.textContent = (shift.section || 'Shift') + ' · Started ' + formatClock(log.in);
+      const br = openBreak(log);
+      targetLine.textContent = breakActive
+        ? (shift.section || 'Shift') + ' · On break since ' + formatClock(br && br.start)
+        : (shift.section || 'Shift') + ' · Started ' + formatClock(log.in);
     } else {
       targetLine.textContent = (shift.section || 'Shift') + ' · ' + (shift.start || '') + ' – ' + (shift.end || '');
     }
@@ -402,8 +403,48 @@
     if (panel) panel.remove();
   }
 
+  function shiftIdFromCard(card) {
+    if (!card) return '';
+    if (card.dataset.shiftId) return card.dataset.shiftId;
+    if (card.dataset.homeShiftPanel) return card.dataset.homeShiftPanel;
+    const inlineClick = card.getAttribute('onclick') || '';
+    const match = inlineClick.match(/openShiftModal\(['"]([^'"]+)['"]/);
+    return match ? match[1] : '';
+  }
+
+  function injectBreakStyleIntoDoc(doc) {
+    if (!doc || !doc.head || doc.getElementById('rota-break-state-style')) return;
+    const injected = doc.createElement('style');
+    injected.id = 'rota-break-state-style';
+    injected.textContent = '.scheduleShiftBlock.onBreak,.compactShift.onBreak,.shiftCard.onBreak{background:#fff2a8!important;color:#111!important;border-color:rgba(214,176,0,.7)!important}.scheduleShiftBlock.onBreak .shiftLine,.compactShift.onBreak *,.shiftCard.onBreak *{color:#111!important}.rotaDragGhost.scheduleShiftBlock.onBreak,.rotaDragGhost.shiftCard.onBreak{background:#fff2a8!important;color:#111!important}';
+    doc.head.appendChild(injected);
+  }
+
+  function syncBreakClassesInRoot(root, data) {
+    if (!root || !root.querySelectorAll) return;
+    injectBreakStyleIntoDoc(root.ownerDocument || document);
+    root.querySelectorAll('.scheduleShiftBlock,.compactShift,.shiftCard,[data-home-shift-panel]').forEach(function (card) {
+      const shiftId = shiftIdFromCard(card);
+      if (!shiftId) return;
+      const log = shiftLog(data, shiftId);
+      const onBreak = !!(log && log.in && !log.out && isOpenBreak(log));
+      card.classList.toggle('onBreak', onBreak);
+    });
+  }
+
+  function syncBreakVisuals() {
+    const data = readRotaData();
+    syncBreakClassesInRoot(document, data);
+    document.querySelectorAll('iframe').forEach(function (frame) {
+      try {
+        if (frame.contentDocument) syncBreakClassesInRoot(frame.contentDocument, data);
+      } catch (_) {}
+    });
+  }
+
   function decorateHome() {
     decorateHomeShiftCard();
+    syncBreakVisuals();
     document.querySelectorAll('.quickActions.rotaHomeActions, .rotaHomeActions').forEach(function (el) {
       el.remove();
     });
@@ -483,6 +524,7 @@
     decorateHome();
     decorateUserProfileTabs();
     applyDocumentButtonGuard();
+    syncBreakVisuals();
   }
 
   function doShiftAction(btn) {
@@ -526,12 +568,13 @@
 
     writeRotaData(data);
     saveComplianceState();
+    syncBreakVisuals();
     if (typeof render === 'function') render();
     setTimeout(applyAll, 0);
   }
 
   const style = document.createElement('style');
-  style.id = 'home-status-fixes-v2';
+  style.id = 'home-status-fixes-v3';
   style.textContent = `
     .statusActionCard { cursor: pointer !important; position: relative !important; transition: transform .12s ease, border-color .12s ease, background .12s ease !important; padding-right: 46px !important; }
     .statusActionCard::after { content: '›' !important; position: absolute !important; right: 18px !important; top: 50% !important; transform: translateY(-50%) !important; color: #B0914A !important; font-size: 34px !important; line-height: 1 !important; font-weight: 700 !important; opacity: .9 !important; }
@@ -549,7 +592,10 @@
     .quickActions.rotaHomeActions, .rotaHomeActions { display: none !important; }
     .homeClockCard.homeClockLate { background: linear-gradient(180deg,#7b1111,#4f0909) !important; border-color: rgba(255,90,90,.7) !important; }
     .homeClockCard.homeClockLate .homeClockTime, .homeClockCard.homeClockLate .homeCountdown, .homeClockCard.homeClockLate .homeNextShiftLine { color: #fff !important; }
+    .homeClockCard.homeClockOnBreak { background: linear-gradient(180deg,#fff2a8,#f3d96a) !important; border-color: rgba(214,176,0,.7) !important; }
+    .homeClockCard.homeClockOnBreak .homeClockTime, .homeClockCard.homeClockOnBreak .homeCountdown, .homeClockCard.homeClockOnBreak .homeNextShiftLine { color: #111 !important; }
     .homeShiftControlPanel { display: grid !important; gap: 8px !important; margin: -4px 0 14px !important; padding: 12px !important; border-radius: 18px !important; background: rgba(255,255,255,.045) !important; border: 1px solid rgba(255,255,255,.09) !important; }
+    .homeShiftControlPanel.homeBreakActive { background: rgba(255,242,168,.12) !important; border-color: rgba(214,176,0,.5) !important; }
     .homeShiftSubheading { margin: 0 !important; color: #d0ad58 !important; font-size: 13px !important; font-weight: 900 !important; text-align: center !important; }
     .homeShiftActual, .homeShiftTotals { margin: 0 !important; color: #fff8ea !important; font-size: 13px !important; text-align: center !important; }
     .homeShiftEnd[disabled] { background: #5c6064 !important; color: #d2d2d2 !important; cursor: not-allowed !important; opacity: .7 !important; }
@@ -583,6 +629,8 @@
 
     .scheduleShiftBlock.published, .compactShift.published, .shiftCard.published { background: #c9f2d1 !important; color: #111 !important; border-color: rgba(47,191,91,.55) !important; }
     .scheduleShiftBlock.published .shiftLine { color: #111 !important; }
+    .scheduleShiftBlock.onBreak, .compactShift.onBreak, .shiftCard.onBreak { background: #fff2a8 !important; color: #111 !important; border-color: rgba(214,176,0,.7) !important; }
+    .scheduleShiftBlock.onBreak .shiftLine, .compactShift.onBreak *, .shiftCard.onBreak * { color: #111 !important; }
   `;
   document.head.appendChild(style);
 
@@ -598,25 +646,28 @@
 
   document.addEventListener('change', function () { setTimeout(applyAll, 0); }, true);
 
-  if (typeof bind === 'function' && !bind.__statusCardActionsV2) {
+  if (typeof bind === 'function' && !bind.__statusCardActionsV3) {
     var oldBind = bind;
     bind = function bindWithStatusActions() {
       oldBind();
       applyAll();
     };
-    bind.__statusCardActionsV2 = true;
+    bind.__statusCardActionsV3 = true;
   }
 
   const originalRender = typeof render === 'function' && render;
-  if (originalRender && !originalRender.__homeStatusFixesWrapped) {
+  if (originalRender && !originalRender.__homeStatusFixesWrappedV3) {
     render = function renderWithHomeStatusFixes() {
       originalRender();
       applyAll();
     };
-    render.__homeStatusFixesWrapped = true;
+    render.__homeStatusFixesWrappedV3 = true;
   }
 
   window.addEventListener('resize', function () { setTimeout(applyAll, 0); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyAll); else applyAll();
-  setInterval(function () { if (document.querySelector('.rotaHomePanel .homeClockCard')) decorateHomeShiftCard(); }, 30000);
+  setInterval(function () {
+    if (document.querySelector('.rotaHomePanel .homeClockCard')) decorateHomeShiftCard();
+    syncBreakVisuals();
+  }, 5000);
 })();
