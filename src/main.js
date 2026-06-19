@@ -29,8 +29,7 @@ const defaults = {
   ].map(([cat, title]) => ({ id: uid(), cat, title, status: 'Missing', expiry: '', notes: 'Add record, expiry date and storage location.' })),
   checks: [
     { id: 'open', title: 'Opening Checks', area: 'Whole Pub', freq: 'Daily', due: '10:00', sign: true, items: ['Fire exits clear', 'Toilets clean and stocked', 'Bar ready', 'First aid kit present', 'No obvious hazards', 'Fridges checked'] },
-    { id: 'fridge', title: 'Fridge & Freezer Temperatures', area: 'Kitchen', freq: 'Daily', due: '11:00', items: ['Kitchen Fridge 1 recorded', 'Kitchen Fridge 2 recorded', 'Freezer recorded', 'Corrective action logged if outside range'] },
-    { id: 'clean', title: 'Cleaning Schedule', area: 'Whole Pub', freq: 'Daily', due: '16:00', items: ['Bar surfaces sanitised', 'Tables wiped', 'Toilets checked', 'Kitchen clean down complete', 'Bins checked'] },
+    { id: 'clean', title: 'Cleaning Schedule', area: 'Whole Pub', freq: 'Daily', due: '16:00', items: ['Bar surfaces sanitised', 'Tables wiped', 'Toilets checked', 'Bins checked'] },
     { id: 'close', title: 'Closing Checks', area: 'Whole Pub', freq: 'Daily', due: '23:59', sign: true, items: ['Appliances off where required', 'Fridges/freezers shut', 'Waste removed', 'Doors/windows secure', 'Incidents logged', 'Alarm set'] },
     { id: 'fire', title: 'Weekly Fire Alarm Test', area: 'Whole Pub', freq: 'Weekly', due: '12:00', sign: true, items: ['Call point tested', 'Alarm sounded', 'Panel reset', 'Faults reported'] },
     { id: 'cellar', title: 'Cellar Safety Check', area: 'Cellar', freq: 'Weekly', due: '15:00', items: ['Access clear', 'CO2 safety signage visible', 'Gas cylinders secure', 'Temperature acceptable', 'Leaks or hazards checked'] }
@@ -67,6 +66,8 @@ let lastPermittedRoute = 'dashboard';
 let deferredInstallPrompt = null;
 let openInspectionUserDocs = {};
 const PERMISSION_KEYS = ['checks', 'documents', 'logs', 'users', 'rota', 'inspection', 'settings'];
+const SEEDED_CHECK_CLEANUP_KEY = 'complianceSeededKitchenChecksRemovedV2';
+const SEEDED_KITCHEN_CHECK_IDS = new Set(['fridge','delivery-temperatures','fridge-freezer-temperatures','cooked-reheated-cooling-temperatures','hot-held-food-temperatures','date-code-check','supplier-product-date-code','kitchen-opening-checks','kitchen-closing-checks','kitchen-corrective-extra-checks']);
 
 try {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -97,6 +98,26 @@ function isNamedAdminUser(userRecord) {
   return text.includes('chip') || text.includes('vicky') || text.includes('rihanna');
 }
 
+function cleanupSeededChecks() {
+  if (localStorage.getItem(SEEDED_CHECK_CLEANUP_KEY) === 'true') return;
+  const removedIds = new Set();
+  state.checks = (state.checks || []).filter(check => {
+    const id = String(check.id || '');
+    const title = String(check.title || '').toLowerCase();
+    const area = String(check.area || '').toLowerCase();
+    const seededKitchen = area === 'kitchen' || SEEDED_KITCHEN_CHECK_IDS.has(id) || id.startsWith('temp-');
+    const codexTemp = id.toLowerCase().includes('codex') || title.includes('codex temporary');
+    if (seededKitchen || codexTemp) {
+      removedIds.add(id);
+      return false;
+    }
+    return true;
+  });
+  if (removedIds.size) state.done = (state.done || []).filter(record => !removedIds.has(String(record.checkId || '')));
+  localStorage.setItem(SEEDED_CHECK_CLEANUP_KEY, 'true');
+  save();
+}
+
 function ensureCoreState() {
   state.users = state.users || [];
   state.areas = state.areas || [];
@@ -125,6 +146,7 @@ function ensureCoreState() {
     }
     if (!userRecord.permissionSetId) userRecord.permissionSetId = userRecord.role || 'Staff';
   });
+  cleanupSeededChecks();
 }
 
 function ensureExtendedState() {
