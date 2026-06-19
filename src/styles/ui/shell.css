@@ -20,6 +20,7 @@ input,select,textarea{background:rgba(255,255,255,.06)!important;color:var(--ink
 button.primary,button:not(.navBtn):not(.ghost):not(.close):not(.secondary){background:linear-gradient(135deg,var(--gold),#d0ad58)!important;color:#070707!important;border:0!important;border-radius:14px!important;min-height:48px!important;font-weight:850!important}
 #app .checksPage .temperaturePhotoButton{grid-template-columns:auto auto!important;justify-content:center!important;justify-items:center!important;text-align:center!important}
 #app .checksPage .temperaturePhotoButton span{display:block!important;text-align:center!important}
+#app .checksPage .temperaturePhotoButton input{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;overflow:hidden!important}
 #app .checksPage .areaCheckCard .temperatureCheckPanel .temperatureEntryRow>button.temperatureSaveButton{height:34px!important;min-height:34px!important;max-height:34px!important;border-radius:10px!important;line-height:34px!important;padding:0 14px!important;align-self:stretch!important}
 button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:14px!important;min-height:48px!important}
 .bottomNav{position:fixed!important;left:10px!important;right:10px!important;bottom:max(10px,env(safe-area-inset-bottom))!important;z-index:50!important;height:72px!important;display:flex!important;gap:4px!important;overflow-x:auto!important;padding:8px!important;background:rgba(8,9,10,.96)!important;border:1px solid rgba(176,145,74,.28)!important;border-radius:24px!important;box-shadow:0 18px 38px rgba(0,0,0,.42)!important;scrollbar-width:none!important}
@@ -40,8 +41,11 @@ button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!impo
 .inspectionDocumentsCard,.inspectionTrainingCard{display:grid!important;gap:10px!important}
 .inspectionDocRow{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:7px 10px!important;align-items:center!important;padding:10px 0!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
 .inspectionDocRow:last-child{border-bottom:0!important}
-.inspectionDocTitle{min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;text-align:left!important;font-size:14px!important;font-weight:900!important;line-height:1.15!important;text-decoration:underline!important;text-decoration-color:rgba(208,173,88,.58)!important;text-underline-offset:3px!important}
+.inspectionDocTitle{min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;text-align:left!important;font-size:14px!important;font-weight:900!important;line-height:1.15!important;text-decoration:none!important;cursor:pointer!important}
+.inspectionDocTitle:focus-visible{outline:2px solid rgba(208,173,88,.65)!important;outline-offset:3px!important;border-radius:4px!important}
+.inspectionPlainStatus{color:#aaa194!important;font-size:12px!important;font-weight:850!important}
 .inspectionDocRow>span{grid-column:1/-1!important;color:#aaa194!important;font-size:12px!important;font-weight:700!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.inspectionDocRow>.inspectionDocTitle{grid-column:auto!important;color:#fff8ea!important;font-size:14px!important;font-weight:900!important}
 .inspectionDocRow>.badge{justify-self:end!important;grid-column:2!important;grid-row:1!important}
 .inspectionUserList{display:grid!important;gap:10px!important}
 .inspectionUserCard{border:1px solid rgba(255,255,255,.09)!important;border-radius:18px!important;overflow:hidden!important;background:rgba(255,255,255,.035)!important}
@@ -69,3 +73,10 @@ button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!impo
 .checkEvidenceUpload>span{color:#fff8ea!important;font-size:13px!important;font-weight:900!important;text-align:center!important}
 .checkEvidenceUpload input{min-height:42px!important;padding:8px!important;border-radius:10px!important}
 .checkEvidenceFileName{display:block!important;color:#aaa194!important;text-align:center!important;font-size:11px!important;font-weight:760!important}
+.checkCompletionDocPanel{display:grid!important;gap:8px!important;margin-bottom:10px!important}
+.checkAssignmentPanel{display:grid!important;gap:10px!important;margin-top:8px!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.09)!important}
+.checkAssignmentPanel [hidden]{display:none!important}
+.checkAssignmentPanel [data-check-assignment-fields]{display:grid!important;gap:10px!important}
+.checkAssignmentPanel label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
+.checkAssignmentPanel select{width:100%!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important}
+.areaCheckForm>.checkSavePrimary{width:100%!important;margin-top:8px!important}

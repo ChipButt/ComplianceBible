@@ -19,10 +19,9 @@
       '</article>';
     }).join('');
     return '<h2>Checklist setup</h2>'+
-      '<p class="muted">Edit the built-in checks here. Staff will only see the clean completion version.</p>'+
       '<section class="settingsCheckList">'+rows+'</section>'+
       '<details class="settingsAddCheckDetails">'+
-        '<summary><span>Add new checklist</span><small>Create a new recurring check for staff to complete</small></summary>'+
+        '<summary><span>Add new Check</span></summary>'+
         '<form id="checkForm" class="stack settingsAddCheckBody">'+
           '<input name="title" placeholder="Check title" required>'+
           '<select name="area">'+(state.areas||[]).map(function(a){return '<option>'+e(a)+'</option>';}).join('')+'</select>'+
@@ -30,7 +29,7 @@
           '<input name="due" type="time" value="12:00" required>'+
           '<textarea name="items" placeholder="One checklist item per line" required></textarea>'+
           '<label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label>'+
-          '<button class="primary">Add checklist</button>'+
+          '<button class="primary">Add Check</button>'+
         '</form>'+
       '</details>';
   };

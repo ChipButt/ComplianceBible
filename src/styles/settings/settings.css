@@ -26,9 +26,9 @@
 .settingsCompactForm{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:10px!important}
 .settingsCompactForm input,.settingsCompactForm button{width:100%!important;min-height:48px!important;height:48px!important;border-radius:14px!important}
 .rotaSetupBlock .settingsItemList{gap:8px!important}
-.settingsItemRow.rotaSectionRow{grid-template-columns:42px minmax(0,1fr) 40px!important;cursor:grab!important;touch-action:none!important}
+.settingsItemRow.rotaSectionRow{grid-template-columns:34px minmax(0,1fr) 40px!important;cursor:grab!important;touch-action:pan-y!important}
 .rotaSectionRow.dragging{opacity:.58!important;outline:2px solid #d0ad58!important;outline-offset:-2px!important}
-.rotaSectionDragHandle{width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;display:grid!important;place-items:center!important;padding:0!important;border-radius:999px!important;background:rgba(208,173,88,.15)!important;border:1px solid rgba(208,173,88,.42)!important;color:#d0ad58!important;font-size:19px!important;font-weight:950!important;line-height:1!important;cursor:grab!important;touch-action:none!important}
+.rotaSectionDragHandle{width:34px!important;height:42px!important;min-width:34px!important;min-height:42px!important;display:grid!important;place-items:center!important;padding:0!important;border-radius:0!important;background:transparent!important;border:0!important;color:#d0ad58!important;font-size:20px!important;font-weight:950!important;line-height:1!important;cursor:grab!important;touch-action:none!important}
 .rotaSectionDragHandle:active{cursor:grabbing!important}
 .checklistSetupHub{display:grid!important;gap:12px!important}
 .checkSetupAddButton{width:100%!important}
@@ -44,18 +44,23 @@
 .checkBuilderForm{display:grid!important;gap:12px!important;width:100%!important;max-width:100%!important;overflow-x:hidden!important}
 .checkBuilderTopActions{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
 .checkBuilderTopActions .danger{color:#ff6f61!important}
-.checkTypeTabs{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+.checkTypeTabs,.checkPackageTabs{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
 .checkTypeButton{display:flex!important;align-items:center!important;justify-content:center!important;min-height:46px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.09)!important}
 .checkTypeButton.active{background:#b0914a!important;color:#080a0c!important;border-color:rgba(0,0,0,.18)!important}
 .checkTypeButton strong{color:inherit!important;font-size:13px!important;font-weight:900!important}
+.checkPackageChoice{min-height:46px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.09)!important;display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;align-items:center!important;gap:10px!important;padding:10px 12px!important;font-weight:900!important}
+.checkPackageChoice.active{background:#b0914a!important;color:#080a0c!important;border-color:rgba(0,0,0,.18)!important}
+.checkPackageChoice input{width:18px!important;height:18px!important;min-height:18px!important;margin:0!important;accent-color:#080a0c!important}
+.checkPackageChoice span{color:inherit!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
 .checkBuilderPreview{margin:0!important}
 .checkBuilderBar{border:0!important}
 #modal.settingsModalOpen .checkBuilderBar{grid-template-columns:34px minmax(0,1fr)!important}
 .checkBuilderBar input{width:100%!important;min-height:34px!important;height:34px!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;font-size:15px!important;font-weight:900!important}
 .checkBuilderBar input::placeholder{color:#aaa194!important;opacity:1!important}
 .checkBuilderMetaGrid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-bottom:10px!important}
-.checkBuilderMetaGrid label,.checkTypePanel label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
+.checkBuilderMetaGrid label,.checkTypePanel label,.checkBuilderAssignment label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
 .checkBuilderMetaGrid input,.checkBuilderMetaGrid select,.checkTypePanel input,.checkTypePanel textarea{width:100%!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important}
+.checkBuilderAssignment select{width:100%!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important}
 .checkTypePanel{display:grid!important;gap:10px!important}
 .checkTypePanel[hidden]{display:none!important}
 .checkBuilderPackageNote{margin:0!important;font-size:12px!important;line-height:1.3!important}
@@ -68,9 +73,13 @@
 .checkBuilderItem input{width:100%!important;min-height:24px!important;height:auto!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;font-size:14px!important;font-weight:800!important}
 .checkBuilderItem input::placeholder{color:#aaa194!important;opacity:1!important}
 .checkBuilderDocBody{margin-top:2px!important}
+.checkBuilderNote textarea{min-height:70px!important;resize:vertical!important;padding:10px!important}
+.checkBuilderAssignment{display:grid!important;gap:10px!important}
+.checkBuilderAssignment [hidden]{display:none!important}
+.checkBuilderAssignment [data-assignment-fields]{display:grid!important;gap:10px!important}
 .checkBuilderSign{margin:0!important;color:#fff8ea!important}
 .checkBuilderSave{width:100%!important}
 .documentCheckPreview{display:grid!important;gap:7px!important}
 .checkEvidenceDrop{min-height:54px!important;display:grid!important;place-items:center!important;text-align:center!important;border-radius:14px!important;background:#10151b!important;border:1px dashed rgba(208,173,88,.52)!important;color:#fff8ea!important;font-weight:900!important}
 @media(min-width:431px){#modal.settingsModalOpen .checkBuilderBar{grid-template-columns:42px minmax(0,1fr)!important}}
-@media(min-width:520px){.checkTypeTabs{grid-template-columns:repeat(3,1fr)!important}.checkBuilderMetaGrid{grid-template-columns:minmax(0,1fr) 132px!important}}
+@media(min-width:520px){.checkTypeTabs,.checkPackageTabs{grid-template-columns:repeat(3,1fr)!important}.checkBuilderMetaGrid{grid-template-columns:minmax(0,1fr) 132px!important}}

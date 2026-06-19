@@ -236,7 +236,7 @@ function checkCard(c) {
   return `<article class="card checkCard ${d ? 'done' : od ? 'overdue' : ''}"><div class="cardTop"><h3>${esc(c.title)}</h3>${d ? badge('Done', 'ok') : od ? badge('Overdue', 'danger') : badge('Due ' + c.due, 'warn')}</div><p>${esc(c.area)} · ${esc(c.freq)}${c.sign ? ' · Manager sign-off' : ''}</p><div class="miniRow"><button class="primary" data-complete="${c.id}">${d ? 'View / redo check' : 'Complete check'}</button>${editButton}</div></article>`;
 }
 function checks() {
-  return `<section class="card"><h2>Checks to complete</h2><p class="muted">Checklist setup lives in Settings. This screen stays focused on completion.</p><div class="grid cards">${state.checks.map(checkCard).join('')}</div></section><section class="card"><h2>Completion history</h2>${history()}</section>`;
+  return `<section class="card"><h2>Checks to complete</h2><div class="grid cards">${state.checks.map(checkCard).join('')}</div></section><section class="card"><h2>Completion history</h2>${history()}</section>`;
 }
 function history() {
   return state.done.length ? `<div class="tableWrap"><table><thead><tr><th>Date</th><th>Check</th><th>User</th><th>Result</th><th>Notes</th></tr></thead><tbody>${[...state.done].reverse().map(c => `<tr><td>${esc(c.date)}</td><td>${esc(c.title)}</td><td>${esc(user(c.userId).nickname)}</td><td>${esc(c.result)}</td><td>${esc(c.notes)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No completed checks yet.</p>';
@@ -349,7 +349,7 @@ function inspectFindDocument(ref) {
 }
 
 function inspectionDocumentButton(title, ref, meta, status) {
-  return `<div class="inspectionDocRow"><button type="button" class="inspectionDocTitle" data-inspect-doc-view="${esc(ref)}">${esc(title)}</button><span>${esc(meta)}</span>${badge(status.label, status.kind)}</div>`;
+  return `<div class="inspectionDocRow"><span class="inspectionDocTitle" role="button" tabindex="0" data-inspect-doc-view="${esc(ref)}">${esc(title)}</span><span>${esc(meta)}</span>${badge(status.label, status.kind)}</div>`;
 }
 
 function inspectionDocuments() {
@@ -378,15 +378,15 @@ function inspectionStaffTraining() {
       <div class="inspectionUserPanel ${open ? '' : 'closed'}"><h4>Documents</h4>${docRows}<h4>Training records</h4>${trainingRows}</div>
     </article>`;
   });
-  return `<article class="card inspectionTrainingCard"><h3>Staff Training</h3><p class="muted">Open a user to view every required document and training record.</p><div class="inspectionUserList">${cards.join('')}</div></article>`;
+  return `<article class="card inspectionTrainingCard"><h3>Staff Training</h3><div class="inspectionUserList">${cards.join('')}</div></article>`;
 }
 
 function inspection() {
   const completedToday = state.done.filter(c => c.date === today()).length;
-  return `<section class="hero card"><div><p class="eyebrow">Read-only pack</p><h2>Inspection Mode</h2><p>Current checks, documents, staff requirements, training and open issues.</p></div><button class="primary" id="exportBtn">Export report</button></section>
+  return `<section class="hero card"><div><p class="eyebrow">Read-only pack</p><h2>Inspection Mode</h2></div><button class="primary" id="exportBtn">Export report</button></section>
   <section class="grid two inspectionGrid">
     <article class="card"><h3>Pub details</h3><p><strong>${esc(state.pub.name)}</strong><br>${esc(state.pub.address)}<br>Premises licence: ${esc(state.pub.licence)}<br>DPS: ${esc(state.pub.dps)}</p></article>
-    <article class="card"><h3>Today's checks</h3><p>${completedToday}/${state.checks.length} completed today.</p>${state.checks.map(c => `<div class="miniRow"><span>${esc(c.title)}</span>${done(c.id) ? badge('Done', 'ok') : overdue(c) ? badge('Overdue', 'danger') : badge('Pending', 'warn')}</div>`).join('')}</article>
+    <article class="card"><h3>Today's checks</h3><p>${completedToday}/${state.checks.length} completed today.</p>${state.checks.map(c => `<div class="miniRow"><span>${esc(c.title)}</span>${done(c.id) ? badge('Done', 'ok') : overdue(c) ? badge('Overdue', 'danger') : '<span class="inspectionPlainStatus">Pending</span>'}</div>`).join('')}</article>
     ${inspectionDocuments()}
     ${inspectionStaffTraining()}
     <article class="card"><h3>Open issues</h3>${state.issues.filter(issue => issue.status !== 'Resolved').length ? state.issues.filter(issue => issue.status !== 'Resolved').map(issue => `<div class="miniRow"><span>${esc(issue.title)}<small>${esc(issue.area || '')}</small></span>${badge(issue.severity || 'Open', issue.severity === 'Critical' ? 'danger' : 'warn')}</div>`).join('') : '<p class="muted">No open issues.</p>'}</article>
@@ -425,7 +425,7 @@ function rota() {
 
 function settings() {
   if (!isAdminUser()) return `<section class="card"><h2>Settings unavailable</h2><p>Only admin/supervisor users can change settings.</p></section>`;
-  return `<section class="hero card"><div><p class="eyebrow">Admin only</p><h2>Settings</h2><p>Configuration lives here. Normal staff screens are kept clean for completing checks and logs.</p></div>${badge('Admin area', 'ok')}</section>
+  return `<section class="hero card"><div><p class="eyebrow">Admin only</p><h2>Settings</h2></div>${badge('Admin area', 'ok')}</section>
   <section class="card">
     <nav class="mainNav settingsOnlyNav">
       ${settingsTabButton('checks', 'Checklists')}
@@ -456,7 +456,7 @@ function settingsContent() {
 function settingsChecks() {
   return `<h2>Checklist setup</h2>
   <div class="docList">${state.checks.map(c => `<div class="docItem"><div><strong>${esc(c.title)}</strong><span>${esc(c.area)} · ${esc(c.freq)} · Due ${esc(c.due)}</span><p>${esc((c.items || []).length)} checklist items</p></div><div><button class="ghost small" data-edit-check="${c.id}">Edit</button><button class="primary small" data-complete="${c.id}">Test</button></div></div>`).join('')}</div>
-  <h3>Add new checklist</h3>
+  <h3>Add new Check</h3>
   <form id="checkForm" class="stack">
     <input name="title" placeholder="Check title" required>
     <select name="area">${optionList(state.areas)}</select>
@@ -464,7 +464,7 @@ function settingsChecks() {
     <input name="due" type="time" value="12:00" required>
     <textarea name="items" placeholder="One checklist item per line" required></textarea>
     <label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label>
-    <button class="primary">Add checklist</button>
+    <button class="primary">Add Check</button>
   </form>`;
 }
 
@@ -530,7 +530,10 @@ function bind() {
     if (card) card.classList.toggle('open', isOpen);
     if (panel) panel.classList.toggle('closed', !isOpen);
   });
-  document.querySelectorAll('[data-inspect-doc-view]').forEach(b => b.onclick = () => openInspectionDocumentViewer(b.dataset.inspectDocView));
+  document.querySelectorAll('[data-inspect-doc-view]').forEach(b => {
+    b.onclick = () => openInspectionDocumentViewer(b.dataset.inspectDocView);
+    b.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openInspectionDocumentViewer(b.dataset.inspectDocView); } };
+  });
   document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) { const now = new Date().toISOString(); if (i.status === 'Resolved') { i.status = 'Open'; i.reopenedAt = now; delete i.resolvedAt; } else { i.status = 'Resolved'; i.resolvedAt = now; } } save(); render(); });
   on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: d.freq, due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
   on('docForm', e => { const d = fd(e); state.docs.push({ id: uid(), title: d.title, cat: d.cat, expiry: d.expiry, notes: d.notes, status: 'Missing' }); save(); render(); });
@@ -555,7 +558,7 @@ function openEditCheck(id) {
   if (!c) return;
   modalRoot.innerHTML = `<div class="modalCard">
     <button class="close" id="closeModal">×</button>
-    <h2>Edit checklist</h2>
+    <h2>Edit Check</h2>
     <form id="editCheckForm" class="stack">
       <input name="title" value="${esc(c.title)}" required>
       <select name="area">${optionList(state.areas, c.area)}</select>
@@ -563,14 +566,14 @@ function openEditCheck(id) {
       <input name="due" type="time" value="${esc(c.due)}" required>
       <textarea name="items" required>${esc((c.items || []).join('\n'))}</textarea>
       <label class="checkline"><input type="checkbox" name="sign" ${c.sign ? 'checked' : ''}> Requires manager sign-off</label>
-      <button class="primary">Save checklist changes</button>
-      <button type="button" class="ghost" id="deleteCheckBtn">Delete this checklist</button>
+      <button class="primary">Save Check changes</button>
+      <button type="button" class="ghost" id="deleteCheckBtn">Delete this check</button>
     </form>
   </div>`;
   modalRoot.classList.remove('hidden');
   document.getElementById('closeModal').onclick = () => modalRoot.classList.add('hidden');
   document.getElementById('deleteCheckBtn').onclick = () => {
-    if (confirm('Delete this checklist? Completed history will remain, but this check will no longer appear.')) {
+    if (confirm('Delete this check? Completed history will remain, but this check will no longer appear.')) {
       state.checks = state.checks.filter(x => x.id !== id);
       save();
       modalRoot.classList.add('hidden');

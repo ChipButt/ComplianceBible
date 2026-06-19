@@ -101,7 +101,7 @@
 
   documents = function centralDocumentsHub() {
     return `<section class="hero card"><div><p class="eyebrow">Document Hub</p><h2>All documents and staff training</h2><p>Find premises records, staff certificates, uploaded required documents, and training status from one place.</p></div>${badge('Central vault', 'ok')}</section>
-      <section class="panel"><h2>Find documents</h2>${docFinderButtons()}</section>
+      <section class="panel"><h2>Document groups</h2>${docFinderButtons()}</section>
       ${documentList()}
       ${trainingMatrix()}
       <section class="panel"><h2>Add premises document record</h2><form id="docForm" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><input name="expiry" type="date"><textarea name="notes" placeholder="Notes, location, renewal info"></textarea><button class="primary">Add document</button></form></section>`;

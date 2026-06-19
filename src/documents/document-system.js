@@ -142,13 +142,14 @@
   }
   function staffItems() {
     if (hasOnlySectionFilter('Premises documents')) return [];
+    return allStaffItems().filter(item => matchesSelectedFilters('userdoc', (item.title || '') + ' ' + (item.cat || '')));
+  }
+  function allStaffItems() {
     const out = [];
     (state.users || []).forEach(user => reqs().forEach(req => {
       const required = requirementAppliesToUser(req, user);
       const existing = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
       if (!required && !existing) return;
-      const hay = ((req.title || '') + ' ' + (user.name || '') + ' ' + (user.nickname || '') + ' ' + group(user)).toLowerCase();
-      if (!matchesSelectedFilters('userdoc', hay)) return;
       const record = required ? getUserRecord(user.id, req.id) : existing;
       out.push({ kind:'userdoc', key:user.id + '|' + req.id, title:req.title, cat:(user.nickname || user.name) + ' · ' + group(user), record, required, note:'Upload evidence for ' + (user.nickname || user.name) + ' and set expiry status.' });
     }));
@@ -159,24 +160,46 @@
     const body = items.length ? items.map(card).join('') : '<p class="muted">' + esc(emptyText) + '</p>';
     return '<section class="fdocSection"><h2>' + esc(title) + '</h2>' + body + '</section>';
   }
-  function filterButtons() {
-    return '<div class="buttonRow docFinderButtons"><details class="docFilterDrop"><summary>Filter document groups</summary><div class="docFilterOptions">' +
-      allFilterLabels().map(label => '<label><input type="checkbox" data-doc-group="' + esc(label) + '" ' + (selectedDocFilters.has(label) ? 'checked' : '') + '> <span>' + esc(label) + '</span></label>').join('') +
-      '</div></details></div>';
+  function uniqueLabels(labels) {
+    const seen = new Set();
+    return labels.filter(label => { const key = filterKey(label); if (!key || seen.has(key)) return false; seen.add(key); return true; });
+  }
+  function groupLabels() {
+    return uniqueLabels(['Premises documents','Staff documents'].concat((state.docs || []).map(doc => doc.cat || 'Document'), reqs().map(req => req.title)));
+  }
+  function itemsForGroup(label) {
+    const key = filterKey(label);
+    if (key === 'premises documents') return (state.docs || []).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
+    if (key === 'staff documents') return allStaffItems();
+    const premises = (state.docs || []).filter(d => filterKey((d.cat || '') + ' ' + (d.title || '')).includes(key)).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
+    const staff = allStaffItems().filter(item => filterKey((item.title || '') + ' ' + (item.cat || '')).includes(key));
+    return premises.concat(staff);
+  }
+  function groupButton(label) {
+    return '<button type="button" class="docGroupButton" data-open-doc-group="' + esc(label) + '"><span>' + esc(label) + '</span><small>' + itemsForGroup(label).length + ' docs</small></button>';
   }
   function addForm() {
-    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span><small>Add a licence, certificate, policy, inspection record or other venue document</small></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
+    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat"><option>Licensing</option><option>Food Safety</option><option>Fire Safety</option><option>Health & Safety</option><option>Staff</option><option>Equipment</option></select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
   }
   documents = function () {
-    const premises = premisesItems();
-    const staff = staffItems();
-    const forcePremises = hasSectionFilter('Premises documents');
-    const forceStaff = hasSectionFilter('Staff documents');
-    return '<section class="panel"><h2>Find documents</h2>' + filterButtons() + '</section>' +
-      renderSection('Premises documents', premises.map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' })), 'No premises documents match this filter.', forcePremises) +
-      renderSection('Staff documents', staff, 'No staff documents match this filter.', forceStaff) +
-      '<section class="panel"><h2>Training matrix</h2><p class="muted">Training matrix available from staff records.</p></section>' + addForm();
+    return '<section class="docGroupGrid">' + groupLabels().map(groupButton).join('') + '</section>' + addForm();
   };
+
+  function closeDocumentGroupModal() {
+    modalRoot.classList.add('hidden');
+    modalRoot.classList.remove('docGroupModalOpen');
+    modalRoot.innerHTML = '';
+    modalRoot.onclick = null;
+  }
+  function openDocumentGroupModal(label) {
+    const items = itemsForGroup(label);
+    modalRoot.innerHTML = '<div class="modalCard docGroupModal" role="dialog" aria-modal="true"><div class="docGroupModalTop"><h2>' + esc(label) + '</h2><button class="close" id="docGroupClose" type="button">×</button></div><div class="docGroupModalBody">' + renderSection(label, items, 'No documents in this group.', true) + '</div></div>';
+    modalRoot.classList.add('docGroupModalOpen');
+    modalRoot.classList.remove('hidden');
+    document.getElementById('docGroupClose').onclick = closeDocumentGroupModal;
+    modalRoot.onclick = event => { if (event.target === modalRoot) closeDocumentGroupModal(); };
+    bindDocumentControls(modalRoot);
+  }
 
   function viewer(record) {
     if (!record?.fileData) return;
@@ -185,17 +208,17 @@
     document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
   }
 
-  const oldBind = bind;
-  bind = function () {
-    oldBind();
-    document.querySelectorAll('[data-doc-group]').forEach(input => {
+  function bindDocumentControls(root) {
+    const scope = root || document;
+    scope.querySelectorAll('[data-doc-group]').forEach(input => {
       input.onchange = () => {
         if (input.checked) selectedDocFilters.add(input.dataset.docGroup);
         else selectedDocFilters.delete(input.dataset.docGroup);
         render();
       };
     });
-    document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => {
+    scope.querySelectorAll('[data-open-doc-group]').forEach(btn => btn.onclick = () => openDocumentGroupModal(btn.dataset.openDocGroup));
+    scope.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => {
       const k = btn.dataset.fdocToggle;
       const article = btn.closest('.fdoc');
       const panel = article && article.querySelector('.fdocPanel');
@@ -205,12 +228,27 @@
       if (panel) panel.classList.toggle('closed', !isOpen);
       btn.setAttribute('aria-expanded', String(isOpen));
     });
-    document.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
+    scope.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
       const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
       readFile(file, data => { r.fileData = data; r.fileName = file.name || 'Photo'; r.fileType = file.type || 'image/jpeg'; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
     });
-    document.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
-    document.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
-    document.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => { e.stopPropagation(); viewer(allRecords().find(r => r.id === btn.dataset.fdocThumb)); });
+    scope.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
+    scope.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
+    scope.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => { e.stopPropagation(); viewer(allRecords().find(r => r.id === btn.dataset.fdocThumb)); });
+    const add = scope.getElementById ? scope.getElementById('finalDocAdd') : null;
+    if (add) add.onsubmit = event => {
+      event.preventDefault();
+      const data = new FormData(add);
+      const file = (add.elements.file.files && add.elements.file.files[0]) || (add.elements.photo.files && add.elements.photo.files[0]);
+      const record = { id: uidx(), title: data.get('title'), cat: data.get('cat'), notes: data.get('notes') || '', expiry: data.get('expiry') || '', expiryDate: data.get('expiry') || '', noExpiry: !!data.get('noExpiry'), status: file ? 'Stored' : 'Missing' };
+      const finish = fileData => { if (fileData) { record.fileData = fileData; record.fileName = file.name || 'Photo'; record.fileType = file.type || 'image/jpeg'; record.uploadedAt = new Date().toISOString(); } state.docs.push(record); saveNow(); render(); };
+      if (file) readFile(file, finish); else finish('');
+    };
+  }
+
+  const oldBind = bind;
+  bind = function () {
+    oldBind();
+    bindDocumentControls(document);
   };
 })();
