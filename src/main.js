@@ -92,6 +92,13 @@ function overdue(check) { return !done(check.id) && new Date() > dueDT(check); }
 function badge(text, kind = '') { return `<span class="badge ${kind}">${esc(text)}</span>`; }
 function nav(id, label) { return `<button class="navBtn ${route === id ? 'active' : ''}" data-route="${id}">${label}</button>`; }
 function optionList(values, selected) { return values.map(v => `<option ${v === selected ? 'selected' : ''}>${esc(v)}</option>`).join(''); }
+function normaliseCheckFrequency(value) {
+  const text = String(value || 'Daily').trim();
+  const key = text.toLowerCase();
+  if (key === 'yearly') return 'Annual';
+  if (key === 'six-monthly' || key === 'six monthly' || key === 'every six months') return 'Every 6 Months';
+  return text || 'Daily';
+}
 
 function isNamedAdminUser(userRecord) {
   const text = String(`${userRecord?.name || ''} ${userRecord?.nickname || ''} ${userRecord?.email || ''}`).toLowerCase();
@@ -145,6 +152,14 @@ function ensureCoreState() {
       userRecord.permissionSetId = 'Admin';
     }
     if (!userRecord.permissionSetId) userRecord.permissionSetId = userRecord.role || 'Staff';
+  });
+  const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const now = new Date();
+  state.checks.forEach(check => {
+    check.freq = normaliseCheckFrequency(check.freq);
+    if (check.freq === 'Weekly' && !check.assignedWeeklyDay) check.assignedWeeklyDay = weekdayNames[now.getDay()];
+    if (check.freq === 'Monthly' && !check.assignedMonthlyDate) check.assignedMonthlyDate = String(now.getDate());
+    if ((check.freq === 'Annual' || check.freq === 'Every 6 Months') && !check.assignedDueDate) check.assignedDueDate = today();
   });
   cleanupSeededChecks();
 }
@@ -255,7 +270,7 @@ function activity() {
 function checkCard(c) {
   const d = done(c.id), od = overdue(c);
   const editButton = isAdminUser() ? `<button class="ghost small" data-edit-check="${c.id}">Edit</button>` : '';
-  return `<article class="card checkCard ${d ? 'done' : od ? 'overdue' : ''}"><div class="cardTop"><h3>${esc(c.title)}</h3>${d ? badge('Done', 'ok') : od ? badge('Overdue', 'danger') : badge('Due ' + c.due, 'warn')}</div><p>${esc(c.area)} · ${esc(c.freq)}${c.sign ? ' · Manager sign-off' : ''}</p><div class="miniRow"><button class="primary" data-complete="${c.id}">${d ? 'View / redo check' : 'Complete check'}</button>${editButton}</div></article>`;
+  return `<article class="card checkCard ${d ? 'done' : od ? 'overdue' : ''}"><div class="cardTop"><h3>${esc(c.title)}</h3>${d ? badge('Done', 'ok') : od ? badge('Overdue', 'danger') : badge('Due ' + c.due, 'warn')}</div><p>${esc(c.area)} · ${esc(normaliseCheckFrequency(c.freq))}${c.sign ? ' · Manager sign-off' : ''}</p><div class="miniRow"><button class="primary" data-complete="${c.id}">${d ? 'View / redo check' : 'Complete check'}</button>${editButton}</div></article>`;
 }
 function checks() {
   return `<section class="card"><h2>Checks to complete</h2><div class="grid cards">${state.checks.map(checkCard).join('')}</div></section><section class="card"><h2>Completion history</h2>${history()}</section>`;
@@ -482,7 +497,7 @@ function settingsChecks() {
   <form id="checkForm" class="stack">
     <input name="title" placeholder="Check title" required>
     <select name="area">${optionList(state.areas)}</select>
-    <select name="freq">${optionList(['Daily', 'Weekly', 'Monthly', 'Yearly'])}</select>
+    <select name="freq">${optionList(['Daily', 'Weekly', 'Monthly', 'Annual', 'Every 6 Months'])}</select>
     <input name="due" type="time" value="12:00" required>
     <textarea name="items" placeholder="One checklist item per line" required></textarea>
     <label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label>
@@ -540,6 +555,10 @@ function bind() {
   const userSwitch = document.getElementById('userSwitch');
   if (userSwitch) userSwitch.onchange = e => { state.currentUser = e.target.value; save(); render(); };
   document.querySelectorAll('[data-complete]').forEach(b => b.onclick = () => openCheck(b.dataset.complete));
+  document.querySelectorAll('[data-open-assigned-check]').forEach(b => b.onclick = () => {
+    if (typeof window.openCheckInChecks === 'function') window.openCheckInChecks(b.dataset.openAssignedCheck);
+    else navigateRoute('checks');
+  });
   document.querySelectorAll('[data-edit-check]').forEach(b => b.onclick = () => openEditCheck(b.dataset.editCheck));
   document.querySelectorAll('[data-settings-tab]').forEach(b => b.onclick = () => { settingsTab = b.dataset.settingsTab; render(); });
   document.querySelectorAll('[data-edit-user]').forEach(b => b.onclick = () => openUserEditor(b.dataset.editUser));
@@ -557,7 +576,7 @@ function bind() {
     b.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openInspectionDocumentViewer(b.dataset.inspectDocView); } };
   });
   document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) { const now = new Date().toISOString(); if (i.status === 'Resolved') { i.status = 'Open'; i.reopenedAt = now; delete i.resolvedAt; } else { i.status = 'Resolved'; i.resolvedAt = now; } } save(); render(); });
-  on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: d.freq, due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
+  on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: normaliseCheckFrequency(d.freq), due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
   on('docForm', e => { const d = fd(e); state.docs.push({ id: uid(), title: d.title, cat: d.cat, expiry: d.expiry, notes: d.notes, status: 'Missing' }); save(); render(); });
   on('tempForm', e => { const d = fd(e); const r = Number(d.reading); state.temps.push({ id: uid(), unit: d.unit, reading: r, action: d.action, status: r > 8 || r < -30 ? 'Check' : 'OK', userId: state.currentUser, created: new Date().toISOString() }); save(); render(); });
   on('logForm', e => { const d = fd(e); state.logs.push({ id: uid(), type: d.type, summary: d.summary, details: d.details, userId: state.currentUser, created: new Date().toISOString() }); save(); render(); });
@@ -584,7 +603,7 @@ function openEditCheck(id) {
     <form id="editCheckForm" class="stack">
       <input name="title" value="${esc(c.title)}" required>
       <select name="area">${optionList(state.areas, c.area)}</select>
-      <select name="freq">${optionList(['Daily', 'Weekly', 'Monthly', 'Yearly'], c.freq)}</select>
+      <select name="freq">${optionList(['Daily', 'Weekly', 'Monthly', 'Annual', 'Every 6 Months'], normaliseCheckFrequency(c.freq))}</select>
       <input name="due" type="time" value="${esc(c.due)}" required>
       <textarea name="items" required>${esc((c.items || []).join('\n'))}</textarea>
       <label class="checkline"><input type="checkbox" name="sign" ${c.sign ? 'checked' : ''}> Requires manager sign-off</label>
@@ -606,7 +625,7 @@ function openEditCheck(id) {
     const d = fd(e);
     c.title = d.title;
     c.area = d.area;
-    c.freq = d.freq;
+    c.freq = normaliseCheckFrequency(d.freq);
     c.due = d.due;
     c.sign = e.target.sign.checked;
     c.items = d.items.split('\n').map(x => x.trim()).filter(Boolean);

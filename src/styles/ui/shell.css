@@ -75,12 +75,9 @@ button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!impo
 .checkEvidenceFileName{display:block!important;color:#aaa194!important;text-align:center!important;font-size:11px!important;font-weight:760!important}
 .checkRunSection{display:grid!important;gap:8px!important;margin:0 0 10px!important;padding:0!important;min-width:0!important;max-width:100%!important}
 .checkRunSection .temperatureInstruction{color:#d0ad58!important;font-weight:900!important}
+.checkSectionNotes{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
+.checkSectionNotes textarea{width:100%!important;min-height:68px!important;resize:vertical!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;box-sizing:border-box!important}
 .checkCompletionDocPanel{display:grid!important;gap:8px!important;margin-bottom:10px!important}
-.checkAssignmentPanel{display:grid!important;gap:10px!important;margin-top:8px!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.09)!important}
-.checkAssignmentPanel [hidden]{display:none!important}
-.checkAssignmentPanel [data-check-assignment-fields]{display:grid!important;gap:10px!important}
-.checkAssignmentPanel label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
-.checkAssignmentPanel select{width:100%!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important}
 .areaCheckForm>.checkSavePrimary{width:100%!important;margin-top:8px!important}
 .checkToast{position:fixed!important;left:50%!important;bottom:calc(96px + env(safe-area-inset-bottom))!important;z-index:4000!important;transform:translate(-50%,18px)!important;opacity:0!important;max-width:min(420px,calc(100vw - 28px))!important;padding:12px 16px!important;border-radius:999px!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.56)!important;box-shadow:0 16px 34px rgba(0,0,0,.44)!important;font-size:13px!important;font-weight:900!important;text-align:center!important;transition:opacity .18s ease,transform .18s ease!important;pointer-events:none!important}
 .checkToast.show{opacity:1!important;transform:translate(-50%,0)!important}

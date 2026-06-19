@@ -70,6 +70,7 @@
 .checkBuilderBar input::placeholder{color:#aaa194!important;opacity:1!important}
 .checkBuilderMetaGrid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important;margin-bottom:10px!important}
 .checkBuilderMetaGrid label{min-width:0!important;max-width:100%!important}
+.checkBuilderMetaGrid [hidden]{display:none!important}
 .checkBuilderMetaGrid label,.checkTypePanel label,.checkBuilderAssignment label{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
 .checkBuilderMetaGrid input,.checkBuilderMetaGrid select,.checkTypePanel input,.checkTypePanel textarea{width:100%!important;min-width:0!important;max-width:100%!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;box-sizing:border-box!important}
 .checkBuilderMetaGrid input[type=time]{appearance:none!important;-webkit-appearance:none!important}
@@ -96,6 +97,10 @@
 .checkBuilderAssignment [data-assignment-fields]{display:grid!important;gap:10px!important}
 .checkBuilderSign{margin:0!important;color:#fff8ea!important}
 .checkBuilderSave{width:100%!important}
+#modal #deleteCheckBtn,#modal.settingsModalOpen #deleteCheckBtn{background:#9d1f1f!important;color:#fff8ea!important;border:1px solid rgba(255,120,120,.48)!important}
+#modal.settingsModalOpen .permissionGroupPanel .permissionActions{grid-template-columns:1fr!important}
+#modal.settingsModalOpen .permissionGroupPanel .permissionActions .primary,#modal.settingsModalOpen .permissionGroupPanel .permissionGroupForm>button.primary{background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}
+#modal.settingsModalOpen .permissionGroupPanel .permissionActions .primary *,#modal.settingsModalOpen .permissionGroupPanel .permissionGroupForm>button.primary *{color:#fff8ea!important}
 .documentCheckPreview{display:grid!important;gap:7px!important}
 .checkEvidenceDrop{min-height:54px!important;display:grid!important;place-items:center!important;text-align:center!important;border-radius:14px!important;background:#10151b!important;border:1px dashed rgba(208,173,88,.52)!important;color:#fff8ea!important;font-weight:900!important}
 @media(min-width:431px){#modal.settingsModalOpen .checkBuilderBar{grid-template-columns:42px minmax(0,1fr)!important}}

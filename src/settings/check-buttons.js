@@ -25,7 +25,7 @@
         '<form id="checkForm" class="stack settingsAddCheckBody">'+
           '<input name="title" placeholder="Check title" required>'+
           '<select name="area">'+(state.areas||[]).map(function(a){return '<option>'+e(a)+'</option>';}).join('')+'</select>'+
-          '<select name="freq"><option>Daily</option><option>Weekly</option><option>Monthly</option></select>'+
+          '<select name="freq"><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Annual</option><option>Every 6 Months</option></select>'+
           '<input name="due" type="time" value="12:00" required>'+
           '<textarea name="items" placeholder="One checklist item per line" required></textarea>'+
           '<label class="checkline"><input type="checkbox" name="sign"> Requires manager sign-off</label>'+

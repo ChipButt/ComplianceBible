@@ -191,7 +191,49 @@
     modalRoot.innerHTML = '';
     modalRoot.onclick = null;
   }
+  function staffName(user) {
+    return String(user?.name || user?.nickname || '').trim();
+  }
+  function staffRequirementButtons() {
+    return reqs().slice().sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''))).map(req => {
+      const count = staffItemsForRequirement(req).length;
+      return '<button type="button" class="docGroupButton staffDocRequirementButton" data-open-staff-doc-requirement="' + esc(req.id) + '"><span>' + esc(req.title) + '</span><small>' + count + ' staff</small></button>';
+    }).join('');
+  }
+  function staffItemsForRequirement(req) {
+    const users = (state.users || []).slice().sort((a, b) => staffName(a).localeCompare(staffName(b)));
+    return users.map(user => {
+      const required = requirementAppliesToUser(req, user);
+      const existing = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
+      if (!required && !existing) return null;
+      const record = required ? getUserRecord(user.id, req.id) : existing;
+      return { kind:'userdoc', key:user.id + '|' + req.id, title:staffName(user) || user.nickname || 'Staff member', cat:group(user) + ' · ' + req.title, record, required, note:'Upload evidence for ' + (staffName(user) || user.nickname || 'this staff member') + ' and set expiry status.' };
+    }).filter(Boolean);
+  }
+  function openStaffDocumentsModal() {
+    modalRoot.innerHTML = '<div class="modalCard docGroupModal" role="dialog" aria-modal="true"><div class="docGroupModalTop"><h2>Staff Documents</h2><button class="close" id="docGroupClose" type="button">×</button></div><div class="docGroupModalBody"><section class="docGroupGrid staffDocRequirementGrid">' + staffRequirementButtons() + '</section></div></div>';
+    modalRoot.classList.add('docGroupModalOpen');
+    modalRoot.classList.remove('hidden');
+    document.getElementById('docGroupClose').onclick = closeDocumentGroupModal;
+    modalRoot.onclick = event => { if (event.target === modalRoot) closeDocumentGroupModal(); };
+    bindDocumentControls(modalRoot);
+  }
+  function openStaffRequirementModal(reqId) {
+    const req = reqs().find(item => item.id === reqId);
+    if (!req) return;
+    const items = staffItemsForRequirement(req);
+    modalRoot.innerHTML = '<div class="modalCard docGroupModal" role="dialog" aria-modal="true"><div class="docGroupModalTop"><h2>' + esc(req.title) + '</h2><button class="close" id="docGroupClose" type="button">×</button></div><div class="docGroupModalBody">' + renderSection(req.title, items, 'No staff documents for this requirement.', true) + '</div></div>';
+    modalRoot.classList.add('docGroupModalOpen');
+    modalRoot.classList.remove('hidden');
+    document.getElementById('docGroupClose').onclick = closeDocumentGroupModal;
+    modalRoot.onclick = event => { if (event.target === modalRoot) closeDocumentGroupModal(); };
+    bindDocumentControls(modalRoot);
+  }
   function openDocumentGroupModal(label) {
+    if (filterKey(label) === 'staff documents') {
+      openStaffDocumentsModal();
+      return;
+    }
     const items = itemsForGroup(label);
     modalRoot.innerHTML = '<div class="modalCard docGroupModal" role="dialog" aria-modal="true"><div class="docGroupModalTop"><h2>' + esc(label) + '</h2><button class="close" id="docGroupClose" type="button">×</button></div><div class="docGroupModalBody">' + renderSection(label, items, 'No documents in this group.', true) + '</div></div>';
     modalRoot.classList.add('docGroupModalOpen');
@@ -218,6 +260,7 @@
       };
     });
     scope.querySelectorAll('[data-open-doc-group]').forEach(btn => btn.onclick = () => openDocumentGroupModal(btn.dataset.openDocGroup));
+    scope.querySelectorAll('[data-open-staff-doc-requirement]').forEach(btn => btn.onclick = () => openStaffRequirementModal(btn.dataset.openStaffDocRequirement));
     scope.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => {
       const k = btn.dataset.fdocToggle;
       const article = btn.closest('.fdoc');

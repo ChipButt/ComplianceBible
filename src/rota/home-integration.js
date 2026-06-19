@@ -26,6 +26,11 @@
   function niceDate(date) { try { return new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return date || ''; } }
   function startDate(shift) { return new Date(String(shift.date || today()) + 'T' + String(shift.start || '00:00') + ':00'); }
   function makeShiftId() { return 's_' + Math.random().toString(36).slice(2, 9); }
+  function normaliseFrequency(value) { const text = String(value || 'Daily').trim(); const key = text.toLowerCase(); if (key === 'yearly') return 'Annual'; if (key === 'six-monthly' || key === 'six monthly' || key === 'every six months') return 'Every 6 Months'; return text || 'Daily'; }
+  function todayParts() { const bits = today().split('-').map(Number); return { month: bits[1] || 0, day: bits[2] || 0 }; }
+  function dueDateParts(check) { const bits = String(check.assignedDueDate || check.dueDate || '').split('-').map(Number); return { raw: check.assignedDueDate || check.dueDate || '', month: bits[1] || 0, day: bits[2] || 0 }; }
+  function sameMonthDay(a, b) { return a.month === b.month && a.day === b.day; }
+  function sixMonthPairDue(start, now) { if (!start.month || !start.day) return false; const pairMonth = ((start.month + 5) % 12) + 1; return sameMonthDay(start, now) || (now.month === pairMonth && now.day === start.day); }
 
   function rotaLog(data, shiftId) {
     data.logs[shiftId] = data.logs[shiftId] || { in: null, out: null, breaks: [] };
@@ -47,18 +52,20 @@
     const assignedUserId = check.assignedUserId || '';
     if (assignedUserId && assignedUserId !== currentUserId()) return false;
     try { if (typeof done === 'function' && done(check.id)) return false; } catch (e) {}
-    const freq = String(check.freq || 'Daily');
+    const freq = normaliseFrequency(check.freq || 'Daily');
     const now = new Date();
     const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     if (freq === 'Weekly' && check.assignedWeeklyDay) return days[now.getDay()] === check.assignedWeeklyDay;
     if (freq === 'Monthly' && check.assignedMonthlyDate) return String(now.getDate()) === String(check.assignedMonthlyDate);
+    if (freq === 'Annual') { const annual = dueDateParts(check); return annual.raw ? sameMonthDay(annual, todayParts()) : true; }
+    if (freq === 'Every 6 Months') { const six = dueDateParts(check); return six.raw ? sixMonthPairDue(six, todayParts()) : true; }
     return true;
   }
 
   function assignedChecksHomeBlock() {
     const checks = (state.checks || []).filter(assignedCheckDueToday);
     if (!checks.length) return '';
-    return `<div class="homeAssignedChecks"><h2>Assigned checks</h2>${checks.map(check => `<button type="button" data-route="checks" class="homeAssignedCheck"><span>${esc(check.title)}</span><small>${esc(check.area || '')} · Due ${esc(check.due || '')}</small></button>`).join('')}</div>`;
+    return `<div class="homeAssignedChecks"><h2>Assigned checks</h2>${checks.map(check => `<button type="button" data-open-assigned-check="${esc(check.id)}" class="homeAssignedCheck"><span>${esc(check.title)}</span><small>${esc(check.area || '')} · ${esc(normaliseFrequency(check.freq))} · Due ${esc(check.due || '')}</small></button>`).join('')}</div>`;
   }
 
   function upcomingShifts(data, userId) {

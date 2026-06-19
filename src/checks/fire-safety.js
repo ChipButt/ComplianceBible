@@ -19,7 +19,7 @@
       {name:'result',label:'Result / details of faults',type:'textarea',required:true,placeholder:'What happened during the test?'},
       {name:'faultCleared',label:'Fault cleared',type:'select',required:true,options:['No fault found','Yes','No - manager notified']}
     ]},
-    {id:'fire-drill',title:'Fire Drill Record',area:'Whole Pub',freq:'Six-monthly',due:'12:00',sign:true,requiresEvidence:true,items:['Evacuation drill completed','Staff knew allocated duties','Exit routes used in accordance with practised plan','Any issues recorded'],fields:[
+    {id:'fire-drill',title:'Fire Drill Record',area:'Whole Pub',freq:'Every 6 Months',due:'12:00',sign:true,requiresEvidence:true,items:['Evacuation drill completed','Staff knew allocated duties','Exit routes used in accordance with practised plan','Any issues recorded'],fields:[
       {name:'evacuationTime',label:'Evacuation time',type:'text',required:true,placeholder:'e.g. 3 minutes'},
       {name:'remarks',label:'Remarks',type:'textarea',required:false,placeholder:'Issues, observations or action required'}
     ]},
@@ -44,7 +44,7 @@
       {name:'result',label:'Result',type:'select',required:true,options:['Pass','Pass with action','Fail - manager notified']},
       {name:'comments',label:'Comments / maintenance notes',type:'textarea',required:false,placeholder:'Record maintenance date, fault or action'}
     ]},
-    {id:'emergency-lighting-annual',title:'Emergency Lighting Annual 3-Hour Test',area:'Whole Pub',freq:'Yearly',due:'12:00',sign:true,requiresEvidence:true,items:['Annual 3-hour discharge test completed','Competent engineer / service record uploaded','Faults recorded and actioned'],fields:[
+    {id:'emergency-lighting-annual',title:'Emergency Lighting Annual 3-Hour Test',area:'Whole Pub',freq:'Annual',due:'12:00',sign:true,requiresEvidence:true,items:['Annual 3-hour discharge test completed','Competent engineer / service record uploaded','Faults recorded and actioned'],fields:[
       {name:'engineer',label:'Competent engineer / company',type:'text',required:true,placeholder:'Engineer or contractor name'},
       {name:'locations',label:'Locations covered',type:'textarea',required:true,placeholder:'List areas/lights included'},
       {name:'result',label:'Result',type:'select',required:true,options:['Pass','Pass with remedial action','Fail - manager notified']},
@@ -57,7 +57,7 @@
       {name:'condition',label:'Condition',type:'select',required:true,options:['Present / satisfactory','Missing','Damaged','Needs service']},
       {name:'defectAction',label:'Defect / action taken',type:'textarea',required:false,placeholder:'Record issue and action'}
     ]},
-    {id:'fire-safety-training-review',title:'Fire Safety Training Review',area:'Staff',freq:'Yearly',due:'12:00',sign:true,requiresEvidence:true,items:['Staff training records reviewed','New starters identified','Annual refreshers checked','Fire warden/additional duties checked where applicable'],fields:[
+    {id:'fire-safety-training-review',title:'Fire Safety Training Review',area:'Staff',freq:'Annual',due:'12:00',sign:true,requiresEvidence:true,items:['Staff training records reviewed','New starters identified','Annual refreshers checked','Fire warden/additional duties checked where applicable'],fields:[
       {name:'staffCovered',label:'Staff / groups covered',type:'textarea',required:true,placeholder:'List staff or groups reviewed'},
       {name:'actionRequired',label:'Action required',type:'textarea',required:false,placeholder:'Record missing refreshers, new starters or follow-up'}
     ]}
