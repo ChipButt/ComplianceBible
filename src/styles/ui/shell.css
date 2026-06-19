@@ -81,3 +81,5 @@ button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!impo
 .areaCheckForm>.checkSavePrimary{width:100%!important;margin-top:8px!important}
 .checkToast{position:fixed!important;left:50%!important;bottom:calc(96px + env(safe-area-inset-bottom))!important;z-index:4000!important;transform:translate(-50%,18px)!important;opacity:0!important;max-width:min(420px,calc(100vw - 28px))!important;padding:12px 16px!important;border-radius:999px!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.56)!important;box-shadow:0 16px 34px rgba(0,0,0,.44)!important;font-size:13px!important;font-weight:900!important;text-align:center!important;transition:opacity .18s ease,transform .18s ease!important;pointer-events:none!important}
 .checkToast.show{opacity:1!important;transform:translate(-50%,0)!important}
+body .rotaHomePanel .homePanelActionGrid{grid-template-columns:1fr!important}
+body .rotaHomePanel .homePanelActionButton{width:100%!important;justify-self:stretch!important}
