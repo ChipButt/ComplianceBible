@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="src/styles/ui/expanders.css" />
 <link rel="stylesheet" href="src/styles/ui/chevrons-app-wide.css?v=20260619-2" />
 <link rel="stylesheet" href="src/styles/checks/checks-visual-tune.css?v=20260617-2" />
-<link rel="stylesheet" href="src/styles/ui/shell.css?v=20260619-9" />
+<link rel="stylesheet" href="src/styles/ui/shell.css?v=20260619-10" />
 </head>
 <body>
 <div id="appShell"><header class="topbar"><div><h1>Pub Compliance Hub</h1></div><button id="installBtn" class="ghost small hidden">Install</button></header><main id="app"></main><nav class="bottomNav" aria-label="Main navigation"><button data-route="dashboard" class="navBtn active">Home</button><button data-route="checks" class="navBtn">Checks</button><button data-route="documents" class="navBtn">Docs</button><button data-route="logs" class="navBtn">Issues</button><button data-route="rota" class="navBtn">Rota</button><button data-route="inspection" class="navBtn">Inspect</button><button data-route="settings" class="navBtn">Settings</button></nav></div>
@@ -192,7 +192,7 @@
       button.type = 'button';
       button.className = 'settingsSectionButton';
       button.dataset.settingsUsersEntry = 'true';
-      button.innerHTML = '<span class="settingsSectionButtonText">Users</span><span class="settingsSectionCog">⚙</span>';
+      button.innerHTML = '<span class="settingsSectionButtonText">Users</span><span class="settingsSectionCog" aria-hidden="true"></span>';
       grid.insertBefore(button, grid.children[2] || null);
     }
     document.querySelectorAll('#modal.settingsModalOpen h2, #modal.settingsModalOpen h3, .settingsModalBody h2').forEach(el => {
