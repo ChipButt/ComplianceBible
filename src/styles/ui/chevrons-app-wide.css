@@ -130,6 +130,7 @@
 #app .checkAreaGroup:not(.open) > .checkAreaBar .fdocArrow::before,
 #app .checkDocCard:not(.open) > .checkDocBar .fdocArrow::before,
 #app .permissionGroupCard:not(.open) > .permissionGroupButton .fdocArrow::before,
+#app .inspectionUserCard:not(.open) > .inspectionUserButton .fdocArrow::before,
 #app .permissionUsersDrop:not([open]) .permissionDetailArrow::before {
   transform: rotate(45deg) !important;
 }
@@ -144,6 +145,7 @@
 #app .checkAreaGroup.open > .checkAreaBar .fdocArrow::before,
 #app .checkDocCard.open > .checkDocBar .fdocArrow::before,
 #app .permissionGroupCard.open > .permissionGroupButton .fdocArrow::before,
+#app .inspectionUserCard.open > .inspectionUserButton .fdocArrow::before,
 #app .permissionUsersDrop[open] .permissionDetailArrow::before {
   transform: rotate(225deg) !important;
 }

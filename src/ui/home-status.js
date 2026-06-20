@@ -72,6 +72,12 @@
     return s.currentUser || (s.users && s.users[0] && s.users[0].id) || '';
   }
 
+  function assignedToCurrentUser(assignedUserId) {
+    const value = String(assignedUserId || '').trim();
+    const key = value.toLowerCase();
+    return !value || key === 'everyone' || key === 'all' || key === 'all users' || value === currentComplianceUserId();
+  }
+
   function isAdminNow() {
     try { return typeof isAdminUser === 'function' && isAdminUser(); } catch (_) { return false; }
   }
@@ -180,7 +186,7 @@
   }
 
   function countdownText(shift, log) {
-    if (!shift) return 'No upcoming shift.';
+    if (!shift) return 'No upcoming shift';
     if (log && log.in && !log.out) return isOpenBreak(log) ? 'On Break' : 'On Shift';
 
     const start = shiftStartDate(shift);
@@ -255,8 +261,7 @@
 
   function assignedCheckDueToday(check) {
     if (!check) return false;
-    const assignedUserId = check.assignedUserId || '';
-    if (assignedUserId && assignedUserId !== currentComplianceUserId()) return false;
+    if (!assignedToCurrentUser(check.assignedUserId)) return false;
     try { if (typeof done === 'function' && done(check.id)) return false; } catch (_) {}
     const freq = normaliseFrequency(check.freq || 'Daily');
     const now = new Date();
@@ -356,7 +361,7 @@
     const line = card.querySelector('.homeNextShiftLine');
 
     if (!shift) {
-      if (countdown) countdown.textContent = 'No upcoming shift.';
+      if (countdown) countdown.textContent = 'No upcoming shift';
       if (line) line.remove();
       card.classList.remove('homeClockLate', 'homeClockOnBreak');
       removeHomeControlPanel(card);
@@ -602,14 +607,8 @@
 
     .inspectionUserButton, .inspectionUserButton * { color: #fff8ea !important; }
     .inspectionUserButton em, .inspectionUserButton small { color: #fff8ea !important; opacity: 1 !important; }
-    .inspectionUserButton { position: relative !important; grid-template-columns: minmax(0,1fr) auto 28px !important; }
-    .inspectionUserButton > :last-child { font-size: 0 !important; line-height: 0 !important; }
-    .inspectionUserButton::after {
-      content: "" !important; justify-self: end !important; align-self: center !important; width: 11px !important; height: 11px !important;
-      border-right: 4px solid #f0b84a !important; border-bottom: 4px solid #f0b84a !important; border-radius: 1px !important;
-      transform: rotate(45deg) !important; transform-origin: 50% 50% !important; grid-column: 3 !important; grid-row: 1 !important;
-    }
-    .inspectionUserCard:has(.inspectionUserPanel:not(.closed)) .inspectionUserButton::after { transform: rotate(225deg) !important; }
+    .inspectionUserButton { grid-template-columns: minmax(0,1fr) auto 28px !important; }
+    .inspectionUserButton .fdocArrow { color: #f0b84a !important; }
 
     #modal .temperatureInputBox { height: 34px !important; min-height: 34px !important; max-height: 34px !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; overflow: hidden !important; }
     #modal .temperatureInputBox input, #modal .temperatureInputBox span { height: 34px !important; min-height: 34px !important; max-height: 34px !important; line-height: 34px !important; padding-top: 0 !important; padding-bottom: 0 !important; margin: 0 !important; align-self: center !important; transform: none !important; }

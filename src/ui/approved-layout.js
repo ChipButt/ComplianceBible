@@ -65,6 +65,50 @@
     } catch (e) { return 0; }
   }
 
+  function normaliseFrequency(value) {
+    var text = String(value || 'Daily').trim();
+    var key = text.toLowerCase();
+    if (key === 'yearly') return 'Annual';
+    if (key === 'six-monthly' || key === 'six monthly' || key === 'every six months') return 'Every 6 Months';
+    return text || 'Daily';
+  }
+
+  function assignedToCurrentUser(check) {
+    var assignedUserId = String((check && check.assignedUserId) || '').trim();
+    var key = assignedUserId.toLowerCase();
+    if (!assignedUserId || key === 'everyone' || key === 'all' || key === 'all users') return true;
+    var u = currentUser();
+    return !!(u && assignedUserId === u.id);
+  }
+
+  function dateParts(value) {
+    var bits = String(value || '').split('-').map(Number);
+    return { month: bits[1] || 0, day: bits[2] || 0 };
+  }
+
+  function countAssignedChecks() {
+    try {
+      var now = new Date();
+      var todayParts = { month: now.getMonth() + 1, day: now.getDate() };
+      var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      return (state.checks || []).filter(function (check) {
+        if (!check || check.hiddenFromChecksPage || !assignedToCurrentUser(check)) return false;
+        try { if (typeof done === 'function' && done(check.id)) return false; } catch (e) {}
+        var freq = normaliseFrequency(check.freq || 'Daily');
+        if (freq === 'Weekly' && check.assignedWeeklyDay) return days[now.getDay()] === check.assignedWeeklyDay;
+        if (freq === 'Monthly' && check.assignedMonthlyDate) return String(now.getDate()) === String(check.assignedMonthlyDate);
+        if (freq === 'Annual' || freq === 'Every 6 Months') {
+          var due = dateParts(check.assignedDueDate || check.dueDate || '');
+          if (!due.month || !due.day) return true;
+          if (freq === 'Annual') return due.month === todayParts.month && due.day === todayParts.day;
+          var pairedMonth = ((due.month + 5) % 12) + 1;
+          return (due.month === todayParts.month || pairedMonth === todayParts.month) && due.day === todayParts.day;
+        }
+        return true;
+      }).length;
+    } catch (e) { return 0; }
+  }
+
   function setBadge(routeName, count) {
     var btn = document.querySelector('.bottomNav .navBtn[data-route="' + routeName + '"]');
     if (!btn) return;
@@ -185,6 +229,7 @@
   function apply() {
     document.querySelectorAll('.statusStrip').forEach(function (el) { el.remove(); });
     syncSettingsTabVisibility();
+    setBadge('dashboard', countAssignedChecks());
     setBadge('checks', countChecks());
     setBadge('documents', countDocs());
     setBadge('logs', countIssues());

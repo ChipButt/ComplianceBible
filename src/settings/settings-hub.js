@@ -1,8 +1,8 @@
-// Core Settings prototype for the test-settings-page branch.
+// Core Settings hub.
 // Broad permission-group system built directly into the core settings file.
-(function coreSettingsPrototype() {
-  if (window.__coreSettingsPrototypeV2) return;
-  window.__coreSettingsPrototypeV2 = true;
+(function coreSettingsHub() {
+  if (window.__coreSettingsHubV3) return;
+  window.__coreSettingsHubV3 = true;
 
   var ROTA_KEY = 'rotaAppUnifiedV2';
   var NOTIFICATION_RULES_KEY = 'complianceBible.notificationRules.v1';
@@ -119,8 +119,21 @@
     try {
       if (state.rotaSettings && Array.isArray(state.rotaSettings.sections)) list = list.concat(state.rotaSettings.sections);
       if (Array.isArray(state.areas)) list = list.concat(state.areas);
+      var rota = readJSON(ROTA_KEY, {});
+      if (Array.isArray(rota.sections)) list = list.concat(rota.sections);
     } catch (_) {}
-    return Array.from(new Set(list.map(function (item) { return String(item || '').trim(); }).filter(Boolean)));
+    var unique = Array.from(new Set(list.map(function (item) { return String(item || '').trim(); }).filter(Boolean)));
+    return unique.length ? unique : ['FOH', 'Kitchen', 'Office'];
+  }
+  function syncWorkAreasState() {
+    var list = areas();
+    state.areas = list.slice();
+    state.rotaSettings = state.rotaSettings || { sections: [] };
+    state.rotaSettings.sections = list.slice();
+    var rota = readJSON(ROTA_KEY, {});
+    rota.sections = list.slice();
+    writeJSON(ROTA_KEY, rota);
+    return list;
   }
 
   function ensureState() {
@@ -144,6 +157,7 @@
     });
     state.pub = state.pub || {};
     state.notificationRules = state.notificationRules || readJSON(NOTIFICATION_RULES_KEY, defaultNotificationRules());
+    syncWorkAreasState();
   }
 
   window.appPermissionAllows = function (key, user) {
@@ -166,8 +180,8 @@
 
   function settingsPage() {
     ensureState();
-    return '<section class="coreSettingsPage"><div class="hero card coreSettingsHero"><div><p class="eyebrow">Settings</p><h2>Settings</h2><p>Choose a section to manage app setup and permission groups.</p></div></div><section class="coreSettingsGrid">' + SECTIONS.map(function (section) {
-      return '<button type="button" class="coreSettingsTile" data-core-settings-section="' + h(section[0]) + '"><strong>' + h(section[1]) + '</strong><span>' + h(section[2]) + '</span></button>';
+    return '<section class="coreSettingsPage"><div class="hero card coreSettingsHero"><div><p class="eyebrow">Settings</p><h2>Settings</h2></div></div><section class="coreSettingsGrid">' + SECTIONS.map(function (section) {
+      return '<button type="button" class="coreSettingsTile" data-core-settings-section="' + h(section[0]) + '"><strong>' + h(section[1]) + '</strong><span class="coreSettingsCog" aria-hidden="true">⚙</span></button>';
     }).join('') + '</section></section>';
   }
 
@@ -210,7 +224,7 @@
     var matrix = state.permissionMatrix[group] || {};
     var users = state.users || [];
     var isCore = CORE_GROUPS.indexOf(group) !== -1;
-    return '<details class="corePermissionCard" ' + (group === 'Admin' ? 'open' : '') + '><summary><span><strong>' + h(group) + '</strong><em>' + users.filter(function (u) { return groupOf(u) === group; }).length + ' users</em></span><b aria-hidden="true"></b></summary><form class="coreGroupForm" data-core-group-form="' + h(group) + '"><label class="full"><span>Group description</span><textarea name="description">' + h(matrix.description || '') + '</textarea></label><section class="coreAssigned"><h4>Who\'s in this group?</h4>' + quickUserControls() + userTickList(group) + '</section>' + PERMISSION_SECTIONS.map(function (section) { return permissionBlock(section, matrix); }).join('') + '<div class="coreFormActions full"><button class="primary">Save ' + h(group) + '</button>' + (isCore ? '' : '<button type="button" class="secondary danger" data-delete-core-group="' + h(group) + '">Delete Group</button>') + '</div></form></details>';
+    return '<details class="corePermissionCard" ' + (group === 'Admin' ? 'open' : '') + '><summary><span><strong>' + h(group) + '</strong><em>' + users.filter(function (u) { return groupOf(u) === group; }).length + ' users</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form class="coreGroupForm" data-core-group-form="' + h(group) + '"><label class="full"><span>Group description</span><textarea name="description">' + h(matrix.description || '') + '</textarea></label><section class="coreAssigned"><h4>Who\'s in this group?</h4>' + quickUserControls() + userTickList(group) + '</section>' + PERMISSION_SECTIONS.map(function (section) { return permissionBlock(section, matrix); }).join('') + '<div class="coreFormActions full"><button class="primary">Save ' + h(group) + '</button>' + (isCore ? '' : '<button type="button" class="secondary danger" data-delete-core-group="' + h(group) + '">Delete Group</button>') + '</div></form></details>';
   }
   function quickUserControls() {
     return '<div class="coreQuickUsers"><label><input type="checkbox" data-select-all-users><span>All users</span></label><label><span>Add by work area</span><select data-select-area-users><option value="">Select work area</option>' + areas().map(function (area) { return '<option value="' + h(area) + '">' + h(area) + '</option>'; }).join('') + '</select></label></div>';
@@ -228,7 +242,7 @@
     }).join('') + '</div></section>';
   }
   function createGroupCard() {
-    return '<details class="corePermissionCard create"><summary><span><strong>Create New Permission Group</strong><em>Copy from an existing group and adjust it.</em></span><b aria-hidden="true"></b></summary><form id="coreCreateGroupForm" class="coreSettingsForm"><label><span>New group name</span><input name="name" required></label><label><span>Copy permissions from</span><select name="copyFrom">' + allGroups().map(function (group) { return '<option>' + h(group) + '</option>'; }).join('') + '</select></label><button class="primary full">Create Group</button></form></details>';
+    return '<details class="corePermissionCard create"><summary><span><strong>Create New Permission Group</strong><em>Copy from an existing group and adjust it.</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form id="coreCreateGroupForm" class="coreSettingsForm"><label><span>New group name</span><input name="name" required></label><label><span>Copy permissions from</span><select name="copyFrom">' + allGroups().map(function (group) { return '<option>' + h(group) + '</option>'; }).join('') + '</select></label><button class="primary full">Create Group</button></form></details>';
   }
 
   function labelFor(key) {
@@ -242,7 +256,7 @@
     return '<div class="coreSummaryGrid">' + keys.map(function (key) { return '<span>' + h(labelFor(key)) + '</span>'; }).join('') + '</div>';
   }
   function areasSection() {
-    return '<h3>Work Area Permissions</h3>' + summary(['workAreas.view', 'workAreas.manage']) + '<form id="coreAreaForm" class="coreInlineForm"><input name="area" placeholder="New work area"><button class="primary">Add Work Area</button></form><div class="coreAreaList">' + areas().map(function (area) { return '<div class="coreAreaRow" data-core-area="' + h(area) + '"><button type="button" class="coreDrag" aria-label="Move work area">☰</button><span>' + h(area) + '</span><button type="button" class="secondary danger" data-delete-area="' + h(area) + '">Delete</button></div>'; }).join('') + '</div>';
+    return '<h3>Work Area Permissions</h3>' + summary(['workAreas.view', 'workAreas.manage']) + '<form id="coreAreaForm" class="coreInlineForm"><input name="area" placeholder="New work area"><button class="primary">Add Work Area</button></form><div class="coreAreaList">' + areas().map(function (area) { return '<div class="coreAreaRow" data-core-area="' + h(area) + '"><button type="button" class="coreDrag" aria-label="Move work area">☰</button><span>' + h(area) + '</span><button type="button" class="settingsDeleteX" data-delete-area="' + h(area) + '" aria-label="Delete ' + h(area) + '">×</button></div>'; }).join('') + '</div>';
   }
   function notificationsSection() {
     var r = state.notificationRules || defaultNotificationRules();
@@ -254,16 +268,17 @@
     ensureState();
     var modal = document.getElementById('modal');
     if (!modal) return;
-    modal.innerHTML = '<div class="modalCard coreSettingsModalCard"><div class="coreModalHandle"><h2>' + h(sectionTitle(id)) + '</h2><button type="button" class="close" data-close-core-settings>×</button></div><div class="coreModalBody">' + sectionBody(id) + '</div></div>';
+    var saveButton = id === 'areas' ? '<button type="button" class="primary coreModalSave" data-save-close-core-settings>Save</button>' : '';
+    modal.innerHTML = '<div class="modalCard coreSettingsModalCard"><div class="coreModalHandle ' + (saveButton ? 'hasSave' : '') + '"><h2>' + h(sectionTitle(id)) + '</h2>' + saveButton + '<button type="button" class="close" data-close-core-settings>×</button></div><div class="coreModalBody">' + sectionBody(id) + '</div></div>';
     modal.classList.remove('hidden');
-    modal.classList.add('settingsPrototypeModalOpen');
+    modal.classList.add('settingsCoreModalOpen');
     bindModal(id);
   }
   function closeSection() {
     var modal = document.getElementById('modal');
     if (!modal) return;
     modal.classList.add('hidden');
-    modal.classList.remove('settingsPrototypeModalOpen');
+    modal.classList.remove('settingsCoreModalOpen');
     modal.innerHTML = '';
   }
   window.openCoreSettingsSection = openSection;
@@ -271,6 +286,8 @@
   function bindModal(id) {
     var close = document.querySelector('[data-close-core-settings]');
     if (close) close.onclick = closeSection;
+    var saveClose = document.querySelector('[data-save-close-core-settings]');
+    if (saveClose) saveClose.onclick = closeSection;
     var pub = document.getElementById('corePubForm'); if (pub) pub.onsubmit = savePub;
     document.querySelectorAll('[data-core-group-form]').forEach(function (form) { form.onsubmit = function (event) { saveGroup(event, form); }; bindGroupSelectors(form); });
     var create = document.getElementById('coreCreateGroupForm'); if (create) create.onsubmit = createGroup;
@@ -291,9 +308,9 @@
     var file = form.elements.logo && form.elements.logo.files && form.elements.logo.files[0];
     if (file) {
       var reader = new FileReader();
-      reader.onload = function () { state.pub.logoData = reader.result || ''; saveSafe(); applyBranding(); openSection('pub'); };
+      reader.onload = function () { state.pub.logoData = reader.result || ''; saveSafe(); applyBranding(); closeSection(); };
       reader.readAsDataURL(file);
-    } else { saveSafe(); applyBranding(); openSection('pub'); }
+    } else { saveSafe(); applyBranding(); closeSection(); }
   }
   function bindGroupSelectors(form) {
     var all = form.querySelector('[data-select-all-users]');
@@ -324,7 +341,7 @@
       else if (groupOf(user) === group) { user.permissionSetId = 'Staff'; user.role = 'Staff'; }
     });
     saveSafe();
-    openSection('users');
+    closeSection();
   }
   function createGroup(event) {
     event.preventDefault();
@@ -335,7 +352,7 @@
     state.permissionMatrix[name] = Object.assign({}, state.permissionMatrix[copyFrom] || state.permissionMatrix.Staff || {});
     state.permissionMatrix[name].description = 'Custom permission group';
     saveSafe();
-    openSection('users');
+    closeSection();
   }
   function deleteGroup(group) {
     if (CORE_GROUPS.indexOf(group) !== -1) return;
@@ -377,7 +394,7 @@
     state.notificationRules = rules;
     writeJSON(NOTIFICATION_RULES_KEY, rules);
     saveSafe();
-    openSection('notifications');
+    closeSection();
   }
 
   function bindAreaDrag() {
@@ -414,9 +431,33 @@
     var handle = document.querySelector('.coreModalHandle');
     if (!card || !handle) return;
     var startX = 0, startY = 0, baseX = 0, baseY = 0, active = false;
-    handle.onpointerdown = function (event) { if (event.target.closest('button')) return; event.preventDefault(); active = true; startX = event.clientX; startY = event.clientY; baseX = Number(card.dataset.x || 0); baseY = Number(card.dataset.y || 0); };
-    handle.onpointermove = function (event) { if (!active) return; var x = baseX + event.clientX - startX; var y = baseY + event.clientY - startY; card.dataset.x = String(x); card.dataset.y = String(y); card.style.transform = 'translate(' + x + 'px,' + y + 'px)'; };
-    handle.onpointerup = handle.onpointercancel = function () { active = false; };
+    var move = function (event) {
+      if (!active) return;
+      var x = baseX + event.clientX - startX;
+      var y = baseY + event.clientY - startY;
+      card.dataset.x = String(x);
+      card.dataset.y = String(y);
+      card.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+    };
+    var stop = function () {
+      active = false;
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', stop, true);
+      window.removeEventListener('pointercancel', stop, true);
+    };
+    handle.onpointerdown = function (event) {
+      if (event.target.closest('button')) return;
+      event.preventDefault();
+      active = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      baseX = Number(card.dataset.x || 0);
+      baseY = Number(card.dataset.y || 0);
+      try { handle.setPointerCapture(event.pointerId); } catch (_) {}
+      window.addEventListener('pointermove', move, true);
+      window.addEventListener('pointerup', stop, true);
+      window.addEventListener('pointercancel', stop, true);
+    };
   }
   function applyBranding() {
     var pub = state.pub || {};
@@ -433,17 +474,9 @@
       logo.hidden = false;
     } else if (logo) logo.hidden = true;
   }
-  function removeShiftFullStops() {
-    document.querySelectorAll('.homeCountdown,.homeNextShiftLine,.homeClockCard,.rotaHomePanel').forEach(function (el) {
-      el.innerHTML = el.innerHTML.replace(/No upcoming shift\./g, 'No upcoming shift').replace(/No upcoming shifts\./g, 'No upcoming shifts');
-    });
-  }
-  window.removeShiftFullStops = removeShiftFullStops;
-
   function bindSettingsButtons() {
     document.querySelectorAll('[data-core-settings-section]').forEach(function (button) { button.onclick = function () { openSection(button.dataset.coreSettingsSection); }; });
     applyBranding();
-    removeShiftFullStops();
   }
   document.addEventListener('click', function (event) {
     var button = event.target.closest('[data-core-settings-section]');
@@ -452,21 +485,19 @@
     event.stopPropagation();
     openSection(button.dataset.coreSettingsSection);
   }, true);
-  document.addEventListener('click', function () { setTimeout(removeShiftFullStops, 0); }, true);
-
   try { settings = settingsPage; } catch (_) { window.settings = settingsPage; }
   window.settings = settingsPage;
-  if (typeof bind === 'function' && !bind.__coreSettingsPrototypeV2) { var oldBind = bind; bind = function () { oldBind(); bindSettingsButtons(); }; bind.__coreSettingsPrototypeV2 = true; }
-  if (typeof render === 'function' && !render.__coreSettingsPrototypeV2) { var oldRender = render; render = function () { var result = oldRender(); setTimeout(bindSettingsButtons, 0); return result; }; render.__coreSettingsPrototypeV2 = true; }
+  if (typeof bind === 'function' && !bind.__coreSettingsHubV3) { var oldBind = bind; bind = function () { oldBind(); bindSettingsButtons(); }; bind.__coreSettingsHubV3 = true; }
+  if (typeof render === 'function' && !render.__coreSettingsHubV3) { var oldRender = render; render = function () { var result = oldRender(); setTimeout(bindSettingsButtons, 0); return result; }; render.__coreSettingsHubV3 = true; }
 
   var style = document.createElement('style');
-  style.id = 'core-settings-prototype-v2-styles';
-  style.textContent = '.brandedTopbar>div:first-child{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;align-items:center!important;gap:9px!important;min-width:0!important}.appHeaderLogo{width:32px!important;height:32px!important;object-fit:contain!important;border-radius:7px!important;background:rgba(255,255,255,.08)!important}.brandedTopbar h1{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}.coreSettingsPage{display:grid!important;gap:14px!important}.coreSettingsGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsTile{min-height:86px!important;padding:12px!important;border-radius:18px!important;text-align:left!important;display:grid!important;align-content:start!important;gap:5px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(208,173,88,.52)!important;color:#fff8ea!important;box-shadow:none!important}.coreSettingsTile strong{color:#fff8ea!important;font-size:15px!important;line-height:1.1!important}.coreSettingsTile span{color:#fff8ea!important;opacity:.88!important;font-size:12px!important;line-height:1.22!important}#modal.settingsPrototypeModalOpen{position:fixed!important;inset:calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px)) 0 0 0!important;z-index:1400!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;padding:14px!important;background:rgba(0,0,0,.68)!important;overflow:hidden!important;box-sizing:border-box!important}#modal.settingsPrototypeModalOpen.hidden{display:none!important}#modal .coreSettingsModalCard{width:min(760px,100%)!important;max-height:100%!important;margin:0!important;padding:0!important;overflow:hidden!important;display:grid!important;grid-template-rows:auto minmax(0,1fr)!important;box-sizing:border-box!important}#modal .coreModalHandle{cursor:grab!important;min-height:58px!important;padding:10px 12px 10px 16px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 40px!important;gap:12px!important;align-items:center!important;background:#151b22!important;border-bottom:1px solid rgba(255,255,255,.09)!important}#modal .coreModalHandle h2{margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal .coreModalBody{overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;padding:14px!important;display:grid!important;gap:14px!important}.coreSettingsForm{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsForm .full{grid-column:1/-1!important}.coreSettingsForm label{display:grid!important;gap:5px!important;padding:0 4px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreSettingsForm input,.coreSettingsForm textarea,.coreSettingsForm select,.coreInlineForm input{font-size:16px!important}.coreSettingsForm textarea{min-height:76px!important}.coreLogoPreview{min-height:80px!important;display:grid!important;place-items:center!important;border-radius:16px!important;border:1px dashed rgba(208,173,88,.45)!important;color:#aaa194!important;background:rgba(255,255,255,.035)!important}.coreLogoPreview img{max-width:160px!important;max-height:72px!important;object-fit:contain!important}.coreUserPreview{display:grid!important;gap:8px!important}.coreUserRow{display:grid!important;grid-template-columns:44px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.04)!important}.coreUserRow div{display:grid!important}.coreUserRow em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.coreUserRow small{color:#d0ad58!important;font-weight:850!important}.corePermissionGroups{display:grid!important;gap:10px!important}.corePermissionCard{border-radius:18px!important;border:1px solid rgba(255,255,255,.09)!important;background:rgba(255,255,255,.035)!important;overflow:hidden!important}.corePermissionCard summary{min-height:60px!important;padding:12px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 34px!important;align-items:center!important;gap:10px!important;cursor:pointer!important;list-style:none!important}.corePermissionCard summary::-webkit-details-marker{display:none!important}.corePermissionCard summary span{display:grid!important;gap:3px!important}.corePermissionCard summary strong{color:#fff8ea!important}.corePermissionCard summary em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.corePermissionCard summary b{width:32px!important;height:32px!important;display:grid!important;place-items:center!important;color:#d0ad58!important}.corePermissionCard summary b:before{content:""!important;width:11px!important;height:11px!important;border-right:4px solid currentColor!important;border-bottom:4px solid currentColor!important;transform:rotate(45deg)!important}.corePermissionCard[open] summary b:before{transform:rotate(225deg)!important}.coreGroupForm{display:grid!important;gap:12px!important;padding:0 12px 12px!important}.coreGroupForm label{padding:0 4px!important}.corePermissionBlock{display:grid!important;gap:8px!important;padding:10px!important;border-radius:16px!important;background:rgba(0,0,0,.18)!important}.corePermissionBlock h4,.coreAssigned h4{margin:0!important;color:#d0ad58!important}.corePermissionTicks,.coreUserTicks{display:grid!important;gap:7px!important}.coreUserTicks{max-height:210px!important;overflow:auto!important}.coreTick{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;gap:9px!important;align-items:start!important;padding:9px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.07)!important}.coreTick input{width:18px!important;height:18px!important;min-height:18px!important;margin:2px 0 0!important}.coreTick span{display:grid!important;gap:2px!important}.coreTick strong{color:#fff8ea!important;font-size:13px!important}.coreTick em{font-style:normal!important;color:#aaa194!important;font-size:11px!important}.coreQuickUsers{display:grid!important;gap:8px!important;margin:8px 0!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.08)!important}.coreQuickUsers label{display:grid!important;gap:5px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreFormActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.coreSummaryGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}.coreSummaryGrid span{min-height:44px!important;display:grid!important;place-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;font-weight:850!important;text-align:center!important}.coreInlineForm{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}.coreAreaList{display:grid!important;gap:8px!important}.coreAreaRow{display:grid!important;grid-template-columns:32px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important}.coreDrag{min-width:32px!important;width:32px!important;height:38px!important;padding:0!important;background:transparent!important;color:#d0ad58!important;border:0!important}.coreAreaRow.dragging{opacity:.55!important}.danger{color:#ff6b5d!important}@media(max-width:430px){.coreSettingsGrid,.coreSettingsForm,.coreSummaryGrid{grid-template-columns:1fr!important}.coreFormActions{grid-template-columns:1fr!important}.coreUserRow{grid-template-columns:44px minmax(0,1fr)!important}.coreUserRow small{grid-column:1/-1!important}#modal.settingsPrototypeModalOpen{padding:10px!important}}';
+  style.id = 'core-settings-hub-v3-styles';
+  style.textContent = '.brandedTopbar>div:first-child{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;align-items:center!important;gap:9px!important;min-width:0!important}.appHeaderLogo{width:32px!important;height:32px!important;object-fit:contain!important;border-radius:7px!important;background:rgba(255,255,255,.08)!important}.brandedTopbar h1{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}.coreSettingsPage{display:grid!important;gap:14px!important}.coreSettingsGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsTile{min-height:86px!important;padding:12px!important;border-radius:18px!important;text-align:left!important;display:grid!important;align-content:start!important;gap:5px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(208,173,88,.52)!important;color:#fff8ea!important;box-shadow:none!important}.coreSettingsTile strong{color:#fff8ea!important;font-size:15px!important;line-height:1.1!important}.coreSettingsTile span{color:#fff8ea!important;opacity:.88!important;font-size:12px!important;line-height:1.22!important}#modal.settingsCoreModalOpen{position:fixed!important;inset:calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px)) 0 0 0!important;z-index:1400!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;padding:14px!important;background:rgba(0,0,0,.68)!important;overflow:hidden!important;box-sizing:border-box!important}#modal.settingsCoreModalOpen.hidden{display:none!important}#modal .coreSettingsModalCard{width:min(760px,100%)!important;max-height:100%!important;margin:0!important;padding:0!important;overflow:hidden!important;display:grid!important;grid-template-rows:auto minmax(0,1fr)!important;box-sizing:border-box!important}#modal .coreModalHandle{cursor:grab!important;min-height:58px!important;padding:10px 12px 10px 16px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 40px!important;gap:12px!important;align-items:center!important;background:#151b22!important;border-bottom:1px solid rgba(255,255,255,.09)!important}#modal .coreModalHandle h2{margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal .coreModalBody{overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;padding:14px!important;display:grid!important;gap:14px!important}.coreSettingsForm{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsForm .full{grid-column:1/-1!important}.coreSettingsForm label{display:grid!important;gap:5px!important;padding:0 4px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreSettingsForm input,.coreSettingsForm textarea,.coreSettingsForm select,.coreInlineForm input{font-size:16px!important}.coreSettingsForm textarea{min-height:76px!important}.coreLogoPreview{min-height:80px!important;display:grid!important;place-items:center!important;border-radius:16px!important;border:1px dashed rgba(208,173,88,.45)!important;color:#aaa194!important;background:rgba(255,255,255,.035)!important}.coreLogoPreview img{max-width:160px!important;max-height:72px!important;object-fit:contain!important}.coreUserPreview{display:grid!important;gap:8px!important}.coreUserRow{display:grid!important;grid-template-columns:44px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.04)!important}.coreUserRow div{display:grid!important}.coreUserRow em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.coreUserRow small{color:#d0ad58!important;font-weight:850!important}.corePermissionGroups{display:grid!important;gap:10px!important}.corePermissionCard{border-radius:18px!important;border:1px solid rgba(255,255,255,.09)!important;background:rgba(255,255,255,.035)!important;overflow:hidden!important}.corePermissionCard summary{min-height:60px!important;padding:12px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 34px!important;align-items:center!important;gap:10px!important;cursor:pointer!important;list-style:none!important}.corePermissionCard summary::-webkit-details-marker{display:none!important}.corePermissionCard summary span{display:grid!important;gap:3px!important}.corePermissionCard summary strong{color:#fff8ea!important}.corePermissionCard summary em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.corePermissionCard summary b{width:32px!important;height:32px!important;display:grid!important;place-items:center!important;color:#d0ad58!important}.corePermissionCard summary b:before{content:""!important;width:11px!important;height:11px!important;border-right:4px solid currentColor!important;border-bottom:4px solid currentColor!important;transform:rotate(45deg)!important}.corePermissionCard[open] summary b:before{transform:rotate(225deg)!important}.coreGroupForm{display:grid!important;gap:12px!important;padding:0 12px 12px!important}.coreGroupForm label{padding:0 4px!important}.corePermissionBlock{display:grid!important;gap:8px!important;padding:10px!important;border-radius:16px!important;background:rgba(0,0,0,.18)!important}.corePermissionBlock h4,.coreAssigned h4{margin:0!important;color:#d0ad58!important}.corePermissionTicks,.coreUserTicks{display:grid!important;gap:7px!important}.coreUserTicks{max-height:210px!important;overflow:auto!important}.coreTick{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;gap:9px!important;align-items:start!important;padding:9px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.07)!important}.coreTick input{width:18px!important;height:18px!important;min-height:18px!important;margin:2px 0 0!important}.coreTick span{display:grid!important;gap:2px!important}.coreTick strong{color:#fff8ea!important;font-size:13px!important}.coreTick em{font-style:normal!important;color:#aaa194!important;font-size:11px!important}.coreQuickUsers{display:grid!important;gap:8px!important;margin:8px 0!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.08)!important}.coreQuickUsers label{display:grid!important;gap:5px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreFormActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.coreSummaryGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}.coreSummaryGrid span{min-height:44px!important;display:grid!important;place-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;font-weight:850!important;text-align:center!important}.coreInlineForm{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}.coreAreaList{display:grid!important;gap:8px!important}.coreAreaRow{display:grid!important;grid-template-columns:32px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important}.coreDrag{min-width:32px!important;width:32px!important;height:38px!important;padding:0!important;background:transparent!important;color:#d0ad58!important;border:0!important}.coreAreaRow.dragging{opacity:.55!important}.danger{color:#ff6b5d!important}@media(max-width:430px){.coreSettingsGrid,.coreSettingsForm,.coreSummaryGrid{grid-template-columns:1fr!important}.coreFormActions{grid-template-columns:1fr!important}.coreUserRow{grid-template-columns:44px minmax(0,1fr)!important}.coreUserRow small{grid-column:1/-1!important}#modal.settingsCoreModalOpen{padding:10px!important}}';
+  style.textContent += '.coreSettingsTile{grid-template-columns:minmax(0,1fr) 34px!important;align-items:center!important;align-content:center!important}.coreSettingsTile .coreSettingsCog{justify-self:end!important;width:34px!important;height:34px!important;border-radius:999px!important;display:grid!important;place-items:center!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.56)!important;font-size:18px!important;line-height:1!important;opacity:1!important}.coreSettingsModalCard,.coreSettingsModalCard *{box-sizing:border-box!important}#modal .coreModalHandle{width:100%!important;max-width:100%!important;min-width:0!important}#modal .coreModalHandle h2{min-width:0!important}#modal .coreModalHandle.hasSave{grid-template-columns:minmax(0,1fr) auto 40px!important}.coreModalSave{min-width:76px!important;min-height:40px!important;height:40px!important;border-radius:999px!important;padding:0 14px!important}.corePermissionCard summary .corePermissionChevron{color:#d0ad58!important}.corePermissionCard:not([open]) summary .corePermissionChevron:before{transform:rotate(45deg)!important}.corePermissionCard[open] summary .corePermissionChevron:before{transform:rotate(225deg)!important}.coreSummaryGrid span{cursor:default!important}.coreAreaRow .settingsDeleteX{justify-self:end!important}.coreInlineForm input{min-width:0!important}.coreModalBody button.primary,.coreModalBody .primary{background:#071522!important;color:#fff8ea!important}.coreModalBody .coreSettingsForm>.primary,.coreModalBody .coreFormActions>.primary,.coreModalBody .coreInlineForm>.primary{background:#071522!important;color:#fff8ea!important}';
   document.head.appendChild(style);
 
   ensureState();
   saveSafe();
   applyBranding();
   setTimeout(bindSettingsButtons, 0);
-  setInterval(removeShiftFullStops, 700);
 })();

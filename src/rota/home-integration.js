@@ -18,6 +18,7 @@
   }
 
   function currentUserId() { return state.currentUser || (state.users && state.users[0] && state.users[0].id); }
+  function assignedToCurrentUser(assignedUserId) { const value = String(assignedUserId || '').trim(); const key = value.toLowerCase(); return !value || key === 'everyone' || key === 'all' || key === 'all users' || value === currentUserId(); }
   function rotaUserById(id) { return (state.users || []).find(u => u.id === id) || safeRotaState().users.find(u => u.id === id) || (state.users || [])[0] || {}; }
   function timeNowShort() { return new Date().toTimeString().slice(0, 5); }
   function mins(time) { const bits = String(time || '00:00').split(':').map(Number); return (bits[0] || 0) * 60 + (bits[1] || 0); }
@@ -49,8 +50,7 @@
 
   function assignedCheckDueToday(check) {
     if (!check) return false;
-    const assignedUserId = check.assignedUserId || '';
-    if (assignedUserId && assignedUserId !== currentUserId()) return false;
+    if (!assignedToCurrentUser(check.assignedUserId)) return false;
     try { if (typeof done === 'function' && done(check.id)) return false; } catch (e) {}
     const freq = normaliseFrequency(check.freq || 'Daily');
     const now = new Date();
@@ -82,7 +82,7 @@
   }
 
   function countdownText(shift) {
-    if (!shift) return 'No upcoming shift.';
+    if (!shift) return 'No upcoming shift';
     const minutes = Math.max(0, Math.floor((startDate(shift) - new Date()) / 60000));
     const days = Math.floor(minutes / 1440);
     const hoursLeft = Math.floor((minutes % 1440) / 60);
@@ -167,12 +167,8 @@
       ${homeClockCard(data)}
       ${unscheduledBox(data, live)}
       ${assignedChecksHomeBlock()}
-      <div class="quickActions rotaHomeActions">
-        <button data-route="staff">Open Users</button>
-        <button data-route="documents">Open Docs</button>
-      </div>
       <h2>Upcoming shifts</h2>
-      <div class="homeShiftList">${shifts.length ? shifts.map(shift => shiftCard(data, shift)).join('') : '<p class="muted">No upcoming shifts.</p>'}</div>
+      <div class="homeShiftList">${shifts.length ? shifts.map(shift => shiftCard(data, shift)).join('') : '<p class="muted">No upcoming shifts</p>'}</div>
     </section>`;
   }
 

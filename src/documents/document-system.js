@@ -299,8 +299,10 @@
     });
     scope.querySelectorAll('[data-open-doc-group]').forEach(btn => btn.onclick = () => openDocumentGroupModal(btn.dataset.openDocGroup));
     scope.querySelectorAll('[data-open-staff-doc-requirement]').forEach(btn => btn.onclick = () => openStaffRequirementModal(btn.dataset.openStaffDocRequirement));
-    scope.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => {
+    scope.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = event => {
+      if (event.target.closest('[data-fdoc-edit]')) return;
       const k = btn.dataset.fdocToggle;
+      editCards[k] = false;
       const article = btn.closest('.fdoc');
       const panel = article && article.querySelector('.fdocPanel');
       const isOpen = !(article && article.classList.contains('open'));
