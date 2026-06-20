@@ -53,8 +53,13 @@
 
   function countChecks() {
     try {
-      if (!hasPermission('checks')) return 0;
-      return (state.checks || []).filter(function (c) { return typeof overdue === 'function' && overdue(c); }).length;
+      var canViewAll = hasPermission('checks') || hasPermission('checks.viewAll') || hasPermission('checks.manage');
+      return (state.checks || []).filter(function (check) {
+        if (!check || check.hiddenFromChecksPage) return false;
+        if (!canViewAll && !assignedToCurrentUser(check)) return false;
+        try { if (typeof done === 'function' && done(check.id)) return false; } catch (e) {}
+        return true;
+      }).length;
     } catch (e) { return 0; }
   }
 

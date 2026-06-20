@@ -18,6 +18,21 @@
     return state.shoppingItems;
   }
 
+  function canUsePermission(key, fallback = false) {
+    try {
+      if (typeof window.appPermissionAllows === 'function') return window.appPermissionAllows(key);
+    } catch (_) {}
+    return fallback;
+  }
+
+  function canResolveMaintenanceIssues() {
+    try { return canUsePermission('issues.resolve', typeof isAdminUser === 'function' && isAdminUser()); } catch (_) { return false; }
+  }
+
+  function canManageShoppingList() {
+    try { return canUsePermission('shopping.manage', typeof isAdminUser === 'function' && isAdminUser()); } catch (_) { return false; }
+  }
+
   function formatStamp(value) {
     if (!value) return 'No date set';
     const date = new Date(value);
@@ -31,7 +46,8 @@
 
   function shoppingListMarkup() {
     const items = shoppingItems().filter(item => item.status !== 'Completed');
-    return items.length ? `<ul class="shoppingListItems">${items.map(item => `<li><span>${esc(item.title)}</span><button type="button" class="ghost small" data-shopping-complete="${item.id}">Done</button></li>`).join('')}</ul>` : '<p class="muted">Nothing on the shopping list yet.</p>';
+    const canManage = canManageShoppingList();
+    return items.length ? `<ul class="shoppingListItems">${items.map(item => `<li><span>${esc(item.title)}</span>${canManage ? `<span class="shoppingItemActions"><button type="button" class="ghost small" data-shopping-complete="${item.id}">Done</button><button type="button" class="ghost small danger" data-shopping-remove="${item.id}">Remove</button></span>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Nothing on the shopping list yet.</p>';
   }
 
   function reportedIssueMarkup() {
@@ -41,12 +57,14 @@
 
   function maintenanceIssueMarkup() {
     const issues = activeMaintenanceIssues();
-    return issues.length ? `<div class="maintenanceIssueList">${newestFirst(issues).map(issue => `<details class="maintenanceIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')}</small></span><time class="maintenanceTimestamp" datetime="${esc(issue.created || '')}">${esc(formatStamp(issue.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="primary" data-issue="${issue.id}">Mark as complete</button></div></details>`).join('')}</div>` : '<p class="muted">No open maintenance issues.</p>';
+    const action = canResolveMaintenanceIssues() ? issue => `<button type="button" class="primary" data-issue="${issue.id}">Mark as complete</button>` : () => '';
+    return issues.length ? `<div class="maintenanceIssueList">${newestFirst(issues).map(issue => `<details class="maintenanceIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')}</small></span><time class="maintenanceTimestamp" datetime="${esc(issue.created || '')}">${esc(formatStamp(issue.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p>${action(issue)}</div></details>`).join('')}</div>` : '<p class="muted">No open maintenance issues.</p>';
   }
 
   function resolvedIssueMarkup() {
     const issues = newestFirst((state.issues || []).filter(issue => issue.status === 'Resolved'), 'resolvedAt');
-    return issues.length ? `<div class="resolvedIssueList">${issues.map(issue => `<details class="maintenanceIssueItem resolvedIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')} · Resolved ${esc(formatStamp(issue.resolvedAt || issue.created))}</small></span><time class="maintenanceTimestamp" datetime="${esc(issue.resolvedAt || issue.created || '')}">${esc(formatStamp(issue.resolvedAt || issue.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p><button type="button" class="secondary" data-issue="${issue.id}">Reopen issue</button></div></details>`).join('')}</div>` : '<p class="muted">No resolved issues yet.</p>';
+    const action = canResolveMaintenanceIssues() ? issue => `<button type="button" class="secondary" data-issue="${issue.id}">Reopen issue</button>` : () => '';
+    return issues.length ? `<div class="resolvedIssueList">${issues.map(issue => `<details class="maintenanceIssueItem resolvedIssueItem"><summary><span class="maintenanceSummaryText"><strong>${esc(issue.title)}</strong><small>${esc(issue.area || 'No location set')} · Resolved ${esc(formatStamp(issue.resolvedAt || issue.created))}</small></span><time class="maintenanceTimestamp" datetime="${esc(issue.resolvedAt || issue.created || '')}">${esc(formatStamp(issue.resolvedAt || issue.created))}</time><span class="fdocArrow maintenanceExpandIcon" aria-hidden="true">⌄</span></summary><div class="issueBody"><p>${esc(issue.notes || 'No extra details added.')}</p>${action(issue)}</div></details>`).join('')}</div>` : '<p class="muted">No resolved issues yet.</p>';
   }
 
   logs = function maintenancePage() {
@@ -94,6 +112,9 @@
     .shoppingListItems { list-style: none !important; padding: 0 !important; margin: 0 !important; display: grid !important; gap: 8px !important; }
     .shoppingListItems li { display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; gap: 10px !important; align-items: center !important; padding: 10px 12px !important; border-radius: 14px !important; background: rgba(255,255,255,.04) !important; border: 1px solid rgba(255,255,255,.08) !important; }
     .shoppingListItems span { color: #fff8ea !important; font-weight: 800 !important; }
+    .shoppingItemActions { display: grid !important; grid-template-columns: auto auto !important; gap: 6px !important; align-items: center !important; }
+    .shoppingItemActions button { min-height: 34px !important; height: 34px !important; padding: 0 10px !important; border-radius: 999px !important; }
+    .shoppingItemActions .danger { color: #ff7b70 !important; border-color: rgba(255,123,112,.45) !important; }
     .rotaHomePanel > h2, .rotaHomePanel .homeShiftList { display: none !important; }
     .homeReportIssue { margin-top: 18px !important; }
     body.report-modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; left: 0 !important; right: 0 !important; }
@@ -289,8 +310,19 @@
       if (button.dataset.bound) return;
       button.dataset.bound = '1';
       button.onclick = () => {
+        if (!canManageShoppingList()) return;
         const item = shoppingItems().find(entry => entry.id === button.dataset.shoppingComplete);
         if (item) item.status = 'Completed';
+        save();
+        render();
+      };
+    });
+    document.querySelectorAll('[data-shopping-remove]').forEach(button => {
+      if (button.dataset.bound) return;
+      button.dataset.bound = '1';
+      button.onclick = () => {
+        if (!canManageShoppingList()) return;
+        state.shoppingItems = shoppingItems().filter(entry => entry.id !== button.dataset.shoppingRemove);
         save();
         render();
       };
@@ -318,8 +350,11 @@
 
   function countPendingChecksForBadge() {
     try {
-      if (typeof hasPermission === 'function' && !hasPermission('checks')) return 0;
-      return (state.checks || []).filter(check => !check.hiddenFromChecksPage && typeof done === 'function' && !done(check.id)).length;
+      return (state.checks || []).filter(check => {
+        if (!check || check.hiddenFromChecksPage) return false;
+        if (typeof done === 'function' && done(check.id)) return false;
+        return true;
+      }).length;
     } catch (_) {
       return 0;
     }

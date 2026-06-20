@@ -60,7 +60,11 @@
       root.classList.add('hidden');
       if (typeof render === 'function') render();
     };
-    document.getElementById('profileCircleUsers').onclick = function () { route = 'staff'; root.classList.add('hidden'); render(); };
+    document.getElementById('profileCircleUsers').onclick = function () {
+      root.classList.add('hidden');
+      if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(u.id);
+      else { route = 'settings'; render(); if (typeof window.openCoreSettingsSection === 'function') setTimeout(function () { window.openCoreSettingsSection('users'); }, 0); }
+    };
     document.getElementById('profileCircleSchedule').onclick = function () { route = 'rota'; root.classList.add('hidden'); render(); };
     document.getElementById('profileCircleSettings').onclick = function () { route = 'settings'; root.classList.add('hidden'); render(); };
   }

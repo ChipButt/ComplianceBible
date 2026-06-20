@@ -263,7 +263,7 @@
     modalRoot.innerHTML = '<div class="modalCard docGroupModal" role="dialog" aria-modal="true"><div class="docGroupModalTop"><h2>' + esc(req.title) + '</h2><button class="close" id="docGroupClose" type="button">×</button></div><div class="docGroupModalBody">' + renderSection(req.title, items, 'No staff documents for this requirement.', true) + '</div></div>';
     modalRoot.classList.add('docGroupModalOpen');
     modalRoot.classList.remove('hidden');
-    document.getElementById('docGroupClose').onclick = closeDocumentGroupModal;
+    document.getElementById('docGroupClose').onclick = openStaffDocumentsModal;
     modalRoot.onclick = event => { if (event.target === modalRoot) closeDocumentGroupModal(); };
     bindDocumentControls(modalRoot);
   }

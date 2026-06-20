@@ -588,9 +588,9 @@
 
     .bottomNav .navBtn, .mainNav .navBtn { position: relative !important; overflow: visible !important; }
     .bottomNav .navBtn[data-alert-count]::after, .mainNav .navBtn[data-alert-count]::after {
-      content: attr(data-alert-count) !important; position: absolute !important; left: 3px !important; right: auto !important; top: 5px !important;
-      min-width: 16px !important; height: 16px !important; padding: 0 4px !important; border-radius: 999px !important;
-      background: #d90808 !important; color: #fff !important; font-size: 9px !important; font-weight: 950 !important; line-height: 16px !important;
+      content: '' !important; position: absolute !important; left: auto !important; right: 4px !important; top: 3px !important;
+      width: 8px !important; min-width: 8px !important; height: 8px !important; min-height: 8px !important; padding: 0 !important; border-radius: 999px !important;
+      background: #d90808 !important; color: transparent !important; font-size: 0 !important; font-weight: 950 !important; line-height: 0 !important;
       text-align: center !important; box-shadow: none !important; border: 0 !important; z-index: 4 !important;
     }
 
@@ -608,7 +608,7 @@
     .inspectionUserButton, .inspectionUserButton * { color: #fff8ea !important; }
     .inspectionUserButton em, .inspectionUserButton small { color: #fff8ea !important; opacity: 1 !important; }
     .inspectionUserButton { grid-template-columns: minmax(0,1fr) auto 28px !important; }
-    .inspectionUserButton .fdocArrow { color: #f0b84a !important; }
+    .inspectionUserButton .fdocArrow { color: #fff8ea !important; }
 
     #modal .temperatureInputBox { height: 34px !important; min-height: 34px !important; max-height: 34px !important; display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; align-items: center !important; overflow: hidden !important; }
     #modal .temperatureInputBox input, #modal .temperatureInputBox span { height: 34px !important; min-height: 34px !important; max-height: 34px !important; line-height: 34px !important; padding-top: 0 !important; padding-bottom: 0 !important; margin: 0 !important; align-self: center !important; transform: none !important; }

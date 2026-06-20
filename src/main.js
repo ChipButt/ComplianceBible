@@ -60,7 +60,7 @@ const defaults = {
 };
 
 const NAVIGATION_KEY = 'complianceBible.navigation.v1';
-const VALID_ROUTES = new Set(['dashboard', 'checks', 'documents', 'logs', 'staff', 'rota', 'inspection', 'settings']);
+const VALID_ROUTES = new Set(['dashboard', 'checks', 'documents', 'logs', 'rota', 'inspection', 'settings']);
 
 function readNavigationState() {
   try {
@@ -207,6 +207,17 @@ function isAdminUser() {
   return setLower.includes('admin') || setLower.includes('supervisor') || setLower.includes('manager');
 }
 
+function permissionAllows(key, fallback = false) {
+  try {
+    if (typeof window.appPermissionAllows === 'function') return window.appPermissionAllows(key);
+  } catch (_) {}
+  return fallback;
+}
+
+function canResolveMaintenanceIssues() {
+  return permissionAllows('issues.resolve', isAdminUser());
+}
+
 function shell(content) {
   ensureCoreState();
   const overdueCount = state.checks.filter(overdue).length;
@@ -218,7 +229,7 @@ function shell(content) {
       <div><strong>${esc(state.pub.name)}</strong><span>${esc(me().nickname)} · ${esc(me().role)}</span></div>
       <select id="userSwitch">${state.users.map(u => `<option value="${u.id}" ${u.id === state.currentUser ? 'selected' : ''}>${esc(u.nickname)} (${esc(u.role)})</option>`).join('')}</select>
     </section>
-    <nav class="mainNav">${nav('dashboard', 'Dashboard')}${nav('checks', 'Checks')}${nav('documents', 'Documents')}${nav('logs', 'Logs')}${nav('staff', 'Users')}${nav('rota', 'Rota')}${nav('inspection', 'Inspection')}${adminNav}</nav>
+    <nav class="mainNav">${nav('dashboard', 'Dashboard')}${nav('checks', 'Checks')}${nav('documents', 'Documents')}${nav('logs', 'Logs')}${nav('rota', 'Rota')}${nav('inspection', 'Inspection')}${adminNav}</nav>
     <section class="statusStrip">
       <div>${badge(overdueCount, overdueCount ? 'danger' : 'ok')}<span>Overdue checks</span></div>
       <div>${badge(missingDocs, missingDocs ? 'warn' : 'ok')}<span>Missing docs</span></div>
@@ -251,15 +262,16 @@ function resetRouteScroll() {
 function closeActiveModal() {
   if (!modalRoot || modalRoot.classList.contains('hidden')) return;
   modalRoot.classList.add('hidden');
-  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen', 'homeCheckModalOpen');
+  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen', 'homeCheckModalOpen', 'inspectDocViewerOpen');
   modalRoot.innerHTML = '';
-  document.body.classList.remove('edit-user-modal-open', 'report-modal-open');
+  document.body.classList.remove('edit-user-modal-open', 'report-modal-open', 'inspect-doc-viewer-open');
   document.body.style.top = '';
   document.documentElement.style.overflow = '';
 }
 
 function navigateRoute(nextRoute) {
   if (!nextRoute) return;
+  if (!VALID_ROUTES.has(nextRoute)) nextRoute = 'dashboard';
   closeActiveModal();
   if (nextRoute === route) {
     resetRouteScroll();
@@ -461,11 +473,28 @@ function inspection() {
   </section>`;
 }
 
+let inspectDocViewerScrollY = 0;
+
+function lockInspectionDocumentViewer() {
+  inspectDocViewerScrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  document.body.style.top = `-${inspectDocViewerScrollY}px`;
+  document.body.classList.add('inspect-doc-viewer-open');
+  document.documentElement.style.overflow = 'hidden';
+}
+
+function unlockInspectionDocumentViewer() {
+  document.body.classList.remove('inspect-doc-viewer-open');
+  document.body.style.top = '';
+  document.documentElement.style.overflow = '';
+  window.scrollTo(0, inspectDocViewerScrollY || 0);
+}
+
 function closeInspectionDocumentViewer() {
   modalRoot.classList.add('hidden');
   modalRoot.classList.remove('inspectDocViewerOpen');
   modalRoot.innerHTML = '';
   modalRoot.onclick = null;
+  unlockInspectionDocumentViewer();
 }
 
 function openInspectionDocumentViewer(ref) {
@@ -478,6 +507,7 @@ function openInspectionDocumentViewer(ref) {
       ? `<img class="inspectFullDocument" src="${record.fileData}" alt="${esc(item.title)}">`
       : `<iframe class="inspectFullFrame" src="${record.fileData}" title="${esc(item.title)}"></iframe><a class="ghost evidenceOpenLink" href="${record.fileData}" download="${esc(record.fileName || item.title || 'document')}">Open / Download</a>`
     : `<div class="inspectMissingDocument"><strong>No document uploaded</strong><p class="muted">This requirement is visible in Inspect, but no file has been attached yet.</p></div>`;
+  lockInspectionDocumentViewer();
   modalRoot.innerHTML = `<div class="modalCard inspectDocViewerModal" role="dialog" aria-modal="true"><button class="close" id="inspectDocClose" type="button">×</button><h2>${esc(item.title)}</h2><p class="muted">${esc(item.subtitle || '')}${record.fileName ? ' · ' + esc(record.fileName) : ''}</p>${body}</div>`;
   modalRoot.classList.add('inspectDocViewerOpen');
   modalRoot.classList.remove('hidden');
@@ -608,7 +638,7 @@ function bind() {
     b.onclick = () => openInspectionDocumentViewer(b.dataset.inspectDocView);
     b.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openInspectionDocumentViewer(b.dataset.inspectDocView); } };
   });
-  document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { const i = state.issues.find(x => x.id === b.dataset.issue); if (i) { const now = new Date().toISOString(); if (i.status === 'Resolved') { i.status = 'Open'; i.reopenedAt = now; delete i.resolvedAt; } else { i.status = 'Resolved'; i.resolvedAt = now; } } save(); render(); });
+  document.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => { if (!canResolveMaintenanceIssues()) return; const i = state.issues.find(x => x.id === b.dataset.issue); if (i) { const now = new Date().toISOString(); if (i.status === 'Resolved') { i.status = 'Open'; i.reopenedAt = now; delete i.resolvedAt; } else { i.status = 'Resolved'; i.resolvedAt = now; } } save(); render(); });
   on('checkForm', e => { const d = fd(e); state.checks.push({ id: uid(), title: d.title, area: d.area, freq: normaliseCheckFrequency(d.freq), due: d.due, sign: e.target.sign.checked, items: d.items.split('\n').map(x => x.trim()).filter(Boolean) }); save(); render(); });
   on('docForm', e => { const d = fd(e); state.docs.push({ id: uid(), title: d.title, cat: d.cat, expiry: d.expiry, notes: d.notes, status: 'Missing' }); save(); render(); });
   on('tempForm', e => { const d = fd(e); const r = Number(d.reading); state.temps.push({ id: uid(), unit: d.unit, reading: r, action: d.action, status: r > 8 || r < -30 ? 'Check' : 'OK', userId: state.currentUser, created: new Date().toISOString() }); save(); render(); });
