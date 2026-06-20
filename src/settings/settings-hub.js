@@ -6,13 +6,29 @@
 
   var ROTA_KEY = 'rotaAppUnifiedV2';
   var NOTIFICATION_RULES_KEY = 'complianceBible.notificationRules.v1';
+  var REQ_KEY = 'complianceUserDocumentRequirementsV1';
+  var GROUP_KEY = 'complianceStaffDocumentGroupsV1';
+  var CLEAN_FLAG = 'complianceStaffDocGroupsCleanedToSevenV1';
   var CORE_GROUPS = ['Admin', 'Supervisor', 'Staff'];
+  var CORE_STAFF_GROUPS = [
+    { id: 'Office', label: 'Office' },
+    { id: 'FOH', label: 'FOH' },
+    { id: 'Kitchen', label: 'Kitchen' },
+    { id: 'KP', label: 'KP' },
+    { id: 'Housekeeping', label: 'Housekeeping' },
+    { id: 'WFH', label: 'WFH' },
+    { id: 'Hybrid', label: 'Hybrid' }
+  ];
+  var FREQUENCY_OPTIONS = ['Daily', 'Weekly', 'Monthly', 'Annual', 'Every 6 Months'];
+  var openDocGroups = {};
+  var openCreateDocGroup = false;
+  var settingsModalLockedScrollY = 0;
 
   var SECTIONS = [
     ['pub', 'Pub Details', 'Business identity, logo and app name.'],
     ['users', 'Users & Permission Groups', 'Staff list, profile privacy and permission groups.'],
-    ['documents', 'Documents', 'Premises and staff document permissions.'],
-    ['checks', 'Checks', 'Checklist templates, setup and notifications.'],
+    ['documents', 'Work Area Documents', 'Premises document groups and required staff documents.'],
+    ['checks', 'Checklist Setup', 'Checklist setup and reusable check sections.'],
     ['rota', 'Rota & Time', 'Rota access, time records and shift alerts.'],
     ['issues', 'Issues & Inspection', 'Issues, inspection access and report export.'],
     ['areas', 'Work Areas', 'Shared work areas and rota sections.'],
@@ -105,6 +121,21 @@
   function writeJSON(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {} }
   function saveSafe() { try { if (typeof save === 'function') save(); } catch (_) {} }
   function normalise(value) { return String(value || '').trim().toLowerCase(); }
+  function normaliseFrequency(value) {
+    var text = String(value || 'Daily').trim();
+    var key = text.toLowerCase();
+    if (key === 'yearly') return 'Annual';
+    if (key === 'six-monthly' || key === 'six monthly' || key === 'every six months') return 'Every 6 Months';
+    return text || 'Daily';
+  }
+  function frequencyOptions(selected) {
+    var current = normaliseFrequency(selected);
+    return FREQUENCY_OPTIONS.map(function (item) {
+      return '<option value="' + h(item) + '" ' + (item === current ? 'selected' : '') + '>' + h(item) + '</option>';
+    }).join('');
+  }
+  function todayISO() { try { return typeof today === 'function' ? today() : new Date().toISOString().slice(0, 10); } catch (_) { return new Date().toISOString().slice(0, 10); } }
+  function fieldChecked(form, name) { return !!(form && form.elements && form.elements[name] && form.elements[name].checked); }
   function groupOf(user) { return (user && (user.permissionSetId || user.role)) || 'Staff'; }
   function namedAdmin(user) {
     var text = String((user && user.name || '') + ' ' + (user && user.nickname || '') + ' ' + (user && user.email || '')).toLowerCase();
@@ -119,6 +150,82 @@
   function defaultNotificationRules() {
     return { premisesExpiryDays: 30, staffExpiryDays: 30, checkOverdueMinutes: 0, shiftReminderMinutes: 60, lateShiftMinutes: 1, missedClockOutHours: 10, longBreakMinutes: 45, criticalIssuesAlwaysNotifyAdmin: true };
   }
+  function stableReqId(title) {
+    return 'req_' + String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  }
+  function coreStaffGroupIds() {
+    return CORE_STAFF_GROUPS.map(function (group) { return group.id; });
+  }
+  function isCoreStaffGroup(groupId) {
+    return CORE_STAFF_GROUPS.some(function (group) {
+      return normalise(group.id) === normalise(groupId) || normalise(group.label) === normalise(groupId);
+    });
+  }
+  function getDocGroups() {
+    var wasCleaned = localStorage.getItem(CLEAN_FLAG) === 'true';
+    var saved = readJSON(GROUP_KEY, []);
+    var byId = {};
+    CORE_STAFF_GROUPS.forEach(function (group) { byId[normalise(group.id)] = { id: group.id, label: group.label }; });
+    if (wasCleaned && Array.isArray(saved)) {
+      saved.forEach(function (group) {
+        if (group && group.id && !byId[normalise(group.id)]) byId[normalise(group.id)] = { id: group.id, label: group.label || group.id };
+      });
+    }
+    var groups = Object.keys(byId).map(function (key) { return byId[key]; });
+    writeJSON(GROUP_KEY, groups);
+    localStorage.setItem(CLEAN_FLAG, 'true');
+    return groups;
+  }
+  function validStaffGroups(groups) {
+    var valid = getDocGroups().map(function (group) { return normalise(group.id); });
+    return (Array.isArray(groups) ? groups : []).filter(function (group) { return valid.indexOf(normalise(group)) !== -1; });
+  }
+  function defaultRequirements() {
+    var all = coreStaffGroupIds();
+    var kitchen = ['Kitchen', 'KP'];
+    return [
+      ['New Starter Pay Information', all, 'none'],
+      ['New Starter Medical Questionnaire', all, 'none'],
+      ['Piston Club Handbook Declaration', all, 'none'],
+      ['Fire Safety & Training', all, 'none'],
+      ['Food Allergy and Intolerance', all, 'none'],
+      ['Safer Food Better Business Health & Safety Awareness', all, 'none'],
+      ['Signed Contract', all, 'none'],
+      ['Working Hours Opt Out', all, 'none'],
+      ['Kitchen Oil & Fryer Training', kitchen, 'none'],
+      ['Food Safety & Hygiene Level 2', kitchen, 'optional'],
+      ['Challenge 25 Training', [], 'none'],
+      ['COSHH Awareness', [], 'none'],
+      ['Fire Marshal', [], 'optional'],
+      ['Food Safety & Hygiene Level 3', [], 'optional'],
+      ['HACCP', [], 'optional'],
+      ['First Aid', [], 'optional'],
+      ['Cellar Management', [], 'none']
+    ].map(function (item) { return { id: stableReqId(item[0]), title: item[0], staffGroups: item[1], expiryMode: item[2] }; });
+  }
+  function migrateRequirement(req) {
+    var title = normalise(req && req.title);
+    if (title === 'food hygiene certificate') return Object.assign({}, req, { id: req.id || stableReqId('Food Safety & Hygiene Level 2'), title: 'Food Safety & Hygiene Level 2', staffGroups: ['Kitchen', 'KP'], expiryMode: req.expiryMode || 'optional' });
+    if (title === 'allergen awareness certificate') return Object.assign({}, req, { id: req.id || stableReqId('Food Allergy and Intolerance'), title: 'Food Allergy and Intolerance', staffGroups: coreStaffGroupIds(), expiryMode: 'none' });
+    return Object.assign({}, req, { id: req.id || stableReqId(req.title), staffGroups: validStaffGroups(req.staffGroups), expiryMode: req.expiryMode || 'optional' });
+  }
+  function getRequirements() {
+    var saved = readJSON(REQ_KEY, []);
+    var byTitle = {};
+    (Array.isArray(saved) ? saved : []).map(migrateRequirement).forEach(function (req) { byTitle[normalise(req.title)] = req; });
+    defaultRequirements().forEach(function (req) {
+      var key = normalise(req.title);
+      if (!byTitle[key]) byTitle[key] = req;
+      else if (!(byTitle[key].staffGroups || []).length && req.staffGroups.length) byTitle[key] = Object.assign({}, byTitle[key], { staffGroups: req.staffGroups });
+    });
+    var reqs = Object.keys(byTitle).map(function (key) {
+      var req = byTitle[key];
+      return Object.assign({}, req, { staffGroups: validStaffGroups(req.staffGroups) });
+    });
+    writeJSON(REQ_KEY, reqs);
+    return reqs;
+  }
+  function saveRequirements(reqs) { writeJSON(REQ_KEY, reqs); }
   function areas() {
     var list = [];
     try {
@@ -162,6 +269,9 @@
     });
     state.pub = state.pub || {};
     state.notificationRules = state.notificationRules || readJSON(NOTIFICATION_RULES_KEY, defaultNotificationRules());
+    state.documentCategories = state.documentCategories || ['Licensing', 'Food Safety', 'Fire Safety', 'Health & Safety', 'Equipment'];
+    state.checks = state.checks || [];
+    getRequirements();
     syncWorkAreasState();
   }
 
@@ -185,7 +295,7 @@
 
   function settingsPage() {
     ensureState();
-    return '<section class="coreSettingsPage"><div class="hero card coreSettingsHero"><div><p class="eyebrow">Settings</p><h2>Settings</h2></div></div><section class="coreSettingsGrid">' + SECTIONS.map(function (section) {
+    return '<section class="coreSettingsPage"><h2 class="coreSettingsTitle">Settings</h2><section class="coreSettingsGrid">' + SECTIONS.map(function (section) {
       return '<button type="button" class="coreSettingsTile" data-core-settings-section="' + h(section[0]) + '"><strong>' + h(section[1]) + '</strong><span class="coreSettingsCog" aria-hidden="true">' + settingsCogIcon() + '</span></button>';
     }).join('') + '</section></section>';
   }
@@ -197,10 +307,10 @@
   function sectionBody(id) {
     if (id === 'pub') return pubSection();
     if (id === 'users') return usersSection();
-    if (id === 'documents') return '<h3>Premises Documents</h3>' + summary(['premisesDocs.view', 'premisesDocs.manage', 'premisesDocs.notify']) + '<h3>Staff Documents</h3>' + summary(['staffDocs.viewOwn', 'staffDocs.viewAll', 'staffDocs.manage', 'staffDocs.notify']);
-    if (id === 'checks') return '<h3>Check Permissions</h3>' + summary(['checks.viewAll', 'checks.manage', 'checks.notify']) + '<h3>Checklist Builder Fields</h3><div class="coreSummaryGrid"><span>Title</span><span>Work area / everyone</span><span>Assigned user / everyone</span><span>Due time</span><span>Daily / Weekly / Monthly / Quarterly / Every 6 Months / Annual</span><span>Check sections</span><span>Photo evidence yes/no</span><span>Signature yes/no</span></div>';
-    if (id === 'rota') return '<h3>Rota & Time Permissions</h3>' + summary(['rota.view', 'rota.manage', 'time.clockOwn', 'rota.notify']);
-    if (id === 'issues') return '<h3>Issues</h3>' + summary(['issues.view', 'issues.manage', 'issues.resolve', 'issues.notify', 'shopping.manage']) + '<h3>Inspection</h3>' + summary(['inspection.view', 'inspection.export']);
+    if (id === 'documents') return documentsSetupSection();
+    if (id === 'checks') return checklistSetupSection();
+    if (id === 'rota') return rotaSettingsSection();
+    if (id === 'issues') return issueSettingsSection();
     if (id === 'areas') return areasSection();
     if (id === 'notifications') return notificationsSection();
     return pubSection();
@@ -213,11 +323,7 @@
 
   function usersSection() {
     return '<div class="coreUserPreview">' + (state.users || []).map(function (user) {
-      var tabs = [];
-      if (window.appPermissionAllows('users.viewPersonal') || user.id === state.currentUser) tabs.push('Personal');
-      if (window.appPermissionAllows('users.viewEmployment')) tabs.push('Employment');
-      if (window.appPermissionAllows('users.viewTraining')) tabs.push('Training');
-      return '<button type="button" class="coreUserRow" data-core-open-user="' + h(user.id) + '"><span class="avatarText">' + h(initials(user)) + '</span><span><strong>' + h(user.name || user.nickname || 'User') + '</strong><em>' + h(user.jobArea || user.area || user.role || '') + '</em></span><small>' + (tabs.length ? 'Opens: ' + tabs.join(', ') : 'No profile tab access') + '</small></button>';
+      return '<button type="button" class="personRow centralPersonRow userOpenButton coreUserRow" data-core-open-user="' + h(user.id) + '"><span class="avatarText">' + h(initials(user)) + '</span><span class="userOpenText"><strong>' + h(user.name || user.nickname || 'User') + '</strong><em>' + h(user.jobArea || user.area || user.role || '') + '</em></span><span class="userRolePill">' + h(user.role || user.permissionSetId || 'User') + '</span></button>';
     }).join('') + '</div><h3>Permission Groups</h3><div class="corePermissionGroups">' + allGroups().map(groupCard).join('') + createGroupCard() + '</div>';
   }
   function initials(user) {
@@ -250,18 +356,182 @@
     return '<details class="corePermissionCard create"><summary><span><strong>Create New Permission Group</strong><em>Copy from an existing group and adjust it.</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form id="coreCreateGroupForm" class="coreSettingsForm"><label><span>New group name</span><input name="name" required></label><label><span>Copy permissions from</span><select name="copyFrom">' + allGroups().map(function (group) { return '<option>' + h(group) + '</option>'; }).join('') + '</select></label><button class="primary full">Create Group</button></form></details>';
   }
 
-  function labelFor(key) {
-    for (var i = 0; i < PERMISSION_SECTIONS.length; i++) {
-      var found = PERMISSION_SECTIONS[i][1].find(function (perm) { return perm[0] === key; });
-      if (found) return found[1];
+  function documentsSetupSection() {
+    return documentGroupsSection() + workAreaDocumentsSection();
+  }
+  function documentGroupsSection() {
+    var cats = (state.documentCategories || []).filter(function (cat) { return normalise(cat) !== 'staff'; });
+    if (!cats.length) cats = ['Licensing', 'Food Safety', 'Fire Safety', 'Health & Safety', 'Equipment'];
+    state.documentCategories = cats.slice();
+    return '<section class="settingsBlock documentGroupSetup"><h3>Document Groups</h3><div class="settingsItemList documentGroupList">' + cats.map(function (cat) {
+      return '<div class="settingsItemRow documentGroupRow"><span>' + h(cat) + '</span><button type="button" class="settingsDeleteX" data-delete-doc-category="' + h(cat) + '" aria-label="Delete ' + h(cat) + '">×</button></div>';
+    }).join('') + '</div><form id="coreDocCategoryForm" class="coreInlineForm"><input name="category" placeholder="Add Document Group" required><button class="primary">Add</button></form></section>';
+  }
+  function docReqCount(groupId) {
+    return getRequirements().filter(function (req) {
+      return (req.staffGroups || []).some(function (group) { return normalise(group) === normalise(groupId); });
+    }).length;
+  }
+  function docGroupButton(group) {
+    var open = !!openDocGroups[group.id];
+    var reqs = getRequirements();
+    var deleteButton = isCoreStaffGroup(group.id) ? '' : '<button type="button" class="secondary danger" data-delete-staff-doc-group="' + h(group.id) + '">Delete Group</button>';
+    return '<article class="permissionGroupCard staffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="fdocBar permissionGroupButton" data-toggle-staff-doc-group="' + h(group.id) + '"><span class="fdocIcon">□</span><span class="fdocName"><strong>' + h(group.label) + '</strong><em>' + docReqCount(group.id) + ' required documents</em></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel ' + (open ? '' : 'closed') + '"><form class="staffDocGroupForm" data-staff-doc-group-form="' + h(group.id) + '"><div class="permissionTickList staffDocRequirementTickList">' + reqs.map(function (req) {
+      var checked = (req.staffGroups || []).some(function (groupId) { return normalise(groupId) === normalise(group.id); });
+      return '<label class="settingsTick permissionTick staffDocRequirementTick"><input type="checkbox" name="req__' + h(req.id) + '" ' + (checked ? 'checked' : '') + '><span>' + h(req.title) + '</span></label>';
+    }).join('') + '</div><div class="permissionActions">' + deleteButton + '<button class="primary">Save Required Documents</button></div></form></div></article>';
+  }
+  function createDocGroup() {
+    var open = openCreateDocGroup;
+    return '<article class="permissionGroupCard createStaffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="fdocBar permissionGroupButton" data-toggle-create-staff-doc-group="true"><span class="fdocIcon">+</span><span class="fdocName"><strong>Add Work Area Document Group</strong></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel ' + (open ? '' : 'closed') + '"><form id="createStaffDocGroupForm" class="permissionGroupForm"><label class="settingsField"><span>Group title</span><input name="title" placeholder="e.g. Cellar Team" required></label><button class="primary">Create Group</button></form></div></article>';
+  }
+  function workAreaDocumentsSection() {
+    return '<section class="settingsBlock staffDocSettingsBlock"><h3>Work Area Documents</h3><div class="permissionGroupList staffDocGroupList">' + getDocGroups().map(docGroupButton).join('') + createDocGroup() + '</div></section>';
+  }
+
+  function newId(prefix) {
+    try { return typeof uid === 'function' ? uid(prefix) : (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2); } catch (_) { return (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2); }
+  }
+  function checkDueDate(check) { return (check && (check.assignedDueDate || check.dueDate)) || todayISO(); }
+  function checkAssigneeLabel(check) {
+    if (!check || !check.assignedUserId) return 'Everyone';
+    var user = (state.users || []).find(function (item) { return item.id === check.assignedUserId; });
+    return user && (user.nickname || user.name) || 'Assigned staff';
+  }
+  function scheduleLabel(check) {
+    var freq = normaliseFrequency(check && check.freq);
+    if (freq === 'Weekly') return check && check.assignedWeeklyDay || 'Select day';
+    if (freq === 'Monthly') return 'Day ' + (check && check.assignedMonthlyDate || '1');
+    if (freq === 'Annual' || freq === 'Every 6 Months') return checkDueDate(check);
+    return 'Every day';
+  }
+  function checkSummary(check) {
+    return h(normaliseFrequency(check && check.freq)) + ' · ' + h(scheduleLabel(check)) + ' · Due ' + h(check && check.due || '12:00') + ' · ' + h(checkAssigneeLabel(check));
+  }
+  function sectionLabel(type) { return { temperature: 'Temperature', document: 'Document Upload', tick: 'Tick Box' }[type] || 'Check'; }
+  function sectionCaps(sections) {
+    return {
+      tick: sections.some(function (section) { return section.type === 'tick'; }),
+      document: sections.some(function (section) { return section.type === 'document'; }),
+      temperature: sections.some(function (section) { return section.type === 'temperature'; })
+    };
+  }
+  function newBuilderSection(type) {
+    return { id: newId('section'), type: type || 'document', items: type === 'tick' ? [''] : [], documentNote: '', equipmentUnit: '', notes: '' };
+  }
+  function checkSections(check, type) {
+    if (check && Array.isArray(check.sections) && check.sections.length) {
+      return check.sections.map(function (section) {
+        return { id: section.id || newId('section'), type: section.type || 'tick', items: Array.isArray(section.items) ? section.items : [], documentNote: section.documentNote || section.notes || '', equipmentUnit: section.equipmentUnit || '', notes: section.notes || section.documentNote || '' };
+      });
     }
-    return key;
+    if (!check) return [newBuilderSection(type || 'document')];
+    var text = String((check.checkType || '') + ' ' + (check.title || '') + ' ' + (check.items || []).join(' ')).toLowerCase();
+    var temperature = !!check.requiresTemperature || check.checkType === 'temperature' || /temp|temperature|fridge|freezer/.test(text);
+    var document = !!check.hasDocumentUpload || check.checkType === 'document' || !!(check.requiresEvidence && !temperature);
+    var tick = !!check.hasTickItems;
+    if (typeof check.hasTickItems !== 'boolean') tick = !!(!temperature && !document && check.items && check.items.length);
+    var sections = [];
+    if (document) sections.push({ id: newId('section'), type: 'document', documentNote: check.documentNote || '', notes: check.documentNote || '', items: [] });
+    if (temperature) sections.push({ id: newId('section'), type: 'temperature', equipmentUnit: check.equipmentUnit || check.title || '', notes: '', items: [] });
+    if (tick) sections.push({ id: newId('section'), type: 'tick', items: Array.isArray(check.items) ? check.items : [], notes: '' });
+    return sections.length ? sections : [newBuilderSection('document')];
   }
-  function summary(keys) {
-    return '<div class="coreSummaryGrid">' + keys.map(function (key) { return '<span>' + h(labelFor(key)) + '</span>'; }).join('') + '</div>';
+  function checkType(check) {
+    var sections = checkSections(check);
+    return sections.length === 1 ? sections[0].type : 'sectioned';
   }
+  function checkAreas() {
+    var byName = {};
+    (areas()).concat((state.checks || []).map(function (check) { return check.area || 'General'; })).filter(Boolean).forEach(function (area) {
+      if (!byName[normalise(area)]) byName[normalise(area)] = area;
+    });
+    return Object.keys(byName).map(function (key) { return byName[key]; }).sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function checksForArea(area) {
+    return (state.checks || []).filter(function (check) { return normalise(check.area || 'General') === normalise(area); });
+  }
+  function checklistSetupSection() {
+    var list = checkAreas();
+    return '<section class="settingsBlock checklistSetupHub"><h3>Checklist Setup</h3><div class="settingsAreaButtonList">' + list.map(function (area) {
+      var checks = checksForArea(area);
+      return '<button type="button" class="settingsAreaButton" data-open-core-check-area="' + h(area) + '"><span><strong>' + h(area) + '</strong><small>' + checks.length + ' checks</small></span></button>';
+    }).join('') + '</div></section>';
+  }
+  function checklistAreaContent(area) {
+    var checks = checksForArea(area);
+    return '<section class="checkSetupAreaView"><div class="checkSetupAreaActions"><button type="button" class="primary" data-create-core-check="' + h(area) + '">Add Check</button></div><div class="checkSetupCheckList">' + (checks.length ? checks.map(function (check) {
+      return '<article class="checkSetupCheckRow"><button type="button" class="checkSetupCheckButton" data-edit-core-check="' + h(check.id) + '"><span><strong>' + h(check.title) + '</strong><small>' + checkSummary(check) + '</small></span><span class="checkSetupCog">' + settingsCogIcon() + '</span></button></article>';
+    }).join('') : '<p class="muted">No checks in this area yet.</p>') + '</div></section>';
+  }
+  function addSectionButtons() {
+    return '<div class="checkPackageTabs checkBuilderSectionActions"><button type="button" class="checkBuilderAddSection" data-add-core-check-section="tick">Add Tick Box Section</button><button type="button" class="checkBuilderAddSection" data-add-core-check-section="temperature">Add Temperature Section</button><button type="button" class="checkBuilderAddSection" data-add-core-check-section="document">Add Document Upload Section</button></div>';
+  }
+  function builderItemRow(value) { return '<label class="checkBuilderItem"><input type="text" data-check-item value="' + h(value || '') + '" placeholder="Add tick item here"></label>'; }
+  function builderItemRows(section) {
+    var items = section && section.items && section.items.length ? section.items : [];
+    var rows = items.length ? items.concat(['']) : [''];
+    return rows.map(builderItemRow).join('');
+  }
+  function builderSectionNotes(section) {
+    return '<label class="checkBuilderNote checkBuilderAdditionalNotes"><span>Additional Notes</span><textarea data-section-note placeholder="Additional notes for this section">' + h(section && (section.notes || section.documentNote) || '') + '</textarea></label>';
+  }
+  function builderDocumentPreview(section) {
+    return '<div class="fdocBody checkBuilderDocBody"><button type="button" class="fdocThumb empty" tabindex="-1">No document</button><div class="fdocControls"><div class="fdocUploads"><label><span>Choose File</span></label><label><span>Take Photo</span></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input type="checkbox" disabled><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap"><span class="fdocExpiryText">Expiry Date</span><input type="date" disabled></span></label></div></div></div>' + builderSectionNotes(section);
+  }
+  function builderTemperaturePreview(section) {
+    return '<label data-equipment-unit><span>Equipment / unit label</span><input data-equipment-unit-input value="' + h(section && section.equipmentUnit || '') + '" placeholder="Kitchen Fridge 1"></label><div class="temperatureCheckPanel previewOnly"><div class="temperatureMainRow"><div class="checkPhotoThumb empty">No photo</div><div class="temperatureSideControls"><div class="temperaturePhotoButton">Take Photo</div><div class="temperatureEntryRow"><label class="temperatureInputBox"><input placeholder="Temp" disabled><span>°C</span></label><button type="button" class="temperatureSaveButton">Save</button></div></div></div></div>' + builderSectionNotes(section);
+  }
+  function builderSection(section) {
+    var type = section.type || 'document';
+    var body = '';
+    if (type === 'document') body = builderDocumentPreview(section);
+    else if (type === 'temperature') body = builderTemperaturePreview(section);
+    else body = '<section class="checkBuilderItems"><div class="checkBuilderItemList" data-check-items>' + builderItemRows(section) + '</div></section>' + builderSectionNotes(section);
+    return '<section class="checkBuilderSection" data-builder-section data-section-type="' + h(type) + '" data-section-id="' + h(section.id || newId('section')) + '"><div class="checkBuilderSectionTop"><strong>' + h(sectionLabel(type)) + ' Section</strong><button type="button" class="settingsDeleteX" data-remove-core-check-section aria-label="Remove ' + h(sectionLabel(type)) + ' section">×</button></div><div class="checkTypePanel">' + body + '</div></section>';
+  }
+  function userOptions(selected) {
+    return '<option value="" ' + (!selected ? 'selected' : '') + '>Everyone</option>' + (state.users || []).map(function (user) {
+      return '<option value="' + h(user.id) + '" ' + (user.id === selected ? 'selected' : '') + '>' + h(user.nickname || user.name) + '</option>';
+    }).join('');
+  }
+  function scheduleFields(check) {
+    var freq = normaliseFrequency(check && check.freq);
+    var weekly = check && check.assignedWeeklyDay || 'Monday';
+    var monthly = check && check.assignedMonthlyDate || '1';
+    var dueDate = checkDueDate(check);
+    return '<label data-weekly-assignment ' + (freq === 'Weekly' ? '' : 'hidden') + '><span>Day of Week</span><select name="assignedWeeklyDay">' + ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(function (day) { return '<option ' + (day === weekly ? 'selected' : '') + '>' + day + '</option>'; }).join('') + '</select></label><label data-monthly-assignment ' + (freq === 'Monthly' ? '' : 'hidden') + '><span>Date of Month</span><select name="assignedMonthlyDate">' + Array.from({ length: 31 }, function (_, i) { return String(i + 1); }).map(function (day) { return '<option ' + (day === String(monthly) ? 'selected' : '') + '>' + day + '</option>'; }).join('') + '</select></label><label data-calendar-assignment ' + ((freq === 'Annual' || freq === 'Every 6 Months') ? '' : 'hidden') + '><span>Due Date</span><input name="assignedDueDate" type="date" value="' + h(dueDate) + '"></label>';
+  }
+  function builderTemplate(check, area, type) {
+    var editing = !!(check && check.id);
+    var selectedArea = check && check.area || area || (areas()[0]) || 'Whole Pub';
+    var freq = normaliseFrequency(check && check.freq || 'Daily');
+    var due = check && check.due || '12:00';
+    var sections = checkSections(check, type);
+    var topActions = editing ? '<div class="checkBuilderTopActions"><button type="button" class="secondary danger" id="deleteCheckBtn">Delete Check</button></div>' : '';
+    return '<form id="coreCheckBuilderForm" class="checkBuilderForm" data-editing-check="' + h(editing ? check.id : '') + '" data-return-area="' + h(selectedArea) + '"><input type="hidden" name="area" value="' + h(selectedArea) + '">' + topActions + '<article class="fdoc areaCheckCard open checkBuilderPreview"><div class="fdocBar checkBuilderBar"><span class="fdocIcon">✓</span><span class="fdocName"><strong><input name="title" value="' + h(check && check.title || '') + '" placeholder="Check name" required></strong><em>' + h(selectedArea) + '</em></span></div><div class="fdocPanel"><div class="checkBuilderMetaGrid"><label><span>Frequency</span><select name="freq">' + frequencyOptions(freq) + '</select></label>' + scheduleFields(check || { freq: freq }) + '<label><span>Time Due</span><input name="due" type="time" value="' + h(due) + '" required></label><label><span>Assign Staff Member</span><select name="assignedUserId">' + userOptions(check && check.assignedUserId) + '</select></label></div>' + addSectionButtons() + '<div class="checkBuilderSections" data-builder-sections>' + sections.map(builderSection).join('') + '</div><label class="checkline checkBuilderSign"><input type="checkbox" name="sign" ' + (check && check.sign ? 'checked' : '') + '> Requires manager sign-off</label></div></article><button class="primary checkBuilderSave" type="submit">' + (editing ? 'Save Check Changes' : 'Create Check') + '</button></form>';
+  }
+  function openChecklistAreaModal(area) {
+    renderCoreSettingsModal('checks-area', 'Checklist Setup - ' + (area || 'Area'), checklistAreaContent(area), '');
+  }
+  function openChecklistEditorModal(id, area, type) {
+    var check = id ? (state.checks || []).find(function (item) { return item.id === id; }) : null;
+    var editorArea = check && check.area || area || (areas()[0]) || 'Whole Pub';
+    renderCoreSettingsModal('checks-builder', (check ? 'Edit Check' : 'New Check'), builderTemplate(check, editorArea, type || checkType(check || {})), '');
+  }
+
   function areasSection() {
-    return '<h3>Work Area Permissions</h3>' + summary(['workAreas.view', 'workAreas.manage']) + '<form id="coreAreaForm" class="coreInlineForm"><input name="area" placeholder="New work area"><button class="primary">Add Work Area</button></form><div class="coreAreaList">' + areas().map(function (area) { return '<div class="coreAreaRow" data-core-area="' + h(area) + '"><button type="button" class="coreDrag" aria-label="Move work area">☰</button><span>' + h(area) + '</span><button type="button" class="settingsDeleteX" data-delete-area="' + h(area) + '" aria-label="Delete ' + h(area) + '">×</button></div>'; }).join('') + '</div>';
+    return '<form id="coreAreaForm" class="coreInlineForm"><input name="area" placeholder="New work area"><button class="primary">Add Work Area</button></form><div class="coreAreaList">' + areas().map(function (area) { return '<div class="coreAreaRow" data-core-area="' + h(area) + '"><button type="button" class="coreDrag" aria-label="Move work area">☰</button><span>' + h(area) + '</span><button type="button" class="settingsDeleteX" data-delete-area="' + h(area) + '" aria-label="Delete ' + h(area) + '">×</button></div>'; }).join('') + '</div>';
+  }
+  function rotaSettingsSection() {
+    var sections = state.rotaSettings && Array.isArray(state.rotaSettings.sections) ? state.rotaSettings.sections : areas();
+    return '<section class="settingsBlock rotaSetupBlock"><h3>Rota Setup</h3><div class="coreAreaList">' + sections.map(function (section) {
+      return '<div class="coreAreaRow" data-core-rota-section="' + h(section) + '"><button type="button" class="coreDrag" aria-label="Move rota section">☰</button><span>' + h(section) + '</span><button type="button" class="settingsDeleteX" data-delete-rota-section="' + h(section) + '" aria-label="Delete ' + h(section) + '">×</button></div>';
+    }).join('') + '</div><form id="coreRotaSectionForm" class="coreInlineForm"><input name="section" placeholder="New rota section"><button class="primary">Add Section</button></form></section>';
+  }
+  function issueSettingsSection() {
+    var issueSettings = state.issueSettings || {};
+    return '<form id="coreIssueSettingsForm" class="coreSettingsForm"><label class="coreTick full"><input type="checkbox" name="issueNotifications" ' + (issueSettings.issueNotifications !== false ? 'checked' : '') + '><span><strong>Notify managers when issues are reported</strong></span></label><label class="coreTick full"><input type="checkbox" name="issueLog" ' + (issueSettings.issueLog !== false ? 'checked' : '') + '><span><strong>Keep resolved issues in the Issues log</strong></span></label><button class="primary full">Save Issue Settings</button></form>';
   }
   function notificationsSection() {
     var r = state.notificationRules || defaultNotificationRules();
@@ -269,15 +539,44 @@
   }
   function numberField(name, label, value) { return '<label><span>' + h(label) + '</span><input type="number" min="0" name="' + h(name) + '" value="' + h(value == null ? 0 : value) + '"></label>'; }
 
-  function openSection(id) {
-    ensureState();
+  function lockSettingsModalBackground() {
+    if (document.body.classList.contains('settings-core-modal-page-locked')) return;
+    settingsModalLockedScrollY = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    document.body.style.top = '-' + settingsModalLockedScrollY + 'px';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.classList.add('settings-core-modal-page-locked');
+  }
+  function unlockSettingsModalBackground() {
+    if (!document.body.classList.contains('settings-core-modal-page-locked')) return;
+    document.body.classList.remove('settings-core-modal-page-locked');
+    document.body.style.top = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    window.scrollTo(0, settingsModalLockedScrollY || 0);
+  }
+  function renderCoreSettingsModal(id, title, body, saveButton) {
     var modal = document.getElementById('modal');
     if (!modal) return;
-    var saveButton = id === 'areas' ? '<button type="button" class="primary coreModalSave" data-save-close-core-settings>Save</button>' : '';
-    modal.innerHTML = '<div class="modalCard coreSettingsModalCard"><div class="coreModalHandle ' + (saveButton ? 'hasSave' : '') + '"><h2>' + h(sectionTitle(id)) + '</h2>' + saveButton + '<button type="button" class="close" data-close-core-settings>×</button></div><div class="coreModalBody">' + sectionBody(id) + '</div></div>';
+    lockSettingsModalBackground();
+    modal.innerHTML = '<div class="modalCard coreSettingsModalCard"><div class="coreModalHandle ' + (saveButton ? 'hasSave' : '') + '"><h2>' + h(title) + '</h2>' + (saveButton || '') + '<button type="button" class="close" data-close-core-settings>×</button></div><div class="coreModalBody">' + body + '</div></div>';
     modal.classList.remove('hidden');
     modal.classList.add('settingsCoreModalOpen');
     bindModal(id);
+  }
+
+  function openSection(id) {
+    ensureState();
+    var saveButton = id === 'areas' ? '<button type="button" class="primary coreModalSave" data-save-close-core-settings>Save</button>' : '';
+    renderCoreSettingsModal(id, sectionTitle(id), sectionBody(id), saveButton);
   }
   function closeSection() {
     var modal = document.getElementById('modal');
@@ -285,18 +584,29 @@
     modal.classList.add('hidden');
     modal.classList.remove('settingsCoreModalOpen');
     modal.innerHTML = '';
+    modal.onclick = null;
+    unlockSettingsModalBackground();
   }
   window.openCoreSettingsSection = openSection;
 
   function bindModal(id) {
     var close = document.querySelector('[data-close-core-settings]');
-    if (close) close.onclick = closeSection;
+    if (close) close.onclick = function () {
+      if (id === 'checks-area') { openSection('checks'); return; }
+      if (id === 'checks-builder') {
+        var form = document.getElementById('coreCheckBuilderForm');
+        openChecklistAreaModal(form && form.dataset.returnArea || '');
+        return;
+      }
+      closeSection();
+    };
     var saveClose = document.querySelector('[data-save-close-core-settings]');
     if (saveClose) saveClose.onclick = closeSection;
     var pub = document.getElementById('corePubForm'); if (pub) pub.onsubmit = savePub;
     document.querySelectorAll('[data-core-open-user]').forEach(function (button) {
       button.onclick = function () {
         var id = button.dataset.coreOpenUser;
+        window.__settingsReturnSectionAfterUserProfile = 'users';
         closeSection();
         setTimeout(function () {
           if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(id);
@@ -310,8 +620,18 @@
     var areaForm = document.getElementById('coreAreaForm'); if (areaForm) areaForm.onsubmit = addArea;
     document.querySelectorAll('[data-delete-area]').forEach(function (button) { button.onclick = function () { deleteArea(button.dataset.deleteArea); }; });
     bindAreaDrag();
+    var docCategoryForm = document.getElementById('coreDocCategoryForm'); if (docCategoryForm) docCategoryForm.onsubmit = addDocumentCategory;
+    document.querySelectorAll('[data-delete-doc-category]').forEach(function (button) { button.onclick = function () { deleteDocumentCategory(button.dataset.deleteDocCategory); }; });
+    bindStaffDocGroups();
+    document.querySelectorAll('[data-open-core-check-area]').forEach(function (button) { button.onclick = function () { openChecklistAreaModal(button.dataset.openCoreCheckArea); }; });
+    document.querySelectorAll('[data-create-core-check]').forEach(function (button) { button.onclick = function () { openChecklistEditorModal('', button.dataset.createCoreCheck || ''); }; });
+    document.querySelectorAll('[data-edit-core-check]').forEach(function (button) { button.onclick = function () { openChecklistEditorModal(button.dataset.editCoreCheck || '', ''); }; });
+    bindCheckBuilder();
+    var rotaForm = document.getElementById('coreRotaSectionForm'); if (rotaForm) rotaForm.onsubmit = addRotaSection;
+    document.querySelectorAll('[data-delete-rota-section]').forEach(function (button) { button.onclick = function () { deleteRotaSection(button.dataset.deleteRotaSection); }; });
+    bindRotaDrag();
+    var issueForm = document.getElementById('coreIssueSettingsForm'); if (issueForm) issueForm.onsubmit = saveIssueSettings;
     var notifications = document.getElementById('coreNotificationsForm'); if (notifications) notifications.onsubmit = saveNotifications;
-    bindModalDrag();
   }
 
   function savePub(event) {
@@ -412,8 +732,243 @@
     closeSection();
   }
 
+  function addDocumentCategory(event) {
+    event.preventDefault();
+    var name = String(new FormData(event.currentTarget).get('category') || '').trim();
+    if (!name) return;
+    state.documentCategories = (state.documentCategories || []).filter(function (cat) { return normalise(cat) !== 'staff'; });
+    if (!state.documentCategories.some(function (cat) { return normalise(cat) === normalise(name); })) state.documentCategories.push(name);
+    saveSafe();
+    openSection('documents');
+  }
+  function deleteDocumentCategory(category) {
+    var current = (state.documentCategories || []).filter(function (cat) { return normalise(cat) !== 'staff' && normalise(cat) !== normalise(category); });
+    if (!current.length) current = ['General'];
+    var replacement = current[0];
+    (state.docs || []).forEach(function (doc) { if (normalise(doc.cat) === normalise(category)) doc.cat = replacement; });
+    state.documentCategories = current;
+    saveSafe();
+    openSection('documents');
+  }
+  function togglePanelCard(button, stateObj, key) {
+    var card = button.closest('.permissionGroupCard');
+    var panel = card && card.querySelector('.permissionGroupPanel');
+    var isOpen = !(card && card.classList.contains('open'));
+    stateObj[key] = isOpen;
+    if (card) card.classList.toggle('open', isOpen);
+    if (panel) panel.classList.toggle('closed', !isOpen);
+  }
+  function bindStaffDocGroups() {
+    document.querySelectorAll('[data-toggle-staff-doc-group]').forEach(function (button) {
+      button.onclick = function (event) { event.preventDefault(); togglePanelCard(button, openDocGroups, button.dataset.toggleStaffDocGroup); };
+    });
+    document.querySelectorAll('[data-toggle-create-staff-doc-group]').forEach(function (button) {
+      button.onclick = function (event) { event.preventDefault(); openCreateDocGroup = !(button.closest('.permissionGroupCard') && button.closest('.permissionGroupCard').classList.contains('open')); togglePanelCard(button, { create: openCreateDocGroup }, 'create'); };
+    });
+    document.querySelectorAll('[data-staff-doc-group-form]').forEach(function (form) {
+      form.onsubmit = function (event) {
+        event.preventDefault();
+        var groupId = form.dataset.staffDocGroupForm;
+        var reqs = getRequirements();
+        reqs.forEach(function (req) {
+          req.staffGroups = Array.isArray(req.staffGroups) ? req.staffGroups.filter(function (group) { return normalise(group) !== normalise(groupId); }) : [];
+          if (fieldChecked(form, 'req__' + req.id)) req.staffGroups.push(groupId);
+        });
+        saveRequirements(reqs);
+        saveSafe();
+        closeSection();
+      };
+    });
+    document.querySelectorAll('[data-delete-staff-doc-group]').forEach(function (button) {
+      button.onclick = function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var groupId = button.dataset.deleteStaffDocGroup;
+        if (isCoreStaffGroup(groupId)) return;
+        writeJSON(GROUP_KEY, getDocGroups().filter(function (group) { return normalise(group.id) !== normalise(groupId); }));
+        saveRequirements(getRequirements().map(function (req) {
+          return Object.assign({}, req, { staffGroups: (req.staffGroups || []).filter(function (group) { return normalise(group) !== normalise(groupId); }) });
+        }));
+        delete openDocGroups[groupId];
+        saveSafe();
+        openSection('documents');
+      };
+    });
+    var createDoc = document.getElementById('createStaffDocGroupForm');
+    if (createDoc) createDoc.onsubmit = function (event) {
+      event.preventDefault();
+      var title = String(createDoc.elements.title.value || '').trim();
+      if (!title) return;
+      var groups = getDocGroups();
+      if (!groups.some(function (group) { return normalise(group.id) === normalise(title); })) groups.push({ id: title, label: title });
+      writeJSON(GROUP_KEY, groups);
+      if (!state.areas.some(function (area) { return normalise(area) === normalise(title); })) state.areas.push(title);
+      openCreateDocGroup = false;
+      openDocGroups[title] = true;
+      saveSafe();
+      openSection('documents');
+    };
+  }
+
+  function bindBuilderItems(form) {
+    if (!form) return;
+    form.querySelectorAll('[data-check-items]').forEach(function (list) {
+      list.querySelectorAll('[data-check-item]').forEach(function (input) { input.oninput = function () { syncBuilderItems(list); }; });
+      syncBuilderItems(list);
+    });
+  }
+  function syncBuilderItems(list) {
+    if (!list) return;
+    Array.from(list.querySelectorAll('.checkBuilderItem')).forEach(function (row, index, rows) {
+      var input = row.querySelector('[data-check-item]');
+      if (index < rows.length - 1 && input && !String(input.value || '').trim()) row.remove();
+    });
+    var inputs = Array.from(list.querySelectorAll('[data-check-item]'));
+    var last = inputs[inputs.length - 1];
+    if (!last || String(last.value || '').trim()) list.insertAdjacentHTML('beforeend', builderItemRow(''));
+    list.querySelectorAll('[data-check-item]').forEach(function (input) { input.oninput = function () { syncBuilderItems(list); }; });
+  }
+  function builderItemValues(scope) {
+    return Array.from((scope && scope.querySelectorAll('[data-check-item]')) || []).map(function (input) { return String(input.value || '').trim(); }).filter(Boolean);
+  }
+  function addBuilderSection(form, type) {
+    var list = form && form.querySelector('[data-builder-sections]');
+    if (!list) return;
+    list.insertAdjacentHTML('beforeend', builderSection(newBuilderSection(type)));
+    bindBuilderSections(form);
+  }
+  function bindBuilderSections(form) {
+    if (!form) return;
+    bindBuilderItems(form);
+    form.querySelectorAll('[data-add-core-check-section]').forEach(function (button) {
+      button.onclick = function () { addBuilderSection(form, button.dataset.addCoreCheckSection); };
+    });
+    form.querySelectorAll('[data-remove-core-check-section]').forEach(function (button) {
+      button.onclick = function () {
+        var section = button.closest('[data-builder-section]');
+        if (section) section.remove();
+        if (!form.querySelector('[data-builder-section]')) addBuilderSection(form, 'document');
+      };
+    });
+  }
+  function builderSectionsFromForm(form) {
+    var sections = Array.from(form.querySelectorAll('[data-builder-section]')).map(function (section) {
+      var type = section.dataset.sectionType || 'document';
+      var id = section.dataset.sectionId || newId('section');
+      var notes = String((section.querySelector('[data-section-note]') || {}).value || '').trim();
+      if (type === 'tick') return { id: id, type: type, items: builderItemValues(section), notes: notes };
+      if (type === 'temperature') return { id: id, type: type, equipmentUnit: String((section.querySelector('[data-equipment-unit-input]') || {}).value || '').trim(), notes: notes };
+      return { id: id, type: 'document', documentNote: notes, notes: notes };
+    }).filter(function (section) { return section.type; });
+    return sections.length ? sections : [newBuilderSection('document')];
+  }
+  function syncBuilderAssignment(form) {
+    if (!form) return;
+    var freq = normaliseFrequency(form.elements.freq && form.elements.freq.value || '');
+    var weekly = form.querySelector('[data-weekly-assignment]');
+    var monthly = form.querySelector('[data-monthly-assignment]');
+    var calendar = form.querySelector('[data-calendar-assignment]');
+    if (weekly) weekly.hidden = freq !== 'Weekly';
+    if (monthly) monthly.hidden = freq !== 'Monthly';
+    if (calendar) calendar.hidden = !(freq === 'Annual' || freq === 'Every 6 Months');
+  }
+  function saveChecklistBuilder(form) {
+    var data = new FormData(form);
+    var sections = builderSectionsFromForm(form);
+    var caps = sectionCaps(sections);
+    var type = sections.length === 1 ? sections[0].type : 'sectioned';
+    var editingId = form.dataset.editingCheck;
+    var check = editingId ? (state.checks || []).find(function (item) { return item.id === editingId; }) : null;
+    if (!check) {
+      check = { id: newId('check') };
+      state.checks = state.checks || [];
+      state.checks.push(check);
+    }
+    var title = String(data.get('title') || '').trim();
+    var freq = normaliseFrequency(data.get('freq') || 'Daily');
+    var firstDoc = sections.find(function (section) { return section.type === 'document'; });
+    var firstTemp = sections.find(function (section) { return section.type === 'temperature'; });
+    var tickItems = sections.filter(function (section) { return section.type === 'tick'; }).reduce(function (out, section) { return out.concat(section.items || []); }, []);
+    Object.assign(check, {
+      title: title || 'Untitled Check',
+      area: String(data.get('area') || form.dataset.returnArea || 'General'),
+      freq: freq,
+      due: String(data.get('due') || '12:00'),
+      sign: fieldChecked(form, 'sign'),
+      checkType: type,
+      hasTickItems: caps.tick,
+      hasDocumentUpload: caps.document,
+      requiresEvidence: caps.document,
+      requiresTemperature: caps.temperature,
+      items: tickItems,
+      sections: sections,
+      documentNote: firstDoc && firstDoc.documentNote || ''
+    });
+    if (firstTemp && firstTemp.equipmentUnit) check.equipmentUnit = firstTemp.equipmentUnit;
+    else delete check.equipmentUnit;
+    var assignedUserId = String(data.get('assignedUserId') || '');
+    if (assignedUserId) check.assignedUserId = assignedUserId;
+    else delete check.assignedUserId;
+    check.assignedWeeklyDay = String(data.get('assignedWeeklyDay') || 'Monday');
+    check.assignedMonthlyDate = String(data.get('assignedMonthlyDate') || '1');
+    check.assignedDueDate = String(data.get('assignedDueDate') || check.assignedDueDate || todayISO());
+    saveSafe();
+    openChecklistAreaModal(check.area);
+  }
+  function bindCheckBuilder() {
+    var builder = document.getElementById('coreCheckBuilderForm');
+    if (!builder) return;
+    builder.onsubmit = function (event) { event.preventDefault(); saveChecklistBuilder(builder); };
+    bindBuilderSections(builder);
+    syncBuilderAssignment(builder);
+    var freq = builder.elements.freq;
+    if (freq) freq.onchange = function () { syncBuilderAssignment(builder); };
+    var deleteCheck = document.getElementById('deleteCheckBtn');
+    if (deleteCheck) deleteCheck.onclick = function () {
+      var id = builder.dataset.editingCheck;
+      if (!id) return;
+      if (!confirm('Delete this check? Completed history will remain.')) return;
+      var returnArea = builder.dataset.returnArea || '';
+      state.checks = (state.checks || []).filter(function (check) { return check.id !== id; });
+      saveSafe();
+      openChecklistAreaModal(returnArea);
+    };
+  }
+
+  function saveRotaSections(list) {
+    state.rotaSettings = state.rotaSettings || { sections: [] };
+    state.rotaSettings.sections = list.slice();
+    var rota = readJSON(ROTA_KEY, {});
+    rota.sections = list.slice();
+    writeJSON(ROTA_KEY, rota);
+    saveSafe();
+    try { if (typeof writeRotaStateFromCompliance === 'function') writeRotaStateFromCompliance(); } catch (_) {}
+  }
+  function addRotaSection(event) {
+    event.preventDefault();
+    var name = String(new FormData(event.currentTarget).get('section') || '').trim();
+    if (!name) return;
+    var list = state.rotaSettings && Array.isArray(state.rotaSettings.sections) ? state.rotaSettings.sections.slice() : areas();
+    if (!list.some(function (section) { return normalise(section) === normalise(name); })) list.push(name);
+    saveRotaSections(list);
+    openSection('rota');
+  }
+  function deleteRotaSection(section) {
+    saveRotaSections((state.rotaSettings && state.rotaSettings.sections || []).filter(function (item) { return normalise(item) !== normalise(section); }));
+    openSection('rota');
+  }
+  function saveIssueSettings(event) {
+    event.preventDefault();
+    state.issueSettings = state.issueSettings || {};
+    var data = new FormData(event.currentTarget);
+    state.issueSettings.issueNotifications = !!data.get('issueNotifications');
+    state.issueSettings.issueLog = !!data.get('issueLog');
+    saveSafe();
+    closeSection();
+  }
+
   function bindAreaDrag() {
-    document.querySelectorAll('.coreAreaRow .coreDrag').forEach(function (handle) {
+    document.querySelectorAll('[data-core-area] .coreDrag').forEach(function (handle) {
       handle.onpointerdown = function (event) {
         var row = handle.closest('.coreAreaRow');
         var list = row && row.parentElement;
@@ -441,38 +996,34 @@
       };
     });
   }
-  function bindModalDrag() {
-    var card = document.querySelector('.coreSettingsModalCard');
-    var handle = document.querySelector('.coreModalHandle');
-    if (!card || !handle) return;
-    var startX = 0, startY = 0, baseX = 0, baseY = 0, active = false;
-    var move = function (event) {
-      if (!active) return;
-      var x = baseX + event.clientX - startX;
-      var y = baseY + event.clientY - startY;
-      card.dataset.x = String(x);
-      card.dataset.y = String(y);
-      card.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-    };
-    var stop = function () {
-      active = false;
-      window.removeEventListener('pointermove', move, true);
-      window.removeEventListener('pointerup', stop, true);
-      window.removeEventListener('pointercancel', stop, true);
-    };
-    handle.onpointerdown = function (event) {
-      if (event.target.closest('button')) return;
-      event.preventDefault();
-      active = true;
-      startX = event.clientX;
-      startY = event.clientY;
-      baseX = Number(card.dataset.x || 0);
-      baseY = Number(card.dataset.y || 0);
-      try { handle.setPointerCapture(event.pointerId); } catch (_) {}
-      window.addEventListener('pointermove', move, true);
-      window.addEventListener('pointerup', stop, true);
-      window.addEventListener('pointercancel', stop, true);
-    };
+  function bindRotaDrag() {
+    document.querySelectorAll('[data-core-rota-section] .coreDrag').forEach(function (handle) {
+      handle.onpointerdown = function (event) {
+        var row = handle.closest('[data-core-rota-section]');
+        var list = row && row.parentElement;
+        if (!row || !list) return;
+        event.preventDefault();
+        row.classList.add('dragging');
+        var onMove = function (moveEvent) {
+          moveEvent.preventDefault();
+          var target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+          target = target && target.closest && target.closest('[data-core-rota-section]');
+          if (!target || target === row || target.parentElement !== list) return;
+          var rect = target.getBoundingClientRect();
+          list.insertBefore(row, moveEvent.clientY > rect.top + rect.height / 2 ? target.nextSibling : target);
+        };
+        var finish = function () {
+          row.classList.remove('dragging');
+          saveRotaSections(Array.from(list.querySelectorAll('[data-core-rota-section]')).map(function (item) { return item.dataset.coreRotaSection; }).filter(Boolean));
+          window.removeEventListener('pointermove', onMove, true);
+          window.removeEventListener('pointerup', finish, true);
+          window.removeEventListener('pointercancel', finish, true);
+        };
+        window.addEventListener('pointermove', onMove, true);
+        window.addEventListener('pointerup', finish, true);
+        window.addEventListener('pointercancel', finish, true);
+      };
+    });
   }
   function applyBranding() {
     var pub = state.pub || {};
@@ -507,9 +1058,11 @@
 
   var style = document.createElement('style');
   style.id = 'core-settings-hub-v3-styles';
-  style.textContent = '.brandedTopbar>div:first-child{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;align-items:center!important;gap:9px!important;min-width:0!important}.appHeaderLogo{width:32px!important;height:32px!important;object-fit:contain!important;border-radius:7px!important;background:rgba(255,255,255,.08)!important}.brandedTopbar h1{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}.coreSettingsPage{display:grid!important;gap:14px!important}.coreSettingsGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsTile{min-height:86px!important;padding:12px!important;border-radius:18px!important;text-align:left!important;display:grid!important;align-content:start!important;gap:5px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(208,173,88,.52)!important;color:#fff8ea!important;box-shadow:none!important}.coreSettingsTile strong{color:#fff8ea!important;font-size:15px!important;line-height:1.1!important}.coreSettingsTile span{color:#fff8ea!important;opacity:.88!important;font-size:12px!important;line-height:1.22!important}#modal.settingsCoreModalOpen{position:fixed!important;inset:calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px)) 0 0 0!important;z-index:1400!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;padding:14px!important;background:rgba(0,0,0,.68)!important;overflow:hidden!important;box-sizing:border-box!important}#modal.settingsCoreModalOpen.hidden{display:none!important}#modal .coreSettingsModalCard{width:min(760px,100%)!important;max-height:100%!important;margin:0!important;padding:0!important;overflow:hidden!important;display:grid!important;grid-template-rows:auto minmax(0,1fr)!important;box-sizing:border-box!important}#modal .coreModalHandle{cursor:grab!important;min-height:58px!important;padding:10px 12px 10px 16px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 40px!important;gap:12px!important;align-items:center!important;background:#151b22!important;border-bottom:1px solid rgba(255,255,255,.09)!important}#modal .coreModalHandle h2{margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal .coreModalBody{overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;padding:14px!important;display:grid!important;gap:14px!important}.coreSettingsForm{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsForm .full{grid-column:1/-1!important}.coreSettingsForm label{display:grid!important;gap:5px!important;padding:0 4px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreSettingsForm input,.coreSettingsForm textarea,.coreSettingsForm select,.coreInlineForm input{font-size:16px!important}.coreSettingsForm textarea{min-height:76px!important}.coreLogoPreview{min-height:80px!important;display:grid!important;place-items:center!important;border-radius:16px!important;border:1px dashed rgba(208,173,88,.45)!important;color:#aaa194!important;background:rgba(255,255,255,.035)!important}.coreLogoPreview img{max-width:160px!important;max-height:72px!important;object-fit:contain!important}.coreUserPreview{display:grid!important;gap:8px!important}.coreUserRow{display:grid!important;grid-template-columns:44px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.04)!important}.coreUserRow div{display:grid!important}.coreUserRow em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.coreUserRow small{color:#d0ad58!important;font-weight:850!important}.corePermissionGroups{display:grid!important;gap:10px!important}.corePermissionCard{border-radius:18px!important;border:1px solid rgba(255,255,255,.09)!important;background:rgba(255,255,255,.035)!important;overflow:hidden!important}.corePermissionCard summary{min-height:60px!important;padding:12px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 34px!important;align-items:center!important;gap:10px!important;cursor:pointer!important;list-style:none!important}.corePermissionCard summary::-webkit-details-marker{display:none!important}.corePermissionCard summary span{display:grid!important;gap:3px!important}.corePermissionCard summary strong{color:#fff8ea!important}.corePermissionCard summary em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.corePermissionCard summary b{width:32px!important;height:32px!important;display:grid!important;place-items:center!important;color:#d0ad58!important}.corePermissionCard summary b:before{content:""!important;width:11px!important;height:11px!important;border-right:4px solid currentColor!important;border-bottom:4px solid currentColor!important;transform:rotate(45deg)!important}.corePermissionCard[open] summary b:before{transform:rotate(225deg)!important}.coreGroupForm{display:grid!important;gap:12px!important;padding:0 12px 12px!important}.coreGroupForm label{padding:0 4px!important}.corePermissionBlock{display:grid!important;gap:8px!important;padding:10px!important;border-radius:16px!important;background:rgba(0,0,0,.18)!important}.corePermissionBlock h4,.coreAssigned h4{margin:0!important;color:#d0ad58!important}.corePermissionTicks,.coreUserTicks{display:grid!important;gap:7px!important}.coreUserTicks{max-height:210px!important;overflow:auto!important}.coreTick{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;gap:9px!important;align-items:start!important;padding:9px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.07)!important}.coreTick input{width:18px!important;height:18px!important;min-height:18px!important;margin:2px 0 0!important}.coreTick span{display:grid!important;gap:2px!important}.coreTick strong{color:#fff8ea!important;font-size:13px!important}.coreTick em{font-style:normal!important;color:#aaa194!important;font-size:11px!important}.coreQuickUsers{display:grid!important;gap:8px!important;margin:8px 0!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.08)!important}.coreQuickUsers label{display:grid!important;gap:5px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreFormActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.coreSummaryGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}.coreSummaryGrid span{min-height:44px!important;display:grid!important;place-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;font-weight:850!important;text-align:center!important}.coreInlineForm{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}.coreAreaList{display:grid!important;gap:8px!important}.coreAreaRow{display:grid!important;grid-template-columns:32px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important}.coreDrag{min-width:32px!important;width:32px!important;height:38px!important;padding:0!important;background:transparent!important;color:#d0ad58!important;border:0!important}.coreAreaRow.dragging{opacity:.55!important}.danger{color:#ff6b5d!important}@media(max-width:430px){.coreSettingsGrid,.coreSettingsForm,.coreSummaryGrid{grid-template-columns:1fr!important}.coreFormActions{grid-template-columns:1fr!important}.coreUserRow{grid-template-columns:44px minmax(0,1fr)!important}.coreUserRow small{grid-column:1/-1!important}#modal.settingsCoreModalOpen{padding:10px!important}}';
+  style.textContent = '.brandedTopbar>div:first-child{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;align-items:center!important;gap:9px!important;min-width:0!important}.appHeaderLogo{width:32px!important;height:32px!important;object-fit:contain!important;border-radius:7px!important;background:rgba(255,255,255,.08)!important}.brandedTopbar h1{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}.coreSettingsPage{display:grid!important;gap:14px!important}.coreSettingsGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsTile{min-height:86px!important;padding:12px!important;border-radius:18px!important;text-align:left!important;display:grid!important;align-content:start!important;gap:5px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(208,173,88,.52)!important;color:#fff8ea!important;box-shadow:none!important}.coreSettingsTile strong{color:#fff8ea!important;font-size:15px!important;line-height:1.1!important}.coreSettingsTile span{color:#fff8ea!important;opacity:.88!important;font-size:12px!important;line-height:1.22!important}#modal.settingsCoreModalOpen{position:fixed!important;inset:calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px)) 0 0 0!important;z-index:1400!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;padding:14px!important;background:rgba(0,0,0,.68)!important;overflow:hidden!important;box-sizing:border-box!important}#modal.settingsCoreModalOpen.hidden{display:none!important}#modal .coreSettingsModalCard{width:min(760px,100%)!important;max-height:100%!important;margin:0!important;padding:0!important;overflow:hidden!important;display:grid!important;grid-template-rows:auto minmax(0,1fr)!important;box-sizing:border-box!important}#modal .coreModalHandle{cursor:default!important;min-height:58px!important;padding:10px 12px 10px 16px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 40px!important;gap:12px!important;align-items:center!important;background:#151b22!important;border-bottom:1px solid rgba(255,255,255,.09)!important}#modal .coreModalHandle h2{margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal .coreModalBody{overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;padding:14px!important;display:grid!important;gap:14px!important}.coreSettingsForm{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.coreSettingsForm .full{grid-column:1/-1!important}.coreSettingsForm label{display:grid!important;gap:5px!important;padding:0 4px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreSettingsForm input,.coreSettingsForm textarea,.coreSettingsForm select,.coreInlineForm input{font-size:16px!important}.coreSettingsForm textarea{min-height:76px!important}.coreLogoPreview{min-height:80px!important;display:grid!important;place-items:center!important;border-radius:16px!important;border:1px dashed rgba(208,173,88,.45)!important;color:#aaa194!important;background:rgba(255,255,255,.035)!important}.coreLogoPreview img{max-width:160px!important;max-height:72px!important;object-fit:contain!important}.coreUserPreview{display:grid!important;gap:8px!important}.coreUserRow{display:grid!important;grid-template-columns:44px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.04)!important}.coreUserRow div{display:grid!important}.coreUserRow em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.coreUserRow small{color:#d0ad58!important;font-weight:850!important}.corePermissionGroups{display:grid!important;gap:10px!important}.corePermissionCard{border-radius:18px!important;border:1px solid rgba(255,255,255,.09)!important;background:rgba(255,255,255,.035)!important;overflow:hidden!important}.corePermissionCard summary{min-height:60px!important;padding:12px!important;display:grid!important;grid-template-columns:minmax(0,1fr) 34px!important;align-items:center!important;gap:10px!important;cursor:pointer!important;list-style:none!important}.corePermissionCard summary::-webkit-details-marker{display:none!important}.corePermissionCard summary span{display:grid!important;gap:3px!important}.corePermissionCard summary strong{color:#fff8ea!important}.corePermissionCard summary em{font-style:normal!important;color:#aaa194!important;font-size:12px!important}.corePermissionCard summary b{width:32px!important;height:32px!important;display:grid!important;place-items:center!important;color:#d0ad58!important}.corePermissionCard summary b:before{content:""!important;width:11px!important;height:11px!important;border-right:4px solid currentColor!important;border-bottom:4px solid currentColor!important;transform:rotate(45deg)!important}.corePermissionCard[open] summary b:before{transform:rotate(225deg)!important}.coreGroupForm{display:grid!important;gap:12px!important;padding:0 12px 12px!important}.coreGroupForm label{padding:0 4px!important}.corePermissionBlock{display:grid!important;gap:8px!important;padding:10px!important;border-radius:16px!important;background:rgba(0,0,0,.18)!important}.corePermissionBlock h4,.coreAssigned h4{margin:0!important;color:#d0ad58!important}.corePermissionTicks,.coreUserTicks{display:grid!important;gap:7px!important}.coreUserTicks{max-height:210px!important;overflow:auto!important}.coreTick{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;gap:9px!important;align-items:start!important;padding:9px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.07)!important}.coreTick input{width:18px!important;height:18px!important;min-height:18px!important;margin:2px 0 0!important}.coreTick span{display:grid!important;gap:2px!important}.coreTick strong{color:#fff8ea!important;font-size:13px!important}.coreTick em{font-style:normal!important;color:#aaa194!important;font-size:11px!important}.coreQuickUsers{display:grid!important;gap:8px!important;margin:8px 0!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.08)!important}.coreQuickUsers label{display:grid!important;gap:5px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.coreFormActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.coreSummaryGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}.coreSummaryGrid span{min-height:44px!important;display:grid!important;place-items:center!important;padding:8px!important;border-radius:13px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;font-weight:850!important;text-align:center!important}.coreInlineForm{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}.coreAreaList{display:grid!important;gap:8px!important}.coreAreaRow{display:grid!important;grid-template-columns:32px minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.05)!important}.coreDrag{min-width:32px!important;width:32px!important;height:38px!important;padding:0!important;background:transparent!important;color:#d0ad58!important;border:0!important}.coreAreaRow.dragging{opacity:.55!important}.danger{color:#ff6b5d!important}@media(max-width:430px){.coreSettingsGrid,.coreSettingsForm,.coreSummaryGrid{grid-template-columns:1fr!important}.coreFormActions{grid-template-columns:1fr!important}.coreUserRow{grid-template-columns:44px minmax(0,1fr)!important}.coreUserRow small{grid-column:1/-1!important}#modal.settingsCoreModalOpen{padding:10px!important}}';
   style.textContent += '.coreSettingsTile{grid-template-columns:minmax(0,1fr) 34px!important;align-items:center!important;align-content:center!important}.coreSettingsTile .coreSettingsCog{justify-self:end!important;width:34px!important;height:34px!important;border-radius:999px!important;display:grid!important;place-items:center!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.56)!important;font-size:18px!important;line-height:1!important;opacity:1!important}.coreSettingsModalCard,.coreSettingsModalCard *{box-sizing:border-box!important}#modal .coreModalHandle{width:100%!important;max-width:100%!important;min-width:0!important}#modal .coreModalHandle h2{min-width:0!important}#modal .coreModalHandle.hasSave{grid-template-columns:minmax(0,1fr) auto 40px!important}.coreModalSave{min-width:76px!important;min-height:40px!important;height:40px!important;border-radius:999px!important;padding:0 14px!important}.corePermissionCard summary .corePermissionChevron{color:#d0ad58!important}.corePermissionCard:not([open]) summary .corePermissionChevron:before{transform:rotate(45deg)!important}.corePermissionCard[open] summary .corePermissionChevron:before{transform:rotate(225deg)!important}.coreSummaryGrid span{cursor:default!important}.coreAreaRow .settingsDeleteX{justify-self:end!important}.coreInlineForm input{min-width:0!important}.coreModalBody button.primary,.coreModalBody .primary{background:#071522!important;color:#fff8ea!important}.coreModalBody .coreSettingsForm>.primary,.coreModalBody .coreFormActions>.primary,.coreModalBody .coreInlineForm>.primary{background:#071522!important;color:#fff8ea!important}';
   style.textContent += '.coreSettingsCog svg{width:19px!important;height:19px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important;stroke-linecap:round!important;stroke-linejoin:round!important}button.coreUserRow{width:100%!important;min-height:62px!important;border:1px solid rgba(255,255,255,.08)!important;text-align:left!important;color:#fff8ea!important;background:rgba(255,255,255,.04)!important;box-shadow:none!important}.coreUserRow>span:not(.avatarText){display:grid!important;min-width:0!important}.coreUserRow strong{color:#fff8ea!important}.coreUserRow:focus-visible{outline:2px solid rgba(208,173,88,.7)!important;outline-offset:2px!important}.coreSummaryGrid span{min-height:auto!important;display:block!important;place-items:initial!important;padding:8px 0!important;border-radius:0!important;background:transparent!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.07)!important;color:#aaa194!important;font-weight:800!important;text-align:left!important}.coreSummaryGrid span:last-child{border-bottom:0!important}';
+  style.textContent += '.coreSettingsPage{gap:12px!important}.coreSettingsTitle{margin:0 0 6px!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;font-size:24px!important;line-height:1.1!important;box-shadow:none!important}.coreSettingsGrid{margin-top:8px!important}#modal.settingsCoreModalOpen .coreModalHandle{cursor:default!important;touch-action:auto!important}#modal.settingsCoreModalOpen .coreSettingsModalCard{transform:none!important;left:auto!important;right:auto!important}#modal.settingsCoreModalOpen .settingsBlock{display:grid!important;gap:12px!important;background:linear-gradient(180deg,#1b2229,#11161c)!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:20px!important;padding:14px!important;color:#fff8ea!important;box-shadow:none!important}#modal.settingsCoreModalOpen .settingsBlock h3{margin:0!important;color:#fff8ea!important;font-size:17px!important;line-height:1.15!important}#modal.settingsCoreModalOpen .permissionGroupPanel .permissionActions{grid-template-columns:1fr!important}#modal.settingsCoreModalOpen .permissionGroupPanel .permissionActions .primary,#modal.settingsCoreModalOpen .permissionGroupPanel .permissionGroupForm>button.primary{background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen .checkBuilderBar{grid-template-columns:34px minmax(0,1fr)!important}#modal.settingsCoreModalOpen .checkBuilderTopActions .danger,#modal.settingsCoreModalOpen #deleteCheckBtn{background:#9b1c15!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen .checkBuilderMetaGrid input,#modal.settingsCoreModalOpen .checkBuilderMetaGrid select,#modal.settingsCoreModalOpen .checkTypePanel input,#modal.settingsCoreModalOpen .checkTypePanel textarea{font-size:16px!important}#modal.settingsCoreModalOpen .userRolePill{justify-self:end!important;white-space:nowrap!important}.documentGroupRow{grid-template-columns:minmax(0,1fr) 40px!important}.settings-core-modal-page-locked{overscroll-behavior:none!important}';
+  style.textContent += '#modal.settingsCoreModalOpen button.primary,#modal.settingsCoreModalOpen .primary{background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen button.primary *,#modal.settingsCoreModalOpen .primary *{color:#fff8ea!important}';
   document.head.appendChild(style);
 
   ensureState();

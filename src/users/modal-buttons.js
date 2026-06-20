@@ -48,12 +48,16 @@
       return '<h2>Personal details</h2><div class="listItem"><p>Name: '+safe(user.name)+'</p><p>Nickname: '+safe(user.nickname||'')+'</p><p>Role: '+safe(user.role||'')+'</p><p>Area: '+safe(user.jobArea||user.area||'')+'</p><p>Email: '+safe(user.email||'No email')+'</p></div>';
     }
   }
-  function closeUserModal(){
+  function closeUserModal(options){
+    var returnSection=window.__settingsReturnSectionAfterUserProfile||'';
     modalRoot.classList.add('hidden');
     modalRoot.classList.remove('userInfoModalOpen');
     document.body.classList.remove('user-info-modal-open');
     modalRoot.innerHTML='';
     unlockPageScroll();
+    window.__settingsReturnSectionAfterUserProfile='';
+    if(options&&options.returnToSettings===false) return;
+    if(returnSection&&typeof window.openCoreSettingsSection==='function')setTimeout(function(){window.openCoreSettingsSection(returnSection);},0);
   }
   function openUserModal(id){
     var user=(state.users||[]).find(function(u){return u.id===id;});
@@ -66,7 +70,7 @@
     document.body.classList.add('user-info-modal-open');
     document.getElementById('closeUserModal').onclick=closeUserModal;
     var edit=document.getElementById('userModalEditCog');
-    if(edit)edit.onclick=function(){window.__returnToUserProfileId=user.id;closeUserModal();setTimeout(function(){openUserEditor(user.id);},0);};
+    if(edit)edit.onclick=function(){window.__returnToUserProfileId=user.id;window.__settingsReturnSectionAfterUserEditor=window.__settingsReturnSectionAfterUserProfile||'';closeUserModal({returnToSettings:false});setTimeout(function(){openUserEditor(user.id);},0);};
     modalRoot.onclick=function(event){if(event.target===modalRoot)closeUserModal();};
     document.querySelectorAll('[data-user-modal-section]').forEach(function(btn){
       btn.onclick=function(){
