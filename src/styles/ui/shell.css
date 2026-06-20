@@ -83,3 +83,6 @@ button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!impo
 .checkToast.show{opacity:1!important;transform:translate(-50%,0)!important}
 body .rotaHomePanel .homePanelActionGrid{grid-template-columns:1fr!important}
 body .rotaHomePanel .homePanelActionButton{width:100%!important;justify-self:stretch!important}
+#modal.homeActionModalOpen .homeModalListButton,#modal.assignedChecksModalOpen .homeModalListButton{white-space:normal!important;height:auto!important;min-height:74px!important;align-items:start!important;text-align:left!important;overflow:visible!important}
+#modal.homeActionModalOpen .homeModalListButton span,#modal.homeActionModalOpen .homeModalListButton small,#modal.assignedChecksModalOpen .homeModalListButton span,#modal.assignedChecksModalOpen .homeModalListButton small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important;display:block!important;max-width:100%!important}
+#modal.homeActionModalOpen .homeModalListButton small,#modal.assignedChecksModalOpen .homeModalListButton small{font-size:12px!important;color:#111!important;opacity:.82!important}
