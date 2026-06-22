@@ -148,7 +148,7 @@
     }, []);
   }
   function defaultNotificationRules() {
-    return { premisesExpiryDays: 30, staffExpiryDays: 30, checkOverdueMinutes: 0, shiftReminderMinutes: 60, lateShiftMinutes: 1, missedClockOutHours: 10, longBreakMinutes: 45, criticalIssuesAlwaysNotifyAdmin: true };
+    return { premisesExpiryDays: 30, staffExpiryDays: 30, checkOverdueMinutes: 0, shiftReminderMinutes: 60, lateShiftMinutes: 1, missedClockOutHours: 10, longBreakMinutes: 45, criticalIssuesAlwaysNotifyAdmin: true, pushEnabled: true, pushApiBase: '', pushVapidPublicKey: '' };
   }
   function stableReqId(title) {
     return 'req_' + String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -535,9 +535,19 @@
   }
   function notificationsSection() {
     var r = state.notificationRules || defaultNotificationRules();
-    return '<form id="coreNotificationsForm" class="coreSettingsForm">' + numberField('premisesExpiryDays', 'Premises document expiry warning days', r.premisesExpiryDays) + numberField('staffExpiryDays', 'Staff document expiry warning days', r.staffExpiryDays) + numberField('checkOverdueMinutes', 'Check overdue threshold minutes', r.checkOverdueMinutes) + numberField('shiftReminderMinutes', 'Shift reminder minutes before start', r.shiftReminderMinutes) + numberField('lateShiftMinutes', 'Late shift threshold minutes', r.lateShiftMinutes) + numberField('missedClockOutHours', 'Missed clock-out threshold hours', r.missedClockOutHours) + numberField('longBreakMinutes', 'Long break alert minutes', r.longBreakMinutes) + '<label class="coreTick full"><input type="checkbox" name="criticalIssuesAlwaysNotifyAdmin" ' + (r.criticalIssuesAlwaysNotifyAdmin ? 'checked' : '') + '><span><strong>Critical issues always notify Admin</strong></span></label><button class="primary full">Save Notification Rules</button></form>';
+    return '<form id="coreNotificationsForm" class="coreSettingsForm">' + numberField('premisesExpiryDays', 'Premises document expiry warning days', r.premisesExpiryDays) + numberField('staffExpiryDays', 'Staff document expiry warning days', r.staffExpiryDays) + numberField('checkOverdueMinutes', 'Check overdue threshold minutes', r.checkOverdueMinutes) + numberField('shiftReminderMinutes', 'Shift reminder minutes before start', r.shiftReminderMinutes) + numberField('lateShiftMinutes', 'Late shift threshold minutes', r.lateShiftMinutes) + numberField('missedClockOutHours', 'Missed clock-out threshold hours', r.missedClockOutHours) + numberField('longBreakMinutes', 'Long break alert minutes', r.longBreakMinutes) + '<label class="coreTick full"><input type="checkbox" name="criticalIssuesAlwaysNotifyAdmin" ' + (r.criticalIssuesAlwaysNotifyAdmin ? 'checked' : '') + '><span><strong>Critical issues always notify Admin</strong></span></label><label class="coreTick full"><input type="checkbox" name="pushEnabled" ' + (r.pushEnabled !== false ? 'checked' : '') + '><span><strong>Push notifications enabled</strong></span></label>' + textField('pushApiBase', 'Push API base URL', r.pushApiBase) + textField('pushVapidPublicKey', 'VAPID public key', r.pushVapidPublicKey) + '<div class="corePushActions full"><button type="button" class="secondary" data-subscribe-push-device>Subscribe This Device</button><button type="button" class="secondary" data-test-push-device>Test Device Notification</button></div><p id="corePushStatus" class="corePushStatus full">' + h(pushStatusLabel()) + '</p><button class="primary full">Save Notification Rules</button></form>';
   }
   function numberField(name, label, value) { return '<label><span>' + h(label) + '</span><input type="number" min="0" name="' + h(name) + '" value="' + h(value == null ? 0 : value) + '"></label>'; }
+  function textField(name, label, value) { return '<label class="full"><span>' + h(label) + '</span><input name="' + h(name) + '" value="' + h(value || '') + '"></label>'; }
+  function pushStatusLabel() {
+    if (!window.CompliancePush || typeof window.CompliancePush.supportStatus !== 'function') return 'Push: setup unavailable';
+    var status = window.CompliancePush.supportStatus();
+    if (!status.supported) return 'Push: unsupported on this device';
+    if (status.permission === 'denied') return 'Push: permission blocked';
+    if (!status.serverReady) return 'Push: server URL or key missing';
+    if (status.subscribed) return 'Push: device subscribed';
+    return 'Push: ready to subscribe';
+  }
 
   function lockSettingsModalBackground() {
     if (document.body.classList.contains('settings-core-modal-page-locked')) return;
@@ -632,6 +642,7 @@
     bindRotaDrag();
     var issueForm = document.getElementById('coreIssueSettingsForm'); if (issueForm) issueForm.onsubmit = saveIssueSettings;
     var notifications = document.getElementById('coreNotificationsForm'); if (notifications) notifications.onsubmit = saveNotifications;
+    bindPushNotificationButtons();
   }
 
   function savePub(event) {
@@ -720,16 +731,60 @@
     writeJSON(ROTA_KEY, rota);
     saveSafe();
   }
-  function saveNotifications(event) {
-    event.preventDefault();
-    var data = new FormData(event.currentTarget);
-    var rules = defaultNotificationRules();
+  function notificationRulesFromForm(form) {
+    var data = new FormData(form);
+    var rules = Object.assign(defaultNotificationRules(), state.notificationRules || {});
     ['premisesExpiryDays', 'staffExpiryDays', 'checkOverdueMinutes', 'shiftReminderMinutes', 'lateShiftMinutes', 'missedClockOutHours', 'longBreakMinutes'].forEach(function (key) { rules[key] = Number(data.get(key) || 0); });
     rules.criticalIssuesAlwaysNotifyAdmin = !!data.get('criticalIssuesAlwaysNotifyAdmin');
+    rules.pushEnabled = !!data.get('pushEnabled');
+    rules.pushApiBase = String(data.get('pushApiBase') || '').trim();
+    rules.pushVapidPublicKey = String(data.get('pushVapidPublicKey') || '').trim();
+    return rules;
+  }
+  function persistNotificationRules(rules) {
     state.notificationRules = rules;
     writeJSON(NOTIFICATION_RULES_KEY, rules);
+    if (window.CompliancePush && typeof window.CompliancePush.persistSettings === 'function') {
+      window.CompliancePush.persistSettings({ apiBase: rules.pushApiBase, vapidPublicKey: rules.pushVapidPublicKey, enabled: rules.pushEnabled });
+    }
     saveSafe();
+  }
+  function saveNotifications(event) {
+    event.preventDefault();
+    persistNotificationRules(notificationRulesFromForm(event.currentTarget));
     closeSection();
+  }
+  function setPushStatus(text) {
+    var status = document.getElementById('corePushStatus');
+    if (status) status.textContent = text;
+  }
+  function bindPushNotificationButtons() {
+    var form = document.getElementById('coreNotificationsForm');
+    if (!form) return;
+    var subscribe = document.querySelector('[data-subscribe-push-device]');
+    if (subscribe) subscribe.onclick = function () {
+      persistNotificationRules(notificationRulesFromForm(form));
+      if (!window.CompliancePush || typeof window.CompliancePush.subscribeCurrentDevice !== 'function') { setPushStatus('Push: setup unavailable'); return; }
+      setPushStatus('Push: subscribing device');
+      window.CompliancePush.subscribeCurrentDevice({
+        apiBase: state.notificationRules.pushApiBase,
+        vapidPublicKey: state.notificationRules.pushVapidPublicKey,
+        enabled: state.notificationRules.pushEnabled
+      }).then(function (result) {
+        if (result && result.ok && result.server && result.server.skipped) setPushStatus('Push: device subscribed, server URL missing');
+        else if (result && result.ok && result.server && result.server.ok === false) setPushStatus('Push: device subscribed, server save failed');
+        else if (result && result.ok) setPushStatus('Push: device subscribed');
+        else setPushStatus('Push: ' + (result && (result.reason || result.error) || 'subscription failed'));
+      });
+    };
+    var test = document.querySelector('[data-test-push-device]');
+    if (test) test.onclick = function () {
+      persistNotificationRules(notificationRulesFromForm(form));
+      if (!window.CompliancePush || typeof window.CompliancePush.showLocalNotification !== 'function') { setPushStatus('Push: setup unavailable'); return; }
+      window.CompliancePush.showLocalNotification('Pub Compliance Hub', 'Device notification test sent.', { route: 'dashboard', url: './index.html?route=dashboard', tag: 'compliance-test-notification' }).then(function (result) {
+        setPushStatus(result && result.ok ? 'Push: test sent' : 'Push: subscribe this device first');
+      });
+    };
   }
 
   function addDocumentCategory(event) {
@@ -1064,6 +1119,7 @@
   style.textContent += '.coreSettingsPage{gap:12px!important}.coreSettingsTitle{margin:0 0 6px!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;font-size:24px!important;line-height:1.1!important;box-shadow:none!important}.coreSettingsGrid{margin-top:8px!important}#modal.settingsCoreModalOpen .coreModalHandle{cursor:default!important;touch-action:auto!important}#modal.settingsCoreModalOpen .coreSettingsModalCard{transform:none!important;left:auto!important;right:auto!important}#modal.settingsCoreModalOpen .settingsBlock{display:grid!important;gap:12px!important;background:linear-gradient(180deg,#1b2229,#11161c)!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:20px!important;padding:14px!important;color:#fff8ea!important;box-shadow:none!important}#modal.settingsCoreModalOpen .settingsBlock h3{margin:0!important;color:#fff8ea!important;font-size:17px!important;line-height:1.15!important}#modal.settingsCoreModalOpen .permissionGroupPanel .permissionActions{grid-template-columns:1fr!important}#modal.settingsCoreModalOpen .permissionGroupPanel .permissionActions .primary,#modal.settingsCoreModalOpen .permissionGroupPanel .permissionGroupForm>button.primary{background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen .checkBuilderBar{grid-template-columns:34px minmax(0,1fr)!important}#modal.settingsCoreModalOpen .checkBuilderTopActions .danger,#modal.settingsCoreModalOpen #deleteCheckBtn{background:#9b1c15!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen .checkBuilderMetaGrid input,#modal.settingsCoreModalOpen .checkBuilderMetaGrid select,#modal.settingsCoreModalOpen .checkTypePanel input,#modal.settingsCoreModalOpen .checkTypePanel textarea{font-size:16px!important}#modal.settingsCoreModalOpen .userRolePill{justify-self:end!important;white-space:nowrap!important}.documentGroupRow{grid-template-columns:minmax(0,1fr) 40px!important}.settings-core-modal-page-locked{overscroll-behavior:none!important}';
   style.textContent += '#modal.settingsCoreModalOpen button.primary,#modal.settingsCoreModalOpen .primary{background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen button.primary *,#modal.settingsCoreModalOpen .primary *{color:#fff8ea!important}';
   style.textContent += '#modal.settingsCoreModalOpen .coreSettingsModalCard{height:100%!important;min-height:0!important}#modal.settingsCoreModalOpen .coreModalBody{min-height:0!important;max-height:100%!important;align-items:start!important;align-content:start!important;overscroll-behavior:contain!important}#modal.settingsCoreModalOpen .coreModalBody>*{align-self:start!important;min-height:0!important}#modal.settingsCoreModalOpen #coreCheckBuilderForm{height:auto!important;min-height:0!important;overflow:visible!important}#modal.settingsCoreModalOpen .checkBuilderPreview,#modal.settingsCoreModalOpen .checkBuilderSections,#modal.settingsCoreModalOpen .checkBuilderSection{min-height:0!important}';
+  style.textContent += '#modal.settingsCoreModalOpen .corePushActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}#modal.settingsCoreModalOpen .corePushActions button{width:100%!important;background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen .corePushStatus{margin:0!important;color:#aaa194!important;font-size:12px!important;font-weight:850!important;line-height:1.25!important}@media(max-width:430px){#modal.settingsCoreModalOpen .corePushActions{grid-template-columns:1fr!important}}';
   document.head.appendChild(style);
 
   ensureState();

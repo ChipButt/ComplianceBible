@@ -192,6 +192,48 @@
     return true;
   }
 
+  function pushBridge() {
+    try {
+      if (window.CompliancePush) return window.CompliancePush;
+    } catch (_) {}
+    try {
+      if (window.parent && window.parent !== window && window.parent.CompliancePush) return window.parent.CompliancePush;
+    } catch (_) {}
+    return null;
+  }
+
+  function queuePublishedShiftPushes(shifts, weekStart, publishedAt) {
+    var bridge = pushBridge();
+    if (!bridge || typeof bridge.notifyRotaPublished !== 'function' || !shifts.length) return;
+    var payload = {
+      weekStart: weekStart,
+      publishedAt: publishedAt,
+      users: (state.users || []).map(function pushUser(user) {
+        return {
+          id: user.id,
+          name: user.name || '',
+          nickname: user.nickname || '',
+          email: user.email || '',
+          upcomingShiftAlerts: user.upcomingShiftAlerts
+        };
+      }),
+      shifts: shifts.map(function pushShift(shift) {
+        return {
+          id: shift.id,
+          userId: shift.userId,
+          section: shift.section,
+          date: shift.date,
+          start: shift.start,
+          end: shift.end,
+          notes: shift.notes || ''
+        };
+      })
+    };
+    try {
+      Promise.resolve(bridge.notifyRotaPublished(payload)).catch(function ignorePushError() {});
+    } catch (_) {}
+  }
+
   function publishCurrentScheduleWeek() {
     try {
       state.shifts = state.shifts || [];
@@ -217,6 +259,7 @@
         shiftIds: assigned.map(function shiftId(shift) { return shift.id; })
       };
       if (typeof save === 'function') save();
+      queuePublishedShiftPushes(newlyPublished, dates[0], publishedAt);
       alert(assigned.length + ' shift(s) are now live. ' + notified + ' staff notification(s) queued.');
       if (typeof renderRota === 'function') renderRota();
       setTimeout(enhanceScheduleToolbar, 0);
