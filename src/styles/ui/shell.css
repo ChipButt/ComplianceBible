@@ -1,0 +1,85 @@
+:root{--gold:#B0914A;--dark:#050607;--panel:#14191f;--panel2:#1b2229;--ink:#fff8ea;--muted:#aaa194;--line:rgba(255,255,255,.09)}
+html,body{background:var(--dark)!important;color:var(--ink)!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif!important}
+#appShell{background:linear-gradient(180deg,#080a0c,#050607)!important;padding-bottom:96px!important;min-height:100svh!important}
+#app{max-width:520px!important;margin:0 auto!important;padding:16px 14px 110px!important}
+.topbar{background:#050607!important;color:var(--ink)!important;border-bottom:1px solid var(--line)!important;padding:18px!important;box-shadow:0 12px 28px rgba(0,0,0,.28)!important}
+.topbar h1{color:var(--ink)!important;font-size:30px!important;line-height:1!important;letter-spacing:0!important}
+.eyebrow{color:var(--gold)!important;letter-spacing:.2em!important;font-size:12px!important}
+body.is-rota-route{overflow:hidden!important}
+body.is-rota-route #appShell{min-height:100svh!important;padding-bottom:0!important;overflow:hidden!important}
+body.is-rota-route #app{height:100svh!important;max-width:none!important;padding-left:0!important;padding-right:0!important;padding-bottom:0!important;overflow:hidden!important}
+nav.mainNav,.profileSwitch+.mainNav{display:none!important}
+h2,h3,h4{color:var(--ink)!important;letter-spacing:0!important}
+p,.muted,small{color:var(--muted)!important}
+.card,.hero,.profileSwitch,.statusStrip>div,.docItem,.plainList li,.rowButton,.staffCard,.rotaPeopleShell,.profilePage,.panel,.workCard,.listItem,.issueCard{background:linear-gradient(180deg,var(--panel2),var(--panel))!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:24px!important;box-shadow:0 10px 28px rgba(0,0,0,.22)!important;padding:16px!important}
+.grid.two,.grid.cards{grid-template-columns:1fr!important}
+.statusStrip{grid-template-columns:1fr!important}
+.inlineForm,.issueForm{grid-template-columns:1fr!important}
+button,input,select,textarea{font:inherit!important}
+input,select,textarea{background:rgba(255,255,255,.06)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:14px!important;min-height:48px!important;padding:12px!important}
+button.primary,button:not(.navBtn):not(.ghost):not(.close):not(.secondary){background:linear-gradient(135deg,var(--gold),#d0ad58)!important;color:#070707!important;border:0!important;border-radius:14px!important;min-height:48px!important;font-weight:850!important}
+#app .checksPage .temperaturePhotoButton{grid-template-columns:auto auto!important;justify-content:center!important;justify-items:center!important;text-align:center!important}
+#app .checksPage .temperaturePhotoButton span{display:block!important;text-align:center!important}
+#app .checksPage .temperaturePhotoButton input{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;overflow:hidden!important}
+#app .checksPage .areaCheckCard .temperatureCheckPanel .temperatureEntryRow>button.temperatureSaveButton{height:34px!important;min-height:34px!important;max-height:34px!important;border-radius:10px!important;line-height:34px!important;padding:0 14px!important;align-self:stretch!important}
+button.ghost,a.ghost,.secondary,.rowButton{background:rgba(255,255,255,.05)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:14px!important;min-height:48px!important}
+.bottomNav{position:fixed!important;left:10px!important;right:10px!important;bottom:max(10px,env(safe-area-inset-bottom))!important;z-index:50!important;height:72px!important;display:flex!important;gap:4px!important;overflow-x:auto!important;padding:8px!important;background:rgba(8,9,10,.96)!important;border:1px solid rgba(176,145,74,.28)!important;border-radius:24px!important;box-shadow:0 18px 38px rgba(0,0,0,.42)!important;scrollbar-width:none!important}
+.bottomNav::-webkit-scrollbar{display:none!important}
+.bottomNav .navBtn{flex:0 0 64px!important;min-width:64px!important;height:56px!important;display:grid!important;place-items:center!important;background:transparent!important;color:rgba(255,248,234,.78)!important;border:0!important;border-radius:18px!important;font-size:10px!important;font-weight:750!important;padding:5px 4px!important}
+.bottomNav .navBtn:before{content:attr(data-icon)!important;font-size:20px!important}
+.bottomNav .navBtn.active{background:rgba(176,145,74,.18)!important;color:#d0ad58!important;box-shadow:inset 0 0 0 1px rgba(176,145,74,.24)!important}
+.avatarText{background:linear-gradient(135deg,var(--gold),#8f6f2c)!important;color:#090a0b!important;border-radius:50%!important;width:48px!important;height:48px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-weight:900!important}
+.centralPersonRow,.personRow{display:grid!important;grid-template-columns:54px 1fr auto!important;align-items:center!important;gap:12px!important;background:transparent!important;border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;box-shadow:none!important;padding:12px 0!important;text-align:left!important;color:var(--ink)!important}
+.centralPersonRow strong,.personRow strong{color:var(--ink)!important;font-size:17px!important}
+.centralPersonRow p,.personRow p{color:var(--muted)!important;font-size:13px!important;margin:4px 0 0!important}
+.modalCard{background:linear-gradient(180deg,#171d23,#0e1216)!important;color:var(--ink)!important;border:1px solid rgba(176,145,74,.28)!important;border-radius:28px 28px 22px 22px!important}
+.rotaEmbedCard{padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.rotaScheduleEmbed{width:100%!important;height:calc(100svh - var(--fixed-topbar-height,74px) - var(--fixed-mainnav-height,80px) - 28px)!important;max-width:none!important;margin:0!important;overflow:hidden!important}
+.rotaFrame{display:block!important;width:100%!important;height:100%!important;min-height:0!important;border:0!important;border-radius:0!important;background:#050607!important}
+#modal .close,#modal .modalClose,.modalClose,button.close,button.reportModalClose,.standardXButton,.settingsDeleteX{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;border-radius:999px!important;border:1px solid rgba(208,173,88,.56)!important;background:#071522!important;color:#d0ad58!important;box-shadow:0 8px 18px rgba(0,0,0,.30)!important;font-size:25px!important;font-weight:900!important;line-height:1!important;text-align:center!important}
+.inspectionGrid{gap:14px!important}
+.inspectionDocumentsCard,.inspectionTrainingCard{display:grid!important;gap:10px!important}
+.inspectionDocRow{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:7px 10px!important;align-items:center!important;padding:10px 0!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
+.inspectionDocRow:last-child{border-bottom:0!important}
+.inspectionDocTitle{min-height:0!important;padding:0!important;border:0!important;background:transparent!important;color:#fff8ea!important;text-align:left!important;font-size:14px!important;font-weight:900!important;line-height:1.15!important;text-decoration:none!important;cursor:pointer!important}
+.inspectionDocTitle:focus-visible{outline:2px solid rgba(208,173,88,.65)!important;outline-offset:3px!important;border-radius:4px!important}
+.inspectionPlainStatus{color:#aaa194!important;font-size:12px!important;font-weight:850!important}
+.inspectionDocRow>span{grid-column:1/-1!important;color:#aaa194!important;font-size:12px!important;font-weight:700!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.inspectionDocRow>.inspectionDocTitle{grid-column:auto!important;color:#fff8ea!important;font-size:14px!important;font-weight:900!important}
+.inspectionDocRow>.badge{justify-self:end!important;grid-column:2!important;grid-row:1!important}
+.inspectionUserList{display:grid!important;gap:10px!important}
+.inspectionUserCard{border:1px solid rgba(255,255,255,.09)!important;border-radius:18px!important;overflow:hidden!important;background:rgba(255,255,255,.035)!important}
+.inspectionUserButton{width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto 24px!important;gap:10px!important;align-items:center!important;min-height:62px!important;padding:11px 12px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#fff8ea!important;text-align:left!important}
+.inspectionUserButton strong,.inspectionUserButton em{display:block!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.inspectionUserButton strong{font-size:16px!important;color:#fff8ea!important}
+.inspectionUserButton em,.inspectionUserButton small{font-style:normal!important;color:#aaa194!important;font-size:12px!important;font-weight:760!important}
+.inspectionUserPanel{display:grid!important;gap:10px!important;padding:0 12px 12px!important}
+.inspectionUserPanel.closed{display:none!important}
+.inspectionUserPanel h4{margin:6px 0 0!important;font-size:13px!important;color:#d0ad58!important}
+.inspectionTrainingRow{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:4px 8px!important;align-items:center!important;padding:8px 0!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
+.inspectionTrainingRow span{font-weight:850!important;color:#fff8ea!important}
+.inspectionTrainingRow small{grid-column:1/-1!important}
+#modal.inspectDocViewerOpen{position:fixed!important;inset:0!important;z-index:1000!important;display:flex!important;align-items:stretch!important;justify-content:center!important;padding:0!important;background:rgba(0,0,0,.86)!important;overflow:hidden!important}
+#modal.inspectDocViewerOpen.hidden{display:none!important}
+#modal .inspectDocViewerModal{width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;margin:0!important;border-radius:0!important;overflow-y:auto!important;overflow-x:hidden!important;display:grid!important;grid-template-rows:auto auto minmax(0,1fr)!important;gap:10px!important;padding:16px!important;box-sizing:border-box!important}
+#modal .inspectDocViewerModal .close{position:fixed!important;top:14px!important;right:14px!important;z-index:3!important}
+#modal .inspectDocViewerModal h2{padding-right:52px!important;margin:0!important}
+.inspectFullDocument{width:100%!important;height:auto!important;max-height:calc(100svh - 120px)!important;object-fit:contain!important;border-radius:16px!important;background:#050607!important}
+.inspectFullFrame{width:100%!important;height:calc(100svh - 160px)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:16px!important;background:#fff!important}
+.inspectMissingDocument{min-height:45svh!important;display:grid!important;place-items:center!important;text-align:center!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:18px!important;background:rgba(255,255,255,.04)!important;padding:18px!important}
+#app button.settingsDeleteX,#modal button.settingsDeleteX{background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.56)!important;border-radius:999px!important;box-shadow:0 8px 18px rgba(0,0,0,.30)!important;font-size:25px!important;font-weight:900!important;line-height:1!important}
+#modal.settingsModalOpen .settingsSectionModal .settingsItemRow button.settingsDeleteX{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;border-radius:999px!important;background:#071522!important;color:#d0ad58!important}
+.checkEvidenceUpload{display:grid!important;gap:6px!important;margin:6px 0!important;padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.045)!important;border:1px dashed rgba(208,173,88,.52)!important;color:#fff8ea!important}
+.checkEvidenceUpload>span{color:#fff8ea!important;font-size:13px!important;font-weight:900!important;text-align:center!important}
+.checkEvidenceUpload input{min-height:42px!important;padding:8px!important;border-radius:10px!important}
+.checkEvidenceFileName{display:block!important;color:#aaa194!important;text-align:center!important;font-size:11px!important;font-weight:760!important}
+.checkRunSection{display:grid!important;gap:8px!important;margin:0 0 10px!important;padding:0!important;min-width:0!important;max-width:100%!important}
+.checkRunSection .temperatureInstruction{color:#d0ad58!important;font-weight:900!important}
+.checkSectionNotes{display:grid!important;gap:6px!important;color:#aaa194!important;font-size:12px!important;font-weight:800!important}
+.checkSectionNotes textarea{width:100%!important;min-height:68px!important;resize:vertical!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;box-sizing:border-box!important}
+.checkCompletionDocPanel{display:grid!important;gap:8px!important;margin-bottom:10px!important}
+.areaCheckForm>.checkSavePrimary{width:100%!important;margin-top:8px!important}
+.checkToast{position:fixed!important;left:50%!important;bottom:calc(96px + env(safe-area-inset-bottom))!important;z-index:4000!important;transform:translate(-50%,18px)!important;opacity:0!important;max-width:min(420px,calc(100vw - 28px))!important;padding:12px 16px!important;border-radius:999px!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.56)!important;box-shadow:0 16px 34px rgba(0,0,0,.44)!important;font-size:13px!important;font-weight:900!important;text-align:center!important;transition:opacity .18s ease,transform .18s ease!important;pointer-events:none!important}
+.checkToast.show{opacity:1!important;transform:translate(-50%,0)!important}
+body .rotaHomePanel .homePanelActionGrid{grid-template-columns:1fr!important}
+body .rotaHomePanel .homePanelActionButton{width:100%!important;justify-self:stretch!important}

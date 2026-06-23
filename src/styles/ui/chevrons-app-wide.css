@@ -1,0 +1,216 @@
+/* Shared arrow styling. */
+:root {
+  --app-chevron-size: 28px;
+  --app-chevron-drawn-size: 11px;
+  --app-chevron-stroke: 4px;
+  --app-chevron-gold: #f0b84a;
+  --app-chevron-dark: #080a0c;
+}
+
+#app details > summary {
+  list-style: none !important;
+}
+
+#app details > summary::-webkit-details-marker {
+  display: none !important;
+}
+
+#app details.docFilterDrop > summary,
+#app details.addPremisesDetails > summary,
+#app details.settingsExpander > summary,
+#app details.settingsAddCheckDetails > summary {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--app-chevron-size) !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+#app details.docFilterDrop > summary::after,
+#app details.addPremisesDetails > summary::after,
+#app details.settingsExpander > summary::after,
+#app details.settingsAddCheckDetails > summary::after,
+#app .fdocArrow::before,
+#app .permissionDetailArrow::before {
+  content: '' !important;
+  width: var(--app-chevron-drawn-size) !important;
+  height: var(--app-chevron-drawn-size) !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  border-right: var(--app-chevron-stroke) solid currentColor !important;
+  border-bottom: var(--app-chevron-stroke) solid currentColor !important;
+  border-radius: 1px !important;
+  transform-origin: 50% 50% !important;
+  transition: transform .15s ease !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#app details.docFilterDrop > summary::after,
+#app details.addPremisesDetails > summary::after,
+#app details.settingsExpander > summary::after,
+#app details.settingsAddCheckDetails > summary::after {
+  color: var(--app-chevron-gold) !important;
+  justify-self: end !important;
+  align-self: center !important;
+}
+
+#app .fdocArrow,
+#app .permissionDetailArrow {
+  width: var(--app-chevron-size) !important;
+  height: var(--app-chevron-size) !important;
+  min-width: var(--app-chevron-size) !important;
+  max-width: var(--app-chevron-size) !important;
+  display: grid !important;
+  place-items: center !important;
+  justify-self: end !important;
+  align-self: center !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--app-chevron-gold) !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  right: auto !important;
+  left: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+
+#app .fdocBar > .fdocArrow,
+#app .areaGroupButton > .fdocArrow,
+#app .areaCheckToggle > .fdocArrow,
+#app .permissionGroupButton > .fdocArrow,
+#app .checkAreaBar > .fdocArrow,
+#app .checkDocBar > .fdocArrow {
+  position: relative !important;
+  right: auto !important;
+  top: auto !important;
+  transform: none !important;
+}
+
+#app .areaCheckCard > .areaCheckToggle > .fdocArrow {
+  transform: translateX(24px) !important;
+}
+
+#app:has(.checksPage) {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+}
+
+#app .checksPage {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
+#app .areaGroupButton .fdocArrow,
+#app .permissionGroupButton .fdocArrow,
+#app .permissionUsersDrop .permissionDetailArrow {
+  color: var(--app-chevron-dark) !important;
+}
+
+#app details.docFilterDrop:not([open]) > summary::after,
+#app details.addPremisesDetails:not([open]) > summary::after,
+#app details.settingsExpander:not([open]) > summary::after,
+#app details.settingsAddCheckDetails:not([open]) > summary::after,
+#app .fdoc:not(.open) > .fdocBar .fdocArrow::before,
+#app .areaGroup:not(.open) > .areaGroupButton .fdocArrow::before,
+#app .areaCheckCard:not(.open) > .areaCheckToggle .fdocArrow::before,
+#app .checkAreaGroup:not(.open) > .checkAreaBar .fdocArrow::before,
+#app .checkDocCard:not(.open) > .checkDocBar .fdocArrow::before,
+#app .permissionGroupCard:not(.open) > .permissionGroupButton .fdocArrow::before,
+#app .permissionUsersDrop:not([open]) .permissionDetailArrow::before {
+  transform: rotate(45deg) !important;
+}
+
+#app details.docFilterDrop[open] > summary::after,
+#app details.addPremisesDetails[open] > summary::after,
+#app details.settingsExpander[open] > summary::after,
+#app details.settingsAddCheckDetails[open] > summary::after,
+#app .fdoc.open > .fdocBar .fdocArrow::before,
+#app .areaGroup.open > .areaGroupButton .fdocArrow::before,
+#app .areaCheckCard.open > .areaCheckToggle .fdocArrow::before,
+#app .checkAreaGroup.open > .checkAreaBar .fdocArrow::before,
+#app .checkDocCard.open > .checkDocBar .fdocArrow::before,
+#app .permissionGroupCard.open > .permissionGroupButton .fdocArrow::before,
+#app .permissionUsersDrop[open] .permissionDetailArrow::before {
+  transform: rotate(225deg) !important;
+}
+
+#modal details.settingsExpander > summary,
+#modal details.settingsAddCheckDetails > summary {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) var(--app-chevron-size) !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+#modal details.settingsExpander > summary::after,
+#modal details.settingsAddCheckDetails > summary::after,
+#modal .fdocArrow::before,
+#modal .permissionDetailArrow::before {
+  content: '' !important;
+  width: var(--app-chevron-drawn-size) !important;
+  height: var(--app-chevron-drawn-size) !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  border-right: var(--app-chevron-stroke) solid currentColor !important;
+  border-bottom: var(--app-chevron-stroke) solid currentColor !important;
+  border-radius: 1px !important;
+  transform-origin: 50% 50% !important;
+  transition: transform .15s ease !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#modal .fdocArrow,
+#modal .permissionDetailArrow {
+  width: var(--app-chevron-size) !important;
+  height: var(--app-chevron-size) !important;
+  min-width: var(--app-chevron-size) !important;
+  max-width: var(--app-chevron-size) !important;
+  display: grid !important;
+  place-items: center !important;
+  justify-self: end !important;
+  align-self: center !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: var(--app-chevron-gold) !important;
+  overflow: visible !important;
+  position: relative !important;
+  transform: none !important;
+}
+
+#modal .permissionGroupButton .fdocArrow,
+#modal .permissionUsersDrop .permissionDetailArrow {
+  color: var(--app-chevron-dark) !important;
+}
+
+#app .reportedIssueItem:not([open]) > summary .fdocArrow::before,
+#app .maintenanceIssueItem:not([open]) > summary .fdocArrow::before,
+#modal details.settingsExpander:not([open]) > summary::after,
+#modal details.settingsAddCheckDetails:not([open]) > summary::after,
+#modal .permissionGroupCard:not(.open) > .permissionGroupButton .fdocArrow::before,
+#modal .permissionUsersDrop:not([open]) .permissionDetailArrow::before {
+  transform: rotate(45deg) !important;
+}
+
+#app .reportedIssueItem[open] > summary .fdocArrow::before,
+#app .maintenanceIssueItem[open] > summary .fdocArrow::before,
+#modal details.settingsExpander[open] > summary::after,
+#modal details.settingsAddCheckDetails[open] > summary::after,
+#modal .permissionGroupCard.open > .permissionGroupButton .fdocArrow::before,
+#modal .permissionUsersDrop[open] .permissionDetailArrow::before {
+  transform: rotate(225deg) !important;
+}

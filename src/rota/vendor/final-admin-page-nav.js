@@ -1,0 +1,18 @@
+// Final Admin navigation: menu page -> single section page -> back to menu.
+(function(){
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function adminMenu(){return '<section class="panel adminHomePanel"><h2>Admin</h2><div class="adminMenuStack">'+
+    '<button class="adminMenuButton" onclick="openAdminSection(\'shift\')"><span>Add / Edit Shifts</span><small>Create and amend shifts</small></button>'+
+    '<button class="adminMenuButton" onclick="openAdminSection(\'sections\')"><span>Sections</span><small>Manage rota areas</small></button>'+
+    '<button class="adminMenuButton" onclick="openAdminSection(\'users\')"><span>Users</span><small>Manage profiles and costs</small></button>'+
+    '<button class="adminMenuButton" onclick="openAdminSection(\'permissions\')"><span>Permission Sets</span><small>Control access</small></button>'+
+    '<button class="adminMenuButton" onclick="openAdminSection(\'timesheets\')"><span>Timesheets</span><small>All shift records</small></button>'+
+    '</div></section>'}
+  function shiftPage(){return '<h2>Add / edit shift</h2><form class="formGrid" onsubmit="saveShift(event)"><label>Staff member<select id="shiftUser"><option value="unassigned">Unassigned</option>'+state.users.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join('')+'</select></label><label>Section<select id="shiftSection">'+state.sections.map(function(s){return '<option>'+esc(s)+'</option>'}).join('')+'</select></label><label>Date<input id="shiftDate" type="date" value="'+new Date().toISOString().slice(0,10)+'"></label><label>Start<input id="shiftStart" type="time" value="09:00"></label><label>End<input id="shiftEnd" type="time" value="17:00"></label><label class="full">Notes<textarea id="shiftNotes"></textarea></label><button>Save shift</button></form>'}
+  function sectionsPage(){return '<h2>Sections</h2><form class="rowForm" onsubmit="addSection(event)"><input id="newSectionName" placeholder="Kitchen, FOH, Office..."><button>Add section</button></form><div class="sectionList">'+state.sections.map(function(s){return '<div class="sectionRow"><span>'+esc(s)+'</span><button class="sectionDeleteBtn" onclick="removeSection(\''+esc(s)+'\')">🗑</button></div>'}).join('')+'</div>'}
+  function usersPage(){return '<h2>Users</h2><div class="tableWrap"><table><tr><th>Name</th><th>Role</th><th></th></tr>'+state.users.map(function(u){return '<tr><td>'+esc(u.name)+'</td><td>'+esc((state.permissionSets[u.permissionSetId]||{}).name||'Staff')+'</td><td><button onclick="openProfile(\''+u.id+'\')">Open</button></td></tr>'}).join('')+'</table></div>'}
+  function pageContent(){var p=state.adminPanel;if(p==='sections')return sectionsPage();if(p==='users')return usersPage();if(p==='permissions')return typeof renderPermissionSets==='function'?renderPermissionSets():'<p>Permission editor unavailable.</p>';if(p==='timesheets')return '<div id="adminInner"></div>';return shiftPage()}
+  window.openAdminSection=function(p){state.adminPanel=p;save();renderAdmin();window.scrollTo(0,0)};
+  window.backToAdminMenu=function(){state.adminPanel='menu';save();renderAdmin();window.scrollTo(0,0)};
+  window.renderAdmin=function(){if(!state.adminPanel||state.adminPanel==='menu'){shell(adminMenu());return;}shell('<section class="panel adminHomePanel"><button class="adminBackButton" onclick="backToAdminMenu()">‹ Back to Admin</button><div class="adminSectionContent">'+pageContent()+'</div></section>');if(state.adminPanel==='timesheets'&&typeof renderAdminTimesheetsFinal==='function')renderAdminTimesheetsFinal();};
+})();

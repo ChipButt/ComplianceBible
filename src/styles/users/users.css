@@ -1,0 +1,370 @@
+#app .centralPersonRow.userOpenButton {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  grid-template-columns: 54px minmax(0,1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 68px !important;
+  padding: 10px 14px !important;
+  margin: 0 0 10px !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg,#1b2229,#11161c) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.24) !important;
+  color: #fff8ea !important;
+  text-align: left !important;
+}
+.centralPersonRow.userOpenButton .chev { display: none !important; }
+.userOpenText { display: block !important; min-width: 0 !important; }
+.userOpenText strong {
+  display: block !important;
+  color: #fff8ea !important;
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.userOpenText em {
+  display: block !important;
+  margin-top: 4px !important;
+  color: #aaa194 !important;
+  font-size: 12px !important;
+  font-style: normal !important;
+  font-weight: 650 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.userRolePill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  background: rgba(176,145,74,.18) !important;
+  color: #d0ad58 !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  border: 1px solid rgba(176,145,74,.22) !important;
+  white-space: nowrap !important;
+}
+#app .rotaPeopleShell {
+  display: grid !important;
+  grid-template-columns: 132px minmax(0,1fr) !important;
+  column-gap: 12px !important;
+  align-items: center !important;
+}
+#app .rotaPeopleShell .sectionHeader { display: contents !important; }
+#app .rotaPeopleShell .sectionHeader h2 {
+  grid-column: 1 / -1 !important;
+  margin: 0 0 14px !important;
+}
+#app .rotaPeopleShell .sectionHeader .rotaRoundAdd,
+#app .rotaPeopleShell .sectionHeader .usersAddUserBtn {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  width: 132px !important;
+  min-width: 132px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border-radius: 22px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+  text-transform: none !important;
+}
+#app .rotaPeopleShell #centralPeopleSearch {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  width: 100% !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  margin: 0 !important;
+  border-radius: 22px !important;
+  box-sizing: border-box !important;
+  font-size: 20px !important;
+}
+#app .rotaPeopleShell #centralPeopleList {
+  grid-column: 1 / -1 !important;
+  margin-top: 12px !important;
+}
+.userModalCard { max-width: min(720px,94vw) !important; }
+.userModalHeader {
+  display: grid !important;
+  grid-template-columns: 64px minmax(0,1fr) !important;
+  align-items: center !important;
+  gap: 14px !important;
+  margin: 0 48px 14px 0 !important;
+}
+.userModalHeader h2, .userModalHeader p { margin: 0 !important; }
+.userModalTabs {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 3 !important;
+  display: grid !important;
+  grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+  gap: 4px !important;
+  margin: 0 -2px 12px !important;
+  padding: 4px 0 8px !important;
+  background: #151b22 !important;
+}
+.userModalTabs button {
+  min-height: 38px !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.05) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  color: #fff8ea !important;
+  font-size: 9px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  padding: 4px 2px !important;
+  white-space: nowrap !important;
+}
+.userModalTabs button.active {
+  background: rgba(176,145,74,.20) !important;
+  color: #d0ad58 !important;
+  border-color: rgba(176,145,74,.30) !important;
+}
+.userModalDetail { margin-top: 10px !important; }
+.userModalEdit {
+  width: 100% !important;
+  margin-top: 12px !important;
+  min-height: 48px !important;
+  border-radius: 16px !important;
+}
+body.user-info-modal-open { overflow: hidden !important; }
+#modal.userInfoModalOpen {
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: calc(var(--fixed-topbar-height,112px) + var(--fixed-mainnav-height,80px)) !important;
+  bottom: 0 !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding: 16px 14px max(16px,env(safe-area-inset-bottom)) !important;
+  background: rgba(0,0,0,.58) !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+#modal.userInfoModalOpen.hidden { display: none !important; }
+#modal.userInfoModalOpen .userModalCard {
+  position: relative !important;
+  width: min(720px,100%) !important;
+  max-width: min(720px,100%) !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  border-radius: 24px !important;
+  padding: 18px !important;
+  box-sizing: border-box !important;
+}
+#modal.userInfoModalOpen .close { display: none !important; }
+#modal.userInfoModalOpen .userModalFloatingClose {
+  position: absolute !important;
+  top: 24px !important;
+  right: 28px !important;
+  z-index: 1003 !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(8,10,12,.72) !important;
+  color: #23a8ff !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+}
+#modal.userInfoModalOpen .userModalDetail {
+  max-height: none !important;
+  overflow: visible !important;
+}
+.centralProfilePage .profileLinks {
+  display: grid !important;
+  grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+  gap: 6px !important;
+}
+.centralProfilePage .profileLinks button {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+#modal.userInfoModalOpen .userModalDetail {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+.availabilityEditor {
+  display: grid !important;
+  grid-template-columns: repeat(7,minmax(0,1fr)) !important;
+  gap: 2px !important;
+  width: calc(100% + 16px) !important;
+  margin-left: -8px !important;
+  margin-right: -8px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+.availabilityDay {
+  min-width: 0 !important;
+  background: rgba(255,255,255,.035) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+  border-radius: 9px !important;
+  padding: 5px 2px !important;
+  box-sizing: border-box !important;
+}
+.availabilityDay h4 {
+  font-size: 8px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  margin: 0 0 6px !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  letter-spacing: 0 !important;
+}
+.availabilityAllDayHeading,
+.availabilitySubhead {
+  font-size: 7px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  margin: 0 0 2px !important;
+  color: #aaa194 !important;
+  white-space: nowrap !important;
+}
+.availabilitySubhead {
+  line-height: .92 !important;
+  margin-bottom: 4px !important;
+  color: #d0ad58 !important;
+  white-space: normal !important;
+}
+.availabilityAllDay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  line-height: 1 !important;
+  margin: 0 0 6px !important;
+}
+.availabilityAllDay input {
+  width: 13px !important;
+  height: 13px !important;
+  min-height: 13px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.availabilityRanges {
+  display: grid !important;
+  gap: 2px !important;
+}
+.availabilityRange {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 2px !important;
+  position: relative !important;
+}
+.availabilityRange select {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 23px !important;
+  min-height: 23px !important;
+  padding: 1px !important;
+  border-radius: 6px !important;
+  font-size: 7px !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+.availabilityRemove {
+  position: absolute !important;
+  top: -4px !important;
+  right: -3px !important;
+  width: 12px !important;
+  height: 12px !important;
+  min-width: 12px !important;
+  min-height: 12px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  font-size: 8px !important;
+  line-height: 1 !important;
+  background: #d83b2d !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+.availabilityAdd {
+  width: 100% !important;
+  height: 15px !important;
+  min-height: 15px !important;
+  margin-top: 3px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+.availabilityNoRanges { display: none !important; }
+@media (max-width: 390px) {
+  #app .rotaPeopleShell {
+    grid-template-columns: 112px minmax(0,1fr) !important;
+    column-gap: 10px !important;
+  }
+  #app .rotaPeopleShell .sectionHeader .rotaRoundAdd,
+  #app .rotaPeopleShell .sectionHeader .usersAddUserBtn {
+    width: 112px !important;
+    min-width: 112px !important;
+    font-size: 13px !important;
+  }
+  .userModalTabs button { font-size: 8px !important; }
+  #modal.userInfoModalOpen .userModalCard {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  .availabilityEditor {
+    width: calc(100% + 16px) !important;
+    margin-left: -8px !important;
+    margin-right: -8px !important;
+    gap: 1px !important;
+  }
+  .availabilityDay {
+    padding: 4px 1px !important;
+    border-radius: 7px !important;
+  }
+  .availabilityDay h4 {
+    font-size: 7px !important;
+    letter-spacing: 0 !important;
+  }
+  .availabilityAllDayHeading,
+  .availabilitySubhead { font-size: 6px !important; }
+  .availabilityRange select {
+    font-size: 6px !important;
+    height: 21px !important;
+    min-height: 21px !important;
+  }
+  .availabilityAdd {
+    height: 14px !important;
+    min-height: 14px !important;
+  }
+}
+@media (min-width:560px) {
+  .userModalTabs button { font-size: 12px !important; }
+}
