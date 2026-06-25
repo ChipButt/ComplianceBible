@@ -48,7 +48,27 @@
   }
   function userDocs() { state.userRequiredDocuments = state.userRequiredDocuments || []; return state.userRequiredDocuments; }
   function saveNow() { try { save(); } catch {} }
-  function readFile(file, done) { const r = new FileReader(); r.onload = () => done(r.result || ''); r.readAsDataURL(file); }
+  function readFile(file, done) {
+    if (!file) return done(null);
+    if (window.ComplianceFirebase && typeof window.ComplianceFirebase.uploadFile === 'function') {
+      window.ComplianceFirebase.uploadFile(file, { folder: 'documents' }).then(done);
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => done({ fileName: file.name || 'Photo', fileType: file.type || 'image/jpeg', fileSize: file.size || 0, fileData: r.result || '', uploadedAt: new Date().toISOString(), storageMode: 'local' });
+    r.readAsDataURL(file);
+  }
+  function applyFileRecord(record, file, uploaded) {
+    if (!record || !uploaded) return;
+    if (typeof uploaded === 'string') record.fileData = uploaded;
+    else Object.assign(record, uploaded);
+    record.fileData = record.fileData || record.fileUrl || '';
+    record.fileName = record.fileName || (file && file.name) || 'Photo';
+    record.fileType = record.fileType || (file && file.type) || 'image/jpeg';
+    record.fileSize = record.fileSize || (file && file.size) || 0;
+    record.uploadedAt = record.uploadedAt || new Date().toISOString();
+    record.status = 'Stored';
+  }
   function image(record) { return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/'); }
   function confirmed(record) { return !!(record?.fileData && (record.noExpiry || record.expiryDate || record.expiry)); }
   function status(record, required) { if (confirmed(record)) return ['', 'complete']; if (record?.fileData) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
@@ -326,7 +346,7 @@
     });
     scope.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
       const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
-      readFile(file, data => { r.fileData = data; r.fileName = file.name || 'Photo'; r.fileType = file.type || 'image/jpeg'; r.uploadedAt = new Date().toISOString(); saveNow(); render(); });
+      readFile(file, uploaded => { applyFileRecord(r, file, uploaded); saveNow(); render(); });
     });
     scope.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
     scope.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
@@ -371,8 +391,8 @@
       const data = new FormData(add);
       const file = (add.elements.file.files && add.elements.file.files[0]) || (add.elements.photo.files && add.elements.photo.files[0]);
       const record = { id: uidx(), title: data.get('title'), cat: data.get('cat'), notes: data.get('notes') || '', expiry: data.get('expiry') || '', expiryDate: data.get('expiry') || '', noExpiry: !!data.get('noExpiry'), status: file ? 'Stored' : 'Missing' };
-      const finish = fileData => { if (fileData) { record.fileData = fileData; record.fileName = file.name || 'Photo'; record.fileType = file.type || 'image/jpeg'; record.uploadedAt = new Date().toISOString(); } state.docs.push(record); saveNow(); render(); };
-      if (file) readFile(file, finish); else finish('');
+      const finish = uploaded => { if (uploaded) applyFileRecord(record, file, uploaded); state.docs.push(record); saveNow(); render(); };
+      if (file) readFile(file, finish); else finish(null);
     };
   }
 

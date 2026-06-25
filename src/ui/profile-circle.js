@@ -24,6 +24,13 @@
     });
   }
 
+  function canSwitchUser() {
+    try {
+      if (typeof canSwitchCurrentUser === 'function') return canSwitchCurrentUser();
+    } catch (e) {}
+    return true;
+  }
+
   function openPanel() {
     var root;
     try { root = modalRoot; } catch (e) { root = document.getElementById('modal'); }
@@ -33,6 +40,10 @@
     var pubName = '';
     try { pubName = state.pub && state.pub.name ? state.pub.name : ''; } catch (e) {}
 
+    var switchControl = canSwitchUser() ? '<label>Switch user<select id="profileCircleUserSelect">' +
+        state.users.map(function (x) { return '<option value="' + escapeText(x.id) + '" ' + (x.id === state.currentUser ? 'selected' : '') + '>' + escapeText(x.nickname || x.name) + ' (' + escapeText(x.role || 'User') + ')</option>'; }).join('') +
+      '</select></label>' : '<div class="cloudUserLock">' + escapeText(u.email || u.nickname || u.name || 'Signed in') + '</div>';
+
     root.innerHTML = '<div class="modalCard profileCircleModal">' +
       '<button class="close" id="profileCircleClose">×</button>' +
       '<div class="profileCircleModalTop">' +
@@ -41,9 +52,7 @@
         '<h2>' + escapeText(u.nickname || u.name || 'User') + '</h2>' +
         '<p>' + escapeText([u.role, u.area || u.jobArea].filter(Boolean).join(' · ')) + '</p></div>' +
       '</div>' +
-      '<label>Switch user<select id="profileCircleUserSelect">' +
-        state.users.map(function (x) { return '<option value="' + escapeText(x.id) + '" ' + (x.id === state.currentUser ? 'selected' : '') + '>' + escapeText(x.nickname || x.name) + ' (' + escapeText(x.role || 'User') + ')</option>'; }).join('') +
-      '</select></label>' +
+      switchControl +
       '<div class="profileCircleActions profileCircleActionsThree">' +
         '<button id="profileCircleUsers">Full Profile</button>' +
         '<button id="profileCircleSchedule">Schedule</button>' +
@@ -54,7 +63,8 @@
     root.classList.remove('hidden');
 
     document.getElementById('profileCircleClose').onclick = function () { root.classList.add('hidden'); };
-    document.getElementById('profileCircleUserSelect').onchange = function (event) {
+    var switcher = document.getElementById('profileCircleUserSelect');
+    if (switcher) switcher.onchange = function (event) {
       state.currentUser = event.target.value;
       if (typeof save === 'function') save();
       root.classList.add('hidden');

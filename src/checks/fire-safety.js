@@ -82,7 +82,7 @@
   function getToday(){try{return today();}catch(e){return new Date().toISOString().slice(0,10);}}
   function currentUserId(){return state.currentUser;}
   function currentUserName(){try{return me().nickname||me().name||'Current user';}catch(e){return 'Current user';}}
-  function readEvidence(file,done){if(!file){done(null);return;}var r=new FileReader();r.onload=function(){done({fileName:file.name||'Evidence',fileType:file.type||'',fileData:r.result||'',uploadedAt:new Date().toISOString()});};r.readAsDataURL(file);}
+  function readEvidence(file,done){if(!file){done(null);return;}if(window.ComplianceFirebase&&typeof window.ComplianceFirebase.uploadFile==='function'){window.ComplianceFirebase.uploadFile(file,{folder:'fire-safety-evidence'}).then(done).catch(function(){done(null);});return;}var r=new FileReader();r.onload=function(){done({fileName:file.name||'Evidence',fileType:file.type||'',fileData:r.result||'',uploadedAt:new Date().toISOString(),storageMode:'local'});};r.readAsDataURL(file);}
   function fieldHtml(f){
     var req=f.required?' required':'';
     var label='<span>'+escapeHtml(f.label)+(f.required?' *':'')+'</span>';

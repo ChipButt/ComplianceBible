@@ -1,4 +1,4 @@
-const CACHE = 'compliance-bible-clean-slate-v20260622-1';
+const CACHE = 'compliance-bible-blank-demo-firebase-v20260624-1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

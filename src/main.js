@@ -108,7 +108,30 @@ function load() {
     return clone(defaults);
   }
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+function saveLocalOnly() { localStorage.setItem(KEY, JSON.stringify(state)); }
+function save() {
+  saveLocalOnly();
+  try {
+    if (window.ComplianceFirebase && typeof window.ComplianceFirebase.isApplyingRemote === 'function' && window.ComplianceFirebase.isApplyingRemote()) return;
+    if (window.ComplianceFirebase && typeof window.ComplianceFirebase.queueStateSave === 'function') window.ComplianceFirebase.queueStateSave();
+  } catch (_) {}
+}
+function replaceState(nextState, options = {}) {
+  state = { ...clone(defaults), ...(nextState || {}) };
+  ensureCoreState();
+  saveLocalOnly();
+  if (options.render !== false && typeof render === 'function') render();
+}
+window.ComplianceApp = {
+  storageKey: KEY,
+  getState: () => state,
+  replaceState,
+  saveLocalOnly,
+  save,
+  render: () => render(),
+  defaults: () => clone(defaults),
+  currentUser: () => me()
+};
 function esc(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
 function user(id) { return state.users.find(u => u.id === id) || state.users[0]; }
 function me() { return user(state.currentUser); }
@@ -218,6 +241,21 @@ function canResolveMaintenanceIssues() {
   return permissionAllows('issues.resolve', isAdminUser());
 }
 
+function firebaseSignedIn() {
+  try { return !!(window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn()); } catch (_) { return false; }
+}
+
+function canSwitchCurrentUser() {
+  return !firebaseSignedIn() || isAdminUser();
+}
+
+function currentUserControl() {
+  if (canSwitchCurrentUser()) {
+    return `<select id="userSwitch">${state.users.map(u => `<option value="${u.id}" ${u.id === state.currentUser ? 'selected' : ''}>${esc(u.nickname)} (${esc(u.role)})</option>`).join('')}</select>`;
+  }
+  return `<span class="cloudUserLock">${esc(me().nickname)} (${esc(me().role)})</span>`;
+}
+
 function shell(content) {
   ensureCoreState();
   const overdueCount = state.checks.filter(overdue).length;
@@ -227,7 +265,7 @@ function shell(content) {
   return `
     <section class="profileSwitch">
       <div><strong>${esc(state.pub.name)}</strong><span>${esc(me().nickname)} · ${esc(me().role)}</span></div>
-      <select id="userSwitch">${state.users.map(u => `<option value="${u.id}" ${u.id === state.currentUser ? 'selected' : ''}>${esc(u.nickname)} (${esc(u.role)})</option>`).join('')}</select>
+      ${currentUserControl()}
     </section>
     <nav class="mainNav">${nav('dashboard', 'Dashboard')}${nav('checks', 'Checks')}${nav('documents', 'Documents')}${nav('logs', 'Logs')}${nav('rota', 'Rota')}${nav('inspection', 'Inspection')}${adminNav}</nav>
     <section class="statusStrip">

@@ -878,7 +878,14 @@
     event.stopPropagation();
     event.stopImmediatePropagation();
   }, true);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  function observeScheduleMutations() {
+    var target = document.documentElement || document.body;
+    if (!target) return;
+    observer.observe(target, { childList: true, subtree: true });
+  }
+
+  if (document.documentElement || document.body) observeScheduleMutations();
+  else document.addEventListener('DOMContentLoaded', observeScheduleMutations, { once: true });
   patchPlanningActions();
   forceScheduleView();
   if (typeof renderRota === 'function') renderRota();
