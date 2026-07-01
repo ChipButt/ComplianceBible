@@ -23,6 +23,9 @@
   var openDocGroups = {};
   var openCreateDocGroup = false;
   var settingsModalLockedScrollY = 0;
+  var logoPreviewId = '';
+  var logoPreviewData = '';
+  var logoResolvingId = '';
 
   var SECTIONS = [
     ['pub', 'Pub Details', 'Business identity, logo and app name.'],
@@ -359,9 +362,32 @@
     return pubSection();
   }
 
+  function logoPreviewHtml(pub) {
+    if (pub.logoData) return '<div class="coreLogoPreview full"><img src="' + h(pub.logoData) + '" alt="Current logo"></div>';
+    if (pub.logoImageId && logoPreviewId === pub.logoImageId && logoPreviewData) return '<div class="coreLogoPreview full"><img src="' + h(logoPreviewData) + '" alt="Current logo"></div>';
+    if (pub.logoImageId) return '<div class="coreLogoPreview full">Logo uploaded</div>';
+    return '<div class="coreLogoPreview full">No logo uploaded</div>';
+  }
+
+  function resolveLogoImage(pub) {
+    var imageId = pub && pub.logoImageId;
+    if (!imageId || (logoPreviewId === imageId && logoPreviewData) || logoResolvingId === imageId) return;
+    if (!window.ComplianceFirebase || typeof window.ComplianceFirebase.resolveImage !== 'function') return;
+    logoResolvingId = imageId;
+    window.ComplianceFirebase.resolveImage(imageId).then(function (result) {
+      if (!state.pub || state.pub.logoImageId !== imageId) return;
+      logoPreviewId = imageId;
+      logoPreviewData = result && result.dataUrl || '';
+      applyBranding();
+    }).catch(function () {}).finally(function () {
+      if (logoResolvingId === imageId) logoResolvingId = '';
+    });
+  }
+
   function pubSection() {
     var pub = state.pub || {};
-    return '<form id="corePubForm" class="coreSettingsForm"><label><span>Pub name</span><input name="name" value="' + h(pub.name || '') + '"></label><label><span>App display name</span><input name="appDisplayName" value="' + h(pub.appDisplayName || pub.name || 'Pub Compliance Hub') + '"></label><label><span>Premises licence</span><input name="licence" value="' + h(pub.licence || '') + '"></label><label><span>DPS</span><input name="dps" value="' + h(pub.dps || '') + '"></label><label class="full"><span>Address</span><textarea name="address">' + h(pub.address || '') + '</textarea></label><label class="full"><span>Logo image</span><input name="logo" type="file" accept="image/*"></label>' + (pub.logoData ? '<div class="coreLogoPreview full"><img src="' + pub.logoData + '" alt="Current logo"></div>' : '<div class="coreLogoPreview full">No logo uploaded</div>') + '<button class="primary full">Save Pub Details</button></form>';
+    resolveLogoImage(pub);
+    return '<form id="corePubForm" class="coreSettingsForm"><label><span>Pub name</span><input name="name" value="' + h(pub.name || '') + '"></label><label><span>App display name</span><input name="appDisplayName" value="' + h(pub.appDisplayName || pub.name || 'Pub Compliance Hub') + '"></label><label><span>Premises licence</span><input name="licence" value="' + h(pub.licence || '') + '"></label><label><span>DPS</span><input name="dps" value="' + h(pub.dps || '') + '"></label><label class="full"><span>Address</span><textarea name="address">' + h(pub.address || '') + '</textarea></label><label class="full"><span>Logo image</span><input name="logo" type="file" accept="image/*"></label>' + logoPreviewHtml(pub) + '<button class="primary full">Save Pub Details</button></form>';
   }
 
   function usersSection() {
@@ -688,6 +714,64 @@
     bindPushNotificationButtons();
   }
 
+  function compressLocalLogo(file, done) {
+    if (!file || !String(file.type || '').startsWith('image/')) { done(new Error('Image too large. Retake closer/crop document.')); return; }
+    var image = new Image();
+    var url = URL.createObjectURL(file);
+    image.onload = function () {
+      URL.revokeObjectURL(url);
+      var scale = Math.min(1, 600 / image.width, 300 / image.height);
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      var context = canvas.getContext('2d');
+      if (!context || typeof canvas.toBlob !== 'function') { done(new Error('Compression failed.')); return; }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(function (blob) {
+        if (!blob) { done(new Error('Compression failed.')); return; }
+        if (blob.size > 900 * 1024) { done(new Error('Image too large. Retake closer/crop document.')); return; }
+        var reader = new FileReader();
+        reader.onload = function () { done(null, reader.result || ''); };
+        reader.onerror = function () { done(new Error('Compression failed.')); };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.55);
+    };
+    image.onerror = function () {
+      URL.revokeObjectURL(url);
+      done(new Error('Compression failed.'));
+    };
+    image.src = url;
+  }
+
+  function saveUploadedLogo(file, finish) {
+    if (window.ComplianceFirebase && typeof window.ComplianceFirebase.uploadFile === 'function') {
+      var previous = state.pub && state.pub.logoImageId;
+      window.ComplianceFirebase.uploadFile(file, { kind: 'pub', folder: 'pub-branding', documentId: 'pub-logo' }).then(function (uploaded) {
+        if (!uploaded || !uploaded.imageId) { alert('Upload failed. Check connection.'); return; }
+        state.pub.logoImageId = uploaded.imageId;
+        state.pub.logoImageCount = uploaded.imageCount || 0;
+        state.pub.logoUploadedAt = uploaded.uploadedAt || new Date().toISOString();
+        state.pub.logoUploadedBy = uploaded.uploadedBy || '';
+        delete state.pub.logoData;
+        logoPreviewId = '';
+        logoPreviewData = '';
+        if (previous && previous !== uploaded.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.archiveImage === 'function') window.ComplianceFirebase.archiveImage(previous);
+        finish();
+      }).catch(function (error) {
+        alert(error && error.message || 'Upload failed. Check connection.');
+      });
+      return;
+    }
+    compressLocalLogo(file, function (error, dataUrl) {
+      if (error) { alert(error.message || 'Compression failed.'); return; }
+      state.pub.logoData = dataUrl;
+      delete state.pub.logoImageId;
+      logoPreviewId = '';
+      logoPreviewData = '';
+      finish();
+    });
+  }
+
   function savePub(event) {
     event.preventDefault();
     var form = event.currentTarget;
@@ -695,11 +779,9 @@
     state.pub = state.pub || {};
     ['name', 'appDisplayName', 'licence', 'dps', 'address'].forEach(function (key) { state.pub[key] = String(data.get(key) || '').trim(); });
     var file = form.elements.logo && form.elements.logo.files && form.elements.logo.files[0];
-    if (file) {
-      var reader = new FileReader();
-      reader.onload = function () { state.pub.logoData = reader.result || ''; saveSafe(); applyBranding(); closeSection(); };
-      reader.readAsDataURL(file);
-    } else { saveSafe(); applyBranding(); closeSection(); }
+    var finish = function () { saveSafe(); applyBranding(); closeSection(); };
+    if (file) saveUploadedLogo(file, finish);
+    else finish();
   }
   function bindGroupSelectors(form) {
     var all = form.querySelector('[data-select-all-users]');
@@ -1132,11 +1214,15 @@
     var h1 = topbar.querySelector('h1');
     if (h1) h1.textContent = title;
     var logo = topbar.querySelector('.appHeaderLogo');
-    if (pub.logoData) {
+    var logoSrc = pub.logoData || (pub.logoImageId && logoPreviewId === pub.logoImageId ? logoPreviewData : '');
+    if (logoSrc) {
       if (!logo) { logo = document.createElement('img'); logo.className = 'appHeaderLogo'; logo.alt = 'App logo'; var wrap = topbar.firstElementChild; if (wrap) wrap.insertBefore(logo, wrap.firstChild); }
-      logo.src = pub.logoData;
+      logo.src = logoSrc;
       logo.hidden = false;
-    } else if (logo) logo.hidden = true;
+    } else {
+      if (pub.logoImageId) resolveLogoImage(pub);
+      if (logo) logo.hidden = true;
+    }
   }
   function bindSettingsButtons() {
     document.querySelectorAll('[data-core-settings-section]').forEach(function (button) { button.onclick = function () { openSection(button.dataset.coreSettingsSection); }; });

@@ -1,6 +1,6 @@
 (function complianceFirebaseStructured() {
-  if (window.__complianceFirebaseStructuredV2) return;
-  window.__complianceFirebaseStructuredV2 = true;
+  if (window.__complianceFirebaseStructuredV3) return;
+  window.__complianceFirebaseStructuredV3 = true;
 
   var SDK_VERSION = '12.15.0';
   var ROTA_KEY = 'rotaAppUnifiedV2';
@@ -10,9 +10,10 @@
 
   var DEFAULT_OPTIONS = {
     production: true,
+    storageMode: 'firestore-images',
+    allowFirebaseStorage: false,
     allowSetupPopup: false,
     allowLocalFallback: false,
-    functionsRegion: 'europe-west2',
     setupAdminEmails: []
   };
 
@@ -414,7 +415,7 @@
       users: staffToUsers(),
       areas: remote.workAreas.map(function (area) { return area.name || area.title || area.id; }).filter(Boolean),
       docs: remote.premisesDocuments.map(function (doc) {
-        return Object.assign({ status: doc.status || (doc.fileData || doc.fileUrl ? 'Stored' : 'Missing') }, doc, { id: doc.id, cat: doc.cat || doc.category || 'Licensing' });
+        return Object.assign({ status: doc.status || (doc.imageId || doc.fileData || doc.fileUrl ? 'Stored' : 'Missing') }, doc, { id: doc.id, cat: doc.cat || doc.category || 'Licensing' });
       }),
       checks: remote.checks.map(function (check) { return Object.assign({}, check, { id: check.id }); }),
       done: remote.checkCompletions.map(function (item) { return Object.assign({}, item, { id: item.id, checkId: item.checkId || item.checkID }); }),
@@ -462,7 +463,7 @@
   function flattenStaffDocuments() {
     return Object.keys(remote.staffDocuments).reduce(function (all, staffId) {
       return all.concat((remote.staffDocuments[staffId] || []).map(function (doc) {
-        return Object.assign({}, doc, { id: doc.id, userId: staffId, fileData: doc.fileData || doc.fileUrl || '' });
+        return Object.assign({}, doc, { id: doc.id, userId: staffId });
       }));
     }, []);
   }
@@ -507,17 +508,23 @@
     var canManagePermissions = hasPermission('permissions.manage');
     var canManageDocs = hasPermission('documents.managePremises') || hasPermission('premisesDocs.manage');
     var canManageStaffDocs = hasPermission('documents.manageStaff') || hasPermission('staffDocs.manage');
+    var canUploadOwnDocs = hasPermission('documents.uploadOwn') || hasPermission('staffDocs.viewOwn');
     var canManageChecks = hasPermission('checks.create') || hasPermission('checks.manage');
     var canManageUsers = hasPermission('users.edit');
     var canCompleteChecks = hasPermission('checks.complete');
     var canManageIssues = hasPermission('issues.manage');
     var canCreateIssues = hasPermission('issues.create');
 
-    if (canManageSettings) batch.set(pubRef(), clean(Object.assign({}, state.pub || {}, { updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+    if (canManageSettings) {
+      var pubRecord = Object.assign({}, state.pub || {});
+      delete pubRecord.logoData;
+      batch.set(pubRef(), clean(Object.assign({}, pubRecord, { updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+    }
     if (canManagePermissions) writePermissionSets(batch, state.permissionMatrix || {});
     if (canManageSettings || hasPermission('workAreas.manage')) writeWorkAreas(batch, state.areas || []);
     if (canManageDocs) writePremisesDocuments(batch, state.docs || []);
     if (canManageStaffDocs) writeDocumentRequirements(batch);
+    if (canManageStaffDocs || canUploadOwnDocs) writeStaffDocuments(batch, state.userRequiredDocuments || [], canManageStaffDocs);
     if (canManageChecks) writeChecks(batch, state.checks || []);
     if (canManageUsers) writeStaffProfiles(batch, state.users || []);
     if (canCompleteChecks) writeCheckCompletions(batch, state.done || []);
@@ -547,7 +554,43 @@
   function writePremisesDocuments(batch, docs) {
     docs.forEach(function (doc) {
       var id = doc.id || stableId(doc.title, 'premises-document');
-      batch.set(services.doc(services.db, 'pubs', pubId(), 'premisesDocuments', id), clean(Object.assign({}, doc, { id: id, category: doc.cat || doc.category || '', updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+      batch.set(services.doc(services.db, 'pubs', pubId(), 'premisesDocuments', id), clean(Object.assign({}, firestoreEvidenceRecord(doc), { id: id, category: doc.cat || doc.category || '', updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+    });
+  }
+
+  function firestoreEvidenceRecord(record) {
+    var out = Object.assign({}, record || {});
+    delete out.fileData;
+    delete out.fileUrl;
+    delete out.downloadUrl;
+    delete out.storagePath;
+    delete out.storageRef;
+    return out;
+  }
+
+  function scrubFilePayloads(value) {
+    if (Array.isArray(value)) return value.map(scrubFilePayloads);
+    if (!value || typeof value !== 'object') return value;
+    var out = {};
+    Object.keys(value).forEach(function (key) {
+      if (['fileData', 'fileUrl', 'downloadUrl', 'storagePath', 'storageRef'].indexOf(key) !== -1) return;
+      out[key] = scrubFilePayloads(value[key]);
+    });
+    return out;
+  }
+
+  function writeStaffDocuments(batch, records, allowAllStaff) {
+    (Array.isArray(records) ? records : []).forEach(function (record) {
+      var targetStaffId = safeSegment(record.userId || record.staffId || currentStaffId());
+      if (!allowAllStaff && targetStaffId !== currentStaffId()) return;
+      var id = record.id || record.requirementId || stableId([targetStaffId, record.title || record.requirementId || 'staff-document'].join('-'), 'staff-document');
+      batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', targetStaffId, 'documents', id), clean(Object.assign({}, firestoreEvidenceRecord(record), {
+        id: id,
+        userId: targetStaffId,
+        staffId: targetStaffId,
+        updatedAt: services.serverTimestamp(),
+        updatedBy: authUser.uid
+      })), { merge: true });
     });
   }
 
@@ -594,7 +637,7 @@
     completions.forEach(function (item) {
       if (!hasPermission('checks.viewAll') && item.userId !== currentStaffId()) return;
       var id = item.id || stableId([item.checkId, item.userId, item.date, item.at].join('-'), 'completion');
-      batch.set(services.doc(services.db, 'pubs', pubId(), 'checkCompletions', id), clean(Object.assign({}, item, { id: id, userId: item.userId || currentStaffId(), updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+      batch.set(services.doc(services.db, 'pubs', pubId(), 'checkCompletions', id), clean(Object.assign({}, scrubFilePayloads(item), { id: id, userId: item.userId || currentStaffId(), updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
     });
   }
 
@@ -618,7 +661,7 @@
 
   function fallbackFileRecord(file) {
     if (options().production && options().allowLocalFallback !== true) {
-      return Promise.reject(new Error('Firebase Storage is required for uploads in production mode.'));
+      return Promise.reject(new Error('Upload failed. Check connection.'));
     }
     return new Promise(function (resolve) {
       var reader = new FileReader();
@@ -630,41 +673,239 @@
     });
   }
 
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise(function (resolve) {
+      if (!canvas || typeof canvas.toBlob !== 'function') return resolve(null);
+      canvas.toBlob(function (blob) { resolve(blob || null); }, type, quality);
+    });
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || '')); };
+      reader.onerror = function () { reject(new Error('Compression failed.')); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function loadImageForCompression(file) {
+    return new Promise(function (resolve, reject) {
+      var image = new Image();
+      var url = URL.createObjectURL(file);
+      image.onload = function () {
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
+      image.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('Compression failed.'));
+      };
+      image.src = url;
+    });
+  }
+
+  function imageCanvas(file, maxWidth, maxHeight, scaleMultiplier) {
+    scaleMultiplier = scaleMultiplier || 1;
+    return loadImageForCompression(file).then(function (image) {
+      var scale = Math.min(1, maxWidth / image.width, maxHeight / image.height) * scaleMultiplier;
+      var width = Math.max(1, Math.round(image.width * scale));
+      var height = Math.max(1, Math.round(image.height * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      var context = canvas.getContext('2d');
+      if (!context) throw new Error('Compression failed.');
+      context.drawImage(image, 0, 0, width, height);
+      return { canvas: canvas, width: width, height: height };
+    });
+  }
+
+  function smallestBlob(candidates) {
+    return candidates.filter(Boolean).sort(function (a, b) { return a.blob.size - b.blob.size; })[0] || null;
+  }
+
+  function compressImageForFirestore(file) {
+    if (!file || !String(file.type || '').startsWith('image/')) {
+      return Promise.reject(new Error('Image too large. Retake closer/crop document.'));
+    }
+    var targetBytes = 650 * 1024;
+    var hardLimitBytes = 900 * 1024;
+    var qualitySteps = [0.55, 0.5, 0.45, 0.4, 0.35];
+    var scaleSteps = [1, 0.9, 0.8];
+    var best = null;
+
+    function attemptAtScale(scaleIndex) {
+      if (scaleIndex >= scaleSteps.length) {
+        if (!best || best.blob.size > hardLimitBytes) throw new Error('Image too large. Retake closer/crop document.');
+        return best;
+      }
+      return imageCanvas(file, 1200, 1600, scaleSteps[scaleIndex]).then(function (rendered) {
+        var chain = Promise.resolve();
+        qualitySteps.forEach(function (quality) {
+          chain = chain.then(function () {
+            return Promise.all([
+              canvasToBlob(rendered.canvas, 'image/jpeg', quality),
+              canvasToBlob(rendered.canvas, 'image/webp', quality)
+            ]).then(function (blobs) {
+              var candidate = smallestBlob(blobs.map(function (blob) {
+                return blob ? { blob: blob, width: rendered.width, height: rendered.height, quality: quality, type: blob.type || 'image/jpeg' } : null;
+              }));
+              if (candidate && (!best || candidate.blob.size < best.blob.size)) best = candidate;
+              if (best && best.blob.size <= targetBytes) throw best;
+            });
+          });
+        });
+        return chain.then(function () {
+          if (best && best.blob.size <= targetBytes) return best;
+          return attemptAtScale(scaleIndex + 1);
+        });
+      }).catch(function (error) {
+        if (error && error.blob) return error;
+        throw error;
+      });
+    }
+
+    return attemptAtScale(0).then(function (result) {
+      if (!result || !result.blob) throw new Error('Compression failed.');
+      if (result.blob.size > hardLimitBytes) throw new Error('Image too large. Retake closer/crop document.');
+      return blobToDataUrl(result.blob).then(function (dataUrl) {
+        return Object.assign({}, result, { dataUrl: dataUrl });
+      });
+    }).catch(function (error) {
+      if (error && error.message === 'Image too large. Retake closer/crop document.') throw error;
+      throw new Error('Compression failed.');
+    });
+  }
+
+  function imageChunks(dataUrl) {
+    var comma = dataUrl.indexOf(',');
+    var prefix = comma === -1 ? 'data:image/jpeg;base64,' : dataUrl.slice(0, comma + 1);
+    var payload = comma === -1 ? dataUrl : dataUrl.slice(comma + 1);
+    var size = 350000;
+    var chunks = [];
+    for (var index = 0; index < payload.length; index += size) chunks.push(payload.slice(index, index + size));
+    return { prefix: prefix, payload: payload, chunks: chunks };
+  }
+
+  function firestoreImageKind(uploadOptions) {
+    if (uploadOptions.kind === 'pub' || uploadOptions.kind === 'pub-logo' || uploadOptions.folder === 'pub-branding') return 'pub';
+    if (uploadOptions.kind === 'userdoc' || uploadOptions.folder === 'staff-documents') return 'userdoc';
+    if (uploadOptions.kind === 'premises' || uploadOptions.folder === 'documents') return 'premises';
+    return 'check';
+  }
+
+  function uploadFirestoreImage(file, uploadOptions) {
+    uploadOptions = uploadOptions || {};
+    if (!ready || !services.db || !authUser || !pubId()) return fallbackFileRecord(file);
+    var kind = firestoreImageKind(uploadOptions);
+    var documentId = safeSegment(uploadOptions.documentId || uploadOptions.requirementId || uploadOptions.completionId || 'document');
+    var ownerStaffId = safeSegment(uploadOptions.staffId || uploadOptions.userId || currentStaffId());
+    var imageId = safeSegment([Date.now(), documentId, Math.random().toString(36).slice(2, 8)].join('-'));
+    setStatus('Compressing image');
+    return compressImageForFirestore(file).then(function (compressed) {
+      var parts = imageChunks(compressed.dataUrl);
+      if (!parts.chunks.length) throw new Error('Compression failed.');
+      var batch = services.writeBatch(services.db);
+      var metaRef = services.doc(services.db, 'pubs', pubId(), 'documentImages', imageId);
+      batch.set(metaRef, clean({
+        id: imageId,
+        kind: kind,
+        documentId: documentId,
+        ownerStaffId: ownerStaffId,
+        chunkCount: parts.chunks.length,
+        imageCount: parts.chunks.length,
+        chunkSize: 350000,
+        dataPrefix: parts.prefix,
+        base64Length: parts.payload.length,
+        fileName: file.name || 'Document photo',
+        fileType: compressed.blob.type || 'image/jpeg',
+        fileSize: compressed.blob.size,
+        originalFileSize: file.size || 0,
+        width: compressed.width,
+        height: compressed.height,
+        quality: compressed.quality,
+        storageMode: 'firestore-images',
+        archived: false,
+        uploadedAt: services.serverTimestamp(),
+        uploadedBy: authUser.uid,
+        updatedAt: services.serverTimestamp(),
+        updatedBy: authUser.uid
+      }));
+      parts.chunks.forEach(function (chunk, index) {
+        var chunkId = String(index).padStart(4, '0');
+        batch.set(services.doc(services.db, 'pubs', pubId(), 'documentImages', imageId, 'chunks', chunkId), clean({
+          imageId: imageId,
+          index: index,
+          data: chunk,
+          createdAt: services.serverTimestamp(),
+          uploadedBy: authUser.uid
+        }));
+      });
+      setStatus('Uploading compressed image');
+      return batch.commit().then(function () {
+        setStatus('Image uploaded');
+        return {
+          imageId: imageId,
+          imageCount: parts.chunks.length,
+          uploadedAt: nowISO(),
+          uploadedBy: authUser.uid,
+          fileName: file.name || 'Document photo',
+          fileType: compressed.blob.type || 'image/jpeg',
+          fileSize: compressed.blob.size,
+          originalFileSize: file.size || 0,
+          imageWidth: compressed.width,
+          imageHeight: compressed.height,
+          storageMode: 'firestore-images'
+        };
+      });
+    }).catch(function (error) {
+      if (error && error.message === 'Image too large. Retake closer/crop document.') throw error;
+      if (error && error.message === 'Compression failed.') throw error;
+      throw new Error('Upload failed. Check connection.');
+    });
+  }
+
   function uploadFile(file, uploadOptions) {
     uploadOptions = uploadOptions || {};
     if (!file) return Promise.resolve(null);
-    if (!ready || !services.storage || !authUser || !pubId()) return fallbackFileRecord(file);
-    var name = Date.now() + '-' + safeSegment(file.name || 'file');
-    var documentId = safeSegment(uploadOptions.documentId || uploadOptions.requirementId || 'document');
-    var staffId = safeSegment(uploadOptions.staffId || uploadOptions.userId || currentStaffId());
-    var kind = uploadOptions.kind || '';
-    var path;
-    if (kind === 'userdoc' || uploadOptions.folder === 'staff-documents') {
-      path = 'pubs/' + safeSegment(pubId()) + '/staff/' + staffId + '/documents/' + documentId + '/' + name;
-    } else if (kind === 'premises' || uploadOptions.folder === 'documents') {
-      path = 'pubs/' + safeSegment(pubId()) + '/premisesDocuments/' + documentId + '/' + name;
-    } else {
-      path = 'pubs/' + safeSegment(pubId()) + '/checkCompletions/' + safeSegment(uploadOptions.completionId || documentId) + '/' + name;
-    }
-    var storageReference = services.storageRef(services.storage, path);
-    return services.uploadBytes(storageReference, file, {
-      contentType: file.type || 'application/octet-stream',
-      customMetadata: clean({ pubId: pubId(), staffId: staffId, documentId: documentId, uploadedBy: authUser.uid })
-    }).then(function (snapshot) {
-      return services.getDownloadURL(snapshot.ref);
-    }).then(function (url) {
-      return {
-        fileName: file.name || 'File',
-        fileType: file.type || '',
-        fileSize: file.size || 0,
-        fileData: url,
-        fileUrl: url,
-        storagePath: path,
-        uploadedAt: nowISO(),
-        uploadedBy: authUser.uid,
-        storageMode: 'firebase'
-      };
+    return uploadFirestoreImage(file, uploadOptions);
+  }
+
+  function resolveImage(imageId) {
+    if (!imageId) return Promise.reject(new Error('No image available.'));
+    if (!ready || !services.db || !authUser || !pubId()) return Promise.reject(new Error('Upload failed. Check connection.'));
+    var metaRef = services.doc(services.db, 'pubs', pubId(), 'documentImages', safeSegment(imageId));
+    return services.getDoc(metaRef).then(function (metaSnap) {
+      if (!metaSnap.exists()) throw new Error('No image available.');
+      var meta = metaSnap.data() || {};
+      if (meta.archived === true) throw new Error('No image available.');
+      var chunkRef = services.query(services.collection(services.db, 'pubs', pubId(), 'documentImages', safeSegment(imageId), 'chunks'), services.orderBy('index'));
+      return services.getDocs(chunkRef).then(function (chunkSnap) {
+        var chunks = [];
+        chunkSnap.forEach(function (doc) {
+          var data = doc.data() || {};
+          chunks.push({ index: Number(data.index || 0), data: String(data.data || '') });
+        });
+        chunks.sort(function (a, b) { return a.index - b.index; });
+        if (!chunks.length || (meta.chunkCount && chunks.length < meta.chunkCount)) throw new Error('Upload failed. Check connection.');
+        return Object.assign({}, meta, {
+          id: imageId,
+          dataUrl: String(meta.dataPrefix || 'data:image/jpeg;base64,') + chunks.map(function (chunk) { return chunk.data; }).join('')
+        });
+      });
     });
+  }
+
+  function archiveImage(imageId) {
+    if (!imageId || !ready || !services.db || !authUser || !pubId()) return Promise.resolve(false);
+    return services.setDoc(services.doc(services.db, 'pubs', pubId(), 'documentImages', safeSegment(imageId)), clean({
+      archived: true,
+      archivedAt: services.serverTimestamp(),
+      archivedBy: authUser.uid,
+      updatedAt: services.serverTimestamp(),
+      updatedBy: authUser.uid
+    }), { merge: true }).then(function () { return true; }).catch(function () { return false; });
   }
 
   function signIn(email, password) {
@@ -679,9 +920,7 @@
   }
 
   function callFunction(name, payload) {
-    if (!ready || !services.functions) return Promise.reject(new Error('Firebase Functions are not ready.'));
-    var callable = services.httpsCallable(services.functions, name);
-    return callable(payload || {}).then(function (result) { return result.data; });
+    return Promise.reject(new Error('This Spark build does not include browser-triggered admin backend actions.'));
   }
 
   function createPubUser(payload) {
@@ -691,7 +930,67 @@
 
   function createPub(payload) {
     payload = Object.assign({ pubId: pubId() }, payload || {});
-    return callFunction('createPub', payload);
+    if (!ready || !services.db || !authUser || !pubId()) return Promise.reject(new Error('Firebase is not ready.'));
+    if (!isSetupAdmin()) return Promise.reject(new Error('Only an approved setup admin can create the first pub.'));
+    var batch = services.writeBatch(services.db);
+    var setupStaffId = authUser.uid;
+    var displayName = authUser.displayName || authUser.email || 'Setup Admin';
+    batch.set(pubRef(), clean({
+      id: pubId(),
+      name: payload.name || 'New Pub',
+      licence: payload.licence || '',
+      dps: payload.dps || '',
+      address: payload.address || '',
+      setupComplete: false,
+      createdAt: services.serverTimestamp(),
+      createdBy: authUser.uid,
+      updatedAt: services.serverTimestamp(),
+      updatedBy: authUser.uid
+    }));
+    Object.keys(DEFAULT_PERMISSION_SETS).forEach(function (id) {
+      batch.set(services.doc(services.db, 'pubs', pubId(), 'permissionSets', id), clean(Object.assign({ id: id, updatedAt: services.serverTimestamp(), updatedBy: authUser.uid }, DEFAULT_PERMISSION_SETS[id])), { merge: true });
+    });
+    batch.set(services.doc(services.db, 'pubs', pubId(), 'members', authUser.uid), clean({
+      uid: authUser.uid,
+      pubId: pubId(),
+      staffId: setupStaffId,
+      email: authUser.email || '',
+      displayName: displayName,
+      role: 'Owner',
+      permissionSetId: 'Owner',
+      workAreaIds: [],
+      active: true,
+      archived: false,
+      setupAdmin: true,
+      createdAt: services.serverTimestamp(),
+      createdBy: authUser.uid,
+      updatedAt: services.serverTimestamp(),
+      updatedBy: authUser.uid
+    }));
+    batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', setupStaffId), clean({
+      id: setupStaffId,
+      authUid: authUser.uid,
+      email: authUser.email || '',
+      name: displayName,
+      nickname: displayName.split(/\s+/)[0] || 'Setup',
+      role: 'Owner',
+      permissionSetId: 'Owner',
+      accountStatus: 'confirmed',
+      active: true,
+      archived: false,
+      createdAt: services.serverTimestamp(),
+      createdBy: authUser.uid,
+      updatedAt: services.serverTimestamp(),
+      updatedBy: authUser.uid
+    }));
+    batch.set(services.doc(services.db, 'pubs', pubId(), 'auditLogs', safeSegment(Date.now() + '-pub-created')), clean({
+      type: 'pub.created',
+      actorUid: authUser.uid,
+      actorEmail: authUser.email || '',
+      details: { pubId: pubId(), name: payload.name || 'New Pub' },
+      createdAt: services.serverTimestamp()
+    }));
+    return batch.commit().then(function () { return { pubId: pubId(), uid: authUser.uid, staffId: setupStaffId }; });
   }
 
   function archivePubUser(payload) {
@@ -813,30 +1112,26 @@
     Promise.all([
       import('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-app.js'),
       import('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-auth.js'),
-      import('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-firestore.js'),
-      import('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-storage.js'),
-      import('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-functions.js')
+      import('https://www.gstatic.com/firebasejs/' + SDK_VERSION + '/firebase-firestore.js')
     ]).then(function (modules) {
-      var appMod = modules[0], authMod = modules[1], firestoreMod = modules[2], storageMod = modules[3], functionsMod = modules[4];
+      var appMod = modules[0], authMod = modules[1], firestoreMod = modules[2];
       var app = appMod.initializeApp(currentConfig());
       services.app = app;
       services.auth = authMod.getAuth(app);
       services.db = firestoreMod.getFirestore(app);
-      services.storage = storageMod.getStorage(app);
-      services.functions = functionsMod.getFunctions(app, options().functionsRegion || 'europe-west2');
       services.doc = firestoreMod.doc;
       services.collection = firestoreMod.collection;
       services.query = firestoreMod.query;
       services.where = firestoreMod.where;
+      services.orderBy = firestoreMod.orderBy;
+      services.getDoc = firestoreMod.getDoc;
+      services.getDocs = firestoreMod.getDocs;
+      services.setDoc = firestoreMod.setDoc;
       services.onSnapshot = firestoreMod.onSnapshot;
       services.writeBatch = firestoreMod.writeBatch;
       services.serverTimestamp = firestoreMod.serverTimestamp;
-      services.storageRef = storageMod.ref;
-      services.uploadBytes = storageMod.uploadBytes;
-      services.getDownloadURL = storageMod.getDownloadURL;
       services.signInWithEmailAndPassword = authMod.signInWithEmailAndPassword;
       services.signOut = authMod.signOut;
-      services.httpsCallable = functionsMod.httpsCallable;
       ready = true;
       setStatus('Firebase ready');
       authMod.onAuthStateChanged(services.auth, function (user) {
@@ -866,6 +1161,8 @@
     queueStateSave: queueStateSave,
     saveNow: saveCloudStateNow,
     uploadFile: uploadFile,
+    resolveImage: resolveImage,
+    archiveImage: archiveImage,
     fallbackFileRecord: fallbackFileRecord,
     createPubUser: createPubUser,
     createPub: createPub,
@@ -879,7 +1176,7 @@
     member: function () { return remote.member; },
     pubId: pubId,
     hasConfig: function () { return hasUsableConfig(currentConfig()); },
-    status: function () { return { ready: ready, configured: configured, signedIn: !!authUser, text: statusText, error: lastError, pubId: pubId(), accessMode: accessMode }; }
+    status: function () { return { ready: ready, configured: configured, signedIn: !!authUser, text: statusText, error: lastError, pubId: pubId(), accessMode: accessMode, storageMode: options().storageMode || 'firestore-images' }; }
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFirebase);

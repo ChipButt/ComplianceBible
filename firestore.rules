@@ -76,6 +76,68 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly(['staffDocumentGroups', 'updatedAt', 'updatedBy']);
     }
 
+    function imagePath(pubId, imageId) {
+      return /databases/$(database)/documents/pubs/$(pubId)/documentImages/$(imageId);
+    }
+
+    function imageData(pubId, imageId) {
+      return get(imagePath(pubId, imageId)).data;
+    }
+
+    function canReadImage(pubId, image) {
+      return activeMember(pubId)
+        && image.archived != true
+        && (
+          image.kind == 'premises'
+          || image.kind == 'pub'
+          || image.ownerStaffId == staffId(pubId)
+          || hasPermission(pubId, 'documents.viewAll')
+          || hasPermission(pubId, 'documents.managePremises')
+          || hasPermission(pubId, 'documents.manageStaff')
+          || hasPermission(pubId, 'staffDocs.viewAll')
+          || hasPermission(pubId, 'staffDocs.manage')
+          || hasPermission(pubId, 'checks.viewAll')
+          || hasPermission(pubId, 'checks.manage')
+        );
+    }
+
+    function canWriteImage(pubId, image) {
+      return activeMember(pubId)
+        && (
+          (image.kind == 'premises' && (hasPermission(pubId, 'documents.managePremises') || hasPermission(pubId, 'premisesDocs.manage')))
+          || (image.kind == 'pub' && (hasPermission(pubId, 'settings.manage') || hasPermission(pubId, 'pub.manage')))
+          || (image.kind == 'userdoc' && (
+            (image.ownerStaffId == staffId(pubId) && (hasPermission(pubId, 'documents.uploadOwn') || hasPermission(pubId, 'staffDocs.viewOwn')))
+            || hasPermission(pubId, 'documents.manageStaff')
+            || hasPermission(pubId, 'staffDocs.manage')
+          ))
+          || (image.kind == 'check' && hasPermission(pubId, 'checks.complete'))
+        );
+    }
+
+    function validImageMeta(imageId) {
+      return request.resource.data.id == imageId
+        && request.resource.data.storageMode == 'firestore-images'
+        && request.resource.data.chunkCount is int
+        && request.resource.data.chunkCount > 0
+        && request.resource.data.chunkCount <= 8
+        && request.resource.data.fileSize is int
+        && request.resource.data.fileSize <= 921600
+        && request.resource.data.base64Length is int
+        && request.resource.data.base64Length <= 1300000
+        && request.resource.data.dataPrefix is string
+        && request.resource.data.dataPrefix.matches('^data:image/(jpeg|webp);base64,$');
+    }
+
+    function validImageChunk(imageId) {
+      return request.resource.data.imageId == imageId
+        && request.resource.data.index is int
+        && request.resource.data.index >= 0
+        && request.resource.data.index < 8
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 350000;
+    }
+
     match /pubs/{pubId} {
       allow create: if setupAdminAllowed(pubId);
       allow read: if setupAdminAllowed(pubId) || activeMember(pubId);
@@ -96,7 +158,13 @@ service cloud.firestore {
             || hasPermission(pubId, 'documents.viewAll')
             || hasPermission(pubId, 'checks.viewAll')
           );
-        allow create: if false;
+        allow create: if setupAdminAllowed(pubId)
+          && uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.staffId == request.auth.uid
+          && request.resource.data.setupAdmin == true
+          && request.resource.data.active == true
+          && request.resource.data.archived == false;
         allow update: if activeMember(pubId)
           && hasPermission(pubId, 'users.edit')
           && request.resource.data.uid == resource.data.uid
@@ -109,7 +177,8 @@ service cloud.firestore {
 
       match /permissionSets/{permissionSetId} {
         allow read: if activeMember(pubId);
-        allow create, update: if hasPermission(pubId, 'permissions.manage');
+        allow create: if setupAdminAllowed(pubId) || hasPermission(pubId, 'permissions.manage');
+        allow update: if hasPermission(pubId, 'permissions.manage');
         allow delete: if hasPermission(pubId, 'permissions.manage')
           && !(permissionSetId in ['Owner', 'Admin', 'Manager']);
       }
@@ -120,7 +189,11 @@ service cloud.firestore {
           || hasPermission(pubId, 'documents.viewAll')
           || hasPermission(pubId, 'checks.viewAll')
           || hasPermission(pubId, 'staffDocs.viewAll');
-        allow create: if false;
+        allow create: if setupAdminAllowed(pubId)
+          && targetStaffId == request.auth.uid
+          && request.resource.data.authUid == request.auth.uid
+          && request.resource.data.active == true
+          && request.resource.data.archived == false;
         allow update: if (
           ownsStaff(pubId, targetStaffId)
           && unchanged(['authUid', 'role', 'permissionSetId', 'active', 'archived', 'createdAt', 'createdBy'])
@@ -220,9 +293,38 @@ service cloud.firestore {
         allow update, delete: if hasPermission(pubId, 'issues.manage') || hasPermission(pubId, 'issues.resolve');
       }
 
+      match /documentImages/{imageId} {
+        allow read: if canReadImage(pubId, resource.data);
+        allow create: if validImageMeta(imageId) && canWriteImage(pubId, request.resource.data);
+        allow update: if canReadImage(pubId, resource.data)
+          && canWriteImage(pubId, resource.data)
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['archived', 'archivedAt', 'archivedBy', 'updatedAt', 'updatedBy']);
+        allow delete: if false;
+
+        match /chunks/{chunkId} {
+          allow read: if exists(imagePath(pubId, imageId)) && canReadImage(pubId, imageData(pubId, imageId));
+          allow create: if validImageChunk(imageId)
+            && (
+              hasPermission(pubId, 'documents.uploadOwn')
+              || hasPermission(pubId, 'documents.managePremises')
+              || hasPermission(pubId, 'documents.manageStaff')
+              || hasPermission(pubId, 'premisesDocs.manage')
+              || hasPermission(pubId, 'staffDocs.viewOwn')
+              || hasPermission(pubId, 'staffDocs.manage')
+              || hasPermission(pubId, 'checks.complete')
+              || hasPermission(pubId, 'settings.manage')
+              || hasPermission(pubId, 'pub.manage')
+            );
+          allow update: if false;
+          allow delete: if exists(imagePath(pubId, imageId))
+            && canWriteImage(pubId, imageData(pubId, imageId));
+        }
+      }
+
       match /auditLogs/{logId} {
         allow read: if hasPermission(pubId, 'audit.view');
-        allow write: if false;
+        allow create: if setupAdminAllowed(pubId);
+        allow update, delete: if false;
       }
 
       match /{document=**} {

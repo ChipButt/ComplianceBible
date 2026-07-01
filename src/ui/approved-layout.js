@@ -42,10 +42,11 @@
   function countDocs() {
     try {
       var u = currentUser();
-      var shared = hasPermission('documents') ? (state.docs || []).filter(function (d) { return d.status !== 'Stored' && !d.fileData; }).length : 0;
+      function hasEvidence(d) { return !!(d && (d.imageId || d.fileData || d.fileUrl)); }
+      var shared = hasPermission('documents') ? (state.docs || []).filter(function (d) { return d.status !== 'Stored' && !hasEvidence(d); }).length : 0;
       var personal = (state.userRequiredDocuments || []).filter(function (d) {
         if (!hasPermission('documents') && u && d.userId !== u.id) return false;
-        return !(d.fileData && (d.noExpiry || d.expiryDate || d.expiry));
+        return !(hasEvidence(d) && (d.noExpiry || d.expiryDate || d.expiry));
       }).length;
       return shared + personal;
     } catch (e) { return 0; }

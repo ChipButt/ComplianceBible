@@ -401,13 +401,17 @@ function inspectUserDocumentRecord(userId, reqId) {
   return (state.userRequiredDocuments || []).find(record => record.userId === userId && record.requirementId === reqId);
 }
 
+function inspectHasEvidence(record) {
+  return !!(record && (record.imageId || record.fileData || record.fileUrl));
+}
+
 function inspectDocumentComplete(record) {
-  return !!(record && record.fileData && (record.noExpiry || record.expiryDate || record.expiry));
+  return !!(record && inspectHasEvidence(record) && (record.noExpiry || record.expiryDate || record.expiry));
 }
 
 function inspectDocumentStatus(record, required) {
   if (inspectDocumentComplete(record)) return { label: 'Complete', kind: 'ok' };
-  if (record && record.fileData) return { label: 'Uploaded', kind: 'warn' };
+  if (inspectHasEvidence(record)) return { label: 'Uploaded', kind: 'warn' };
   return { label: required ? 'Required' : 'Missing', kind: 'danger' };
 }
 
@@ -415,12 +419,19 @@ function inspectExpiryText(record) {
   if (!record) return 'No document uploaded';
   if (record.noExpiry) return 'Does not expire';
   const raw = record.expiryDate || record.expiry || '';
-  if (!raw) return record.fileData ? 'No expiry set' : 'No document uploaded';
+  if (!raw) return inspectHasEvidence(record) ? 'No expiry set' : 'No document uploaded';
   return 'Expires ' + raw;
 }
 
 function inspectIsImage(record) {
-  return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/');
+  return !!record?.imageId || String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/');
+}
+
+function inspectResolveImage(record) {
+  if (!record) return Promise.reject(new Error('No document uploaded'));
+  if (record.fileData) return Promise.resolve({ dataUrl: record.fileData, fileName: record.fileName || 'Document evidence' });
+  if (record.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.resolveImage === 'function') return window.ComplianceFirebase.resolveImage(record.imageId);
+  return Promise.reject(new Error('No document uploaded'));
 }
 
 function inspectUserDocumentRows(u) {
@@ -466,7 +477,7 @@ function inspectionDocumentButton(title, ref, meta, status) {
 
 function inspectionDocuments() {
   const rows = (state.docs || []).map(doc => {
-    const status = doc.fileData || doc.status === 'Stored' ? { label: 'Stored', kind: 'ok' } : { label: doc.status || 'Missing', kind: 'warn' };
+    const status = inspectHasEvidence(doc) || doc.status === 'Stored' ? { label: 'Stored', kind: 'ok' } : { label: doc.status || 'Missing', kind: 'warn' };
     const meta = `${doc.cat || 'Document'} · ${doc.expiry ? 'Expires ' + doc.expiry : 'No expiry set'}`;
     return inspectionDocumentButton(doc.title || 'Untitled document', inspectDocRef('premises', doc.id), meta, status);
   });
@@ -533,11 +544,9 @@ function openInspectionDocumentViewer(ref) {
   const item = inspectFindDocument(ref);
   if (!item) return;
   const record = item.record || {};
-  const hasFile = !!record.fileData;
+  const hasFile = inspectHasEvidence(record);
   const body = hasFile
-    ? inspectIsImage(record)
-      ? `<img class="inspectFullDocument" src="${record.fileData}" alt="${esc(item.title)}">`
-      : `<iframe class="inspectFullFrame" src="${record.fileData}" title="${esc(item.title)}"></iframe><a class="ghost evidenceOpenLink" href="${record.fileData}" download="${esc(record.fileName || item.title || 'document')}">Open / Download</a>`
+    ? `<div class="inspectMissingDocument"><strong>Loading photo...</strong></div>`
     : `<div class="inspectMissingDocument"><strong>No document uploaded</strong><p class="muted">This requirement is visible in Inspect, but no file has been attached yet.</p></div>`;
   lockInspectionDocumentViewer();
   modalRoot.innerHTML = `<div class="modalCard inspectDocViewerModal" role="dialog" aria-modal="true"><button class="close" id="inspectDocClose" type="button">×</button><h2>${esc(item.title)}</h2><p class="muted">${esc(item.subtitle || '')}${record.fileName ? ' · ' + esc(record.fileName) : ''}</p>${body}</div>`;
@@ -545,6 +554,19 @@ function openInspectionDocumentViewer(ref) {
   modalRoot.classList.remove('hidden');
   document.getElementById('inspectDocClose').onclick = closeInspectionDocumentViewer;
   modalRoot.onclick = event => { if (event.target === modalRoot) closeInspectionDocumentViewer(); };
+  if (hasFile) {
+    inspectResolveImage(record).then(result => {
+      const card = modalRoot.querySelector('.inspectDocViewerModal');
+      if (!card) return;
+      card.innerHTML = `<button class="close" id="inspectDocClose" type="button">×</button><h2>${esc(item.title)}</h2><p class="muted">${esc(item.subtitle || '')}${record.fileName || result.fileName ? ' · ' + esc(record.fileName || result.fileName) : ''}</p><img class="inspectFullDocument" src="${result.dataUrl}" alt="${esc(item.title)}">`;
+      document.getElementById('inspectDocClose').onclick = closeInspectionDocumentViewer;
+    }).catch(error => {
+      const card = modalRoot.querySelector('.inspectDocViewerModal');
+      if (!card) return;
+      card.innerHTML = `<button class="close" id="inspectDocClose" type="button">×</button><h2>${esc(item.title)}</h2><div class="inspectMissingDocument"><strong>${esc(error && error.message || 'Upload failed. Check connection.')}</strong></div>`;
+      document.getElementById('inspectDocClose').onclick = closeInspectionDocumentViewer;
+    });
+  }
 }
 
 function rota() {

@@ -4,11 +4,15 @@ A mobile-first PWA for public house compliance records, daily checks, document t
 
 ## Current build
 
-This build is a Firebase-backed multi-user PWA. Production data is stored in structured Firestore collections under each pub, staff sign in with Firebase Authentication, privileged user creation happens through Cloud Functions, and evidence files are stored in Firebase Storage.
+This build is a Firebase Spark-compatible multi-user PWA. It uses Firebase Authentication and Cloud Firestore only. Evidence photos are resized and compressed in the browser, then stored as chunked Firestore image documents under each pub.
+
+Firebase Storage, Cloud Functions and Blaze-only features are not used in this emergency production route.
 
 ## Included features
 
-- Admin-controlled staff user creation
+- Staff sign-in with Firebase Authentication
+- Structured Cloud Firestore sync per pub
+- Firestore-only compressed evidence photo uploads
 - Daily, weekly and custom compliance checks
 - Overdue detection based on exact due times
 - Document vault records with categories and expiry dates
@@ -19,7 +23,6 @@ This build is a Firebase-backed multi-user PWA. Production data is stored in str
 - Read-only inspection mode
 - Text export of inspection report
 - PWA manifest and service worker
-- Firebase Authentication, Cloud Functions, Firestore sync and Storage upload integration
 
 ## How to run
 
@@ -35,14 +38,14 @@ Then visit:
 http://localhost:8080
 ```
 
-## Firebase production setup
+## Firebase Spark setup
 
 Enable these Firebase products in the Firebase console:
 
 - Authentication: Email/password provider
 - Cloud Firestore
-- Cloud Storage
-- Cloud Functions
+
+Do not enable or configure Firebase Storage for this build. Do not deploy Cloud Functions for this build.
 
 Paste the web app config into `src/firebase/config.js` and set a stable pub ID:
 
@@ -51,38 +54,22 @@ window.COMPLIANCE_FIREBASE_CONFIG = {
   apiKey: '...',
   authDomain: '...',
   projectId: '...',
-  storageBucket: '...',
   messagingSenderId: '...',
   appId: '...'
 };
 window.COMPLIANCE_FIREBASE_PUB_ID = 'your-pub-id';
-```
-
-Production mode keeps the old setup popup hidden and disables local-only upload fallback:
-
-```js
 window.COMPLIANCE_FIREBASE_OPTIONS = {
   production: true,
-  allowSetupPopup: false,
-  allowLocalFallback: false,
-  functionsRegion: 'europe-west2',
-  setupAdminEmails: []
+  storageMode: 'firestore-images',
+  allowFirebaseStorage: false,
+  allowLocalFallback: false
 };
 ```
 
-Install and deploy the backend:
+Deploy Firestore rules and hosting:
 
 ```bash
-cd functions
-npm install
-cd ..
-firebase deploy --only functions,firestore:rules,storage
-```
-
-Deploy hosting after adding the real config:
-
-```bash
-firebase deploy --only hosting
+firebase deploy --only firestore:rules,hosting
 ```
 
 ## First setup admin
@@ -94,7 +81,33 @@ firebase deploy --only hosting
 { "setupAdmin": true, "complianceSetupAdmin": true }
 ```
 
-You can set the claim with the Firebase Admin SDK from a trusted machine or Cloud Shell. The setup admin signs in, creates the pub, then creates the first Owner/Admin/Manager from inside the app. Once another full-access user exists, archive or hide the setup admin through the app rather than deleting Firestore records by hand.
+You can set the claim with the Firebase Admin SDK from a trusted machine or Cloud Shell. The setup admin signs in and creates the pub, default permission sets, and their own Owner member/profile records through Firestore.
+
+Because this emergency build does not use Cloud Functions, creating additional Firebase Auth accounts must be done in Firebase Authentication or another trusted admin process. The app can store staff profiles, permissions and document/check data in Firestore, but it cannot securely create Auth users from browser-only code.
+
+## Firestore image storage
+
+Evidence uploads use this flow:
+
+1. The browser resizes the selected/taken photo to a maximum of `1200px` wide and `1600px` high.
+2. The browser compresses to JPEG around `0.55` quality, using WebP only when the browser supports it and it produces a smaller file.
+3. The upload targets less than `650 KB` and hard-fails above `900 KB`.
+4. The compressed image data is split into chunks of up to `350,000` base64 characters.
+5. Metadata is written to:
+
+```text
+pubs/{pubId}/documentImages/{imageId}
+```
+
+6. Chunks are written to:
+
+```text
+pubs/{pubId}/documentImages/{imageId}/chunks/{chunkIndex}
+```
+
+7. Staff, premises and check records store only metadata links such as `imageId`, `imageCount`, `uploadedAt` and `uploadedBy`. They do not store full image data.
+
+Archived or replaced images are marked with `archived: true` on the metadata document.
 
 ## Structured Firestore data
 
@@ -107,6 +120,8 @@ pubs/{pubId}/permissionSets/{permissionSetId}
 pubs/{pubId}/staff/{staffId}
 pubs/{pubId}/staff/{staffId}/documents/{documentId}
 pubs/{pubId}/premisesDocuments/{documentId}
+pubs/{pubId}/documentImages/{imageId}
+pubs/{pubId}/documentImages/{imageId}/chunks/{chunkIndex}
 pubs/{pubId}/documentRequirements/{requirementId}
 pubs/{pubId}/workAreas/{workAreaId}
 pubs/{pubId}/checks/{checkId}
@@ -116,40 +131,20 @@ pubs/{pubId}/issues/{issueId}
 pubs/{pubId}/auditLogs/{logId}
 ```
 
-Staff and manager accounts must be created from inside the app. The callable `createPubUser` function creates the Firebase Auth user, member record, staff profile, role/permission assignment and audit log together. There is no public Create Account button.
-
 ## Security rules
 
-`firestore.rules` and `storage.rules` deny by default. They require an authenticated active pub member, enforce the permission keys stored in `permissionSets`, prevent users from editing their own role/status/admin fields, and restrict Storage to these production paths:
-
-```text
-pubs/{pubId}/staff/{staffId}/documents/{documentId}/...
-pubs/{pubId}/premisesDocuments/{documentId}/...
-pubs/{pubId}/checkCompletions/{completionId}/...
-```
-
-Sensitive account actions are handled by Cloud Functions using the Firebase Admin SDK. `archivePubUser` prevents archiving the last active full-access Owner/Admin/Manager.
-
-## One-time migration
-
-If you need to seed structured Firestore from an old local/demo state, sign in as a setup admin or a user with `settings.manage`, then run this once in the browser console:
-
-```js
-ComplianceFirebase.importLegacyState()
-```
-
-This imports pub details, areas, permission groups, users that already have Firebase UIDs, document records, checks, check completions, rota shifts, issues and logs into the structured collections. It does not keep the old shared state document in live use.
+`firestore.rules` denies by default. It requires an authenticated active pub member, enforces permission keys stored in `permissionSets`, prevents users from editing their own role/status/admin fields, and protects `documentImages` metadata/chunks by pub membership, document ownership and relevant document/check permissions.
 
 ## Production smoke test
 
 Before handing the app to staff, test these flows against a Firebase project:
 
 1. Setup admin signs in and creates the pub.
-2. Setup admin creates an Owner/Admin/Manager.
-3. Owner/Admin/Manager creates a staff user with a temporary password.
-4. Staff user signs in and only sees allowed screens/actions.
-5. Staff user can upload their own allowed documents and complete assigned checks.
-6. Staff user cannot write protected Firestore documents or access another staff member's Storage files.
-7. Admin can manage users, permission groups, documents, checks, rota and settings.
-8. Archived users cannot access the app.
-9. The last active full-access Owner/Admin/Manager cannot be archived.
+2. Existing Firebase Auth users can sign in as active pub members.
+3. Staff user signs in and only sees allowed screens/actions.
+4. Staff user can upload their own allowed document photos and complete assigned checks.
+5. Uploaded photos are compressed, saved as Firestore chunks, then reopened from the viewer.
+6. Oversized photos show `Image too large. Retake closer/crop document.`
+7. Staff user cannot write protected Firestore documents or access another staff member's private document images.
+8. Admin can manage permission groups, documents, checks, rota and settings.
+9. Archived users cannot access the app.

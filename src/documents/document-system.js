@@ -48,6 +48,11 @@
   }
   function userDocs() { state.userRequiredDocuments = state.userRequiredDocuments || []; return state.userRequiredDocuments; }
   function saveNow() { try { save(); } catch {} }
+  function hasEvidence(record) { return !!(record && (record.imageId || record.fileData || record.fileUrl)); }
+  function archiveImage(imageId) {
+    if (!imageId || !window.ComplianceFirebase || typeof window.ComplianceFirebase.archiveImage !== 'function') return;
+    window.ComplianceFirebase.archiveImage(imageId);
+  }
   function readFile(file, done, options) {
     if (!file) return done(null);
     if (window.ComplianceFirebase && typeof window.ComplianceFirebase.uploadFile === 'function') {
@@ -63,18 +68,32 @@
   }
   function applyFileRecord(record, file, uploaded) {
     if (!record || !uploaded) return;
+    const previousImageId = record.imageId;
     if (typeof uploaded === 'string') record.fileData = uploaded;
     else Object.assign(record, uploaded);
-    record.fileData = record.fileData || record.fileUrl || '';
+    if (uploaded.storageMode === 'firestore-images') {
+      record.fileName = uploaded.fileName || (file && file.name) || 'Photo';
+      record.fileType = uploaded.fileType || 'image/jpeg';
+      record.fileSize = uploaded.fileSize || 0;
+      record.imageCount = uploaded.imageCount || 0;
+      record.uploadedAt = uploaded.uploadedAt || new Date().toISOString();
+      record.uploadedBy = uploaded.uploadedBy || record.uploadedBy || '';
+      delete record.fileData;
+      delete record.fileUrl;
+      delete record.storagePath;
+      if (previousImageId && previousImageId !== uploaded.imageId) archiveImage(previousImageId);
+    } else {
+      record.fileData = record.fileData || record.fileUrl || '';
+    }
     record.fileName = record.fileName || (file && file.name) || 'Photo';
     record.fileType = record.fileType || (file && file.type) || 'image/jpeg';
     record.fileSize = record.fileSize || (file && file.size) || 0;
     record.uploadedAt = record.uploadedAt || new Date().toISOString();
     record.status = 'Stored';
   }
-  function image(record) { return String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/'); }
-  function confirmed(record) { return !!(record?.fileData && (record.noExpiry || record.expiryDate || record.expiry)); }
-  function status(record, required) { if (confirmed(record)) return ['', 'complete']; if (record?.fileData) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
+  function image(record) { return !!record?.imageId || String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/'); }
+  function confirmed(record) { return !!(hasEvidence(record) && (record.noExpiry || record.expiryDate || record.expiry)); }
+  function status(record, required) { if (confirmed(record)) return ['', 'complete']; if (hasEvidence(record)) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
   function statusText(record, required) {
     const s = status(record, required);
     if (s[0]) return s[0];
@@ -85,6 +104,14 @@
     const raw = record?.expiryDate || record?.expiry;
     if (!raw) return 'No expiry set';
     try { return new Date(raw + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); } catch { return raw; }
+  }
+  function resolveRecordImage(record) {
+    if (!record) return Promise.reject(new Error('No document uploaded'));
+    if (record.fileData) return Promise.resolve({ dataUrl: record.fileData, fileName: record.fileName || 'Document evidence', fileType: record.fileType || 'image/jpeg' });
+    if (record.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.resolveImage === 'function') {
+      return window.ComplianceFirebase.resolveImage(record.imageId);
+    }
+    return Promise.reject(new Error('No document uploaded'));
   }
   function getUserRecord(userId, reqId) {
     let r = userDocs().find(x => x.userId === userId && x.requirementId === reqId);
@@ -122,7 +149,8 @@
   }
   function allRecords() { return (state.docs || []).concat(state.userRequiredDocuments || []); }
   function thumb(record) {
-    if (!record?.fileData) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
+    if (!hasEvidence(record)) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
+    if (record.imageId && !record.fileData) return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(record.id) + '">Photo uploaded</button>';
     if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(record.id) + '"><img src="' + record.fileData + '" alt="Document preview"></button>';
     return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(record.id) + '">DOC</button>';
   }
@@ -164,8 +192,8 @@
         '<div class="fdocBody">' + thumb(record) +
           '<div class="fdocControls">' +
             '<div class="fdocUploads">' +
-              '<label>' + icon.upload + '<span>Choose File</span><input type="file" data-fdoc-file accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label>' +
-              '<label>' + icon.camera + '<span>Take Photo</span><input type="file" data-fdoc-photo accept="image/*" capture="environment"></label>' +
+              '<label>' + icon.upload + '<span>Upload photo</span><input type="file" data-fdoc-file accept="image/*"></label>' +
+              '<label>' + icon.camera + '<span>Take photo</span><input type="file" data-fdoc-photo accept="image/*" capture="environment"></label>' +
             '</div>' +
             '<div class="fdocMeta">' +
               '<label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input type="checkbox" data-fdoc-noexpiry ' + (record.noExpiry ? 'checked' : '') + '><span class="fdocSwitchTrack"></span></label>' +
@@ -233,7 +261,7 @@
   }
   function addForm() {
     if (!isAdminNow()) return '';
-    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat">' + docCategoryOptions('Licensing') + '</select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Choose File</span><input type="file" name="file" accept="image/*,.pdf,.doc,.docx,.png,.jpg,.jpeg"></label><label>' + icon.camera + '<span>Take Photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
+    return '<section class="panel addPremisesPanel"><details class="addPremisesDetails"><summary><span>Add premises document</span></summary><div class="addPremisesBody"><form id="finalDocAdd" class="stack"><input name="title" placeholder="Document title" required><select name="cat">' + docCategoryOptions('Licensing') + '</select><textarea name="notes" placeholder="Instructions, storage location or renewal notes"></textarea><div class="fdocUploads"><label>' + icon.upload + '<span>Upload photo</span><input type="file" name="file" accept="image/*"></label><label>' + icon.camera + '<span>Take photo</span><input type="file" name="photo" accept="image/*" capture="environment"></label></div><div class="fdocMeta"><label class="fdocSwitch"><span class="fdocSwitchText">Does Not<br>Expire</span><input name="noExpiry" type="checkbox"><span class="fdocSwitchTrack"></span></label><label class="fdocExpiry"><span class="fdocDateInputWrap">' + icon.calendar + '<span class="fdocExpiryText">Expiry Date</span><input name="expiry" type="date"></span></label></div><button class="primary">Add document</button></form></div></details></section>';
   }
   function premiseSectionItems(cat) {
     return (state.docs || []).filter(d => filterKey(d.cat || '') === filterKey(cat)).map(d => ({ kind:'premises', key:d.id, title:d.title, cat:d.cat, record:d, required:true, statusSubtitle:true, note:d.notes || 'Upload a clear, current copy and set expiry status.' }));
@@ -305,10 +333,21 @@
   }
 
   function viewer(record) {
-    if (!record?.fileData) return;
-    modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2>' + (image(record) ? '<img class="fdocFull" src="' + record.fileData + '" alt="Document preview">' : '<div class="fdocFileBig">Document file</div><a class="ghost evidenceOpenLink" href="' + record.fileData + '" download="' + esc(record.fileName || 'document') + '">Open / Download</a>') + '</div>';
+    if (!hasEvidence(record)) return;
+    modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2><div class="fdocFileBig">Loading photo...</div></div>';
     modalRoot.classList.remove('hidden');
     document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
+    resolveRecordImage(record).then(result => {
+      const card = modalRoot.querySelector('.evidenceViewerModal');
+      if (!card) return;
+      card.innerHTML = '<button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || result.fileName || 'Document evidence') + '</h2><img class="fdocFull" src="' + result.dataUrl + '" alt="Document preview">';
+      document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
+    }).catch(error => {
+      const card = modalRoot.querySelector('.evidenceViewerModal');
+      if (card) card.innerHTML = '<button class="close" id="fdocClose">×</button><h2>Document evidence</h2><div class="fdocFileBig">' + esc(error && error.message || 'Upload failed. Check connection.') + '</div>';
+      const close = document.getElementById('fdocClose');
+      if (close) close.onclick = () => modalRoot.classList.add('hidden');
+    });
   }
 
   function bindDocumentControls(root) {
@@ -382,6 +421,7 @@
       if (!article || article.dataset.fdocKind !== 'premises' || !isAdminNow()) return;
       const record = getRecord('premises', article.dataset.fdocKey);
       if (!record || !confirm('Delete this document? Uploaded evidence on this document will also be removed.')) return;
+      archiveImage(record.imageId);
       state.docs = (state.docs || []).filter(doc => doc.id !== record.id);
       delete openCards['premises:' + record.id];
       delete editCards['premises:' + record.id];

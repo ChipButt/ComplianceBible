@@ -5,7 +5,6 @@
     apiKey: '',
     authDomain: '',
     projectId: '',
-    storageBucket: '',
     messagingSenderId: '',
     appId: '',
     measurementId: ''
@@ -15,11 +14,8 @@
 
   window.COMPLIANCE_FIREBASE_OPTIONS = window.COMPLIANCE_FIREBASE_OPTIONS || {
     production: true,
-    allowSetupPopup: false,
-    allowLocalFallback: false,
-    allowFirebaseStorage: false,
     storageMode: 'firestore-images',
-    functionsRegion: 'europe-west2',
-    setupAdminEmails: ['jameschipbutt@hotmail.com']
+    allowFirebaseStorage: false,
+    allowLocalFallback: false
   };
 })();
