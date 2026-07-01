@@ -7,6 +7,7 @@
   var REQ_KEY = 'complianceUserDocumentRequirementsV1';
   var GROUP_KEY = 'complianceStaffDocumentGroupsV1';
   var NAV_KEY = 'complianceBible.navigation.v1';
+  var SHOW_SYSTEM_USERS_KEY = 'complianceBible.showSystemUsers.v1';
 
   var DEFAULT_OPTIONS = {
     production: true,
@@ -14,7 +15,7 @@
     allowFirebaseStorage: false,
     allowSetupPopup: false,
     allowLocalFallback: false,
-    setupAdminEmails: []
+    setupAdminEmails: ['jameschipbutt@hotmail.com']
   };
 
   var PERMISSION_ALIASES = {
@@ -36,11 +37,23 @@
     'audit.view': ['audit.view']
   };
 
+  var PERMISSION_SET_ALIASES = {
+    Owner: 'full-admin',
+    Admin: 'full-admin',
+    Manager: 'manager',
+    Supervisor: 'supervisor',
+    Staff: 'staff',
+    'Full Admin': 'full-admin',
+    'full-admin': 'full-admin',
+    manager: 'manager',
+    supervisor: 'supervisor',
+    staff: 'staff'
+  };
+
   var DEFAULT_PERMISSION_SETS = {
-    Owner: { description: 'Full owner access', permissions: { '*': true } },
-    Admin: { description: 'Full access', permissions: { '*': true } },
-    Manager: { description: 'Full manager access', permissions: { '*': true } },
-    Supervisor: {
+    'full-admin': { description: 'Full admin access', permissions: { '*': true } },
+    manager: { description: 'Full manager access', permissions: { '*': true } },
+    supervisor: {
       description: 'Manager access without user/security administration',
       permissions: {
         'settings.view': true,
@@ -63,7 +76,7 @@
         'workAreas.view': true
       }
     },
-    Staff: {
+    staff: {
       description: 'Own checks, documents, rota and issue reporting',
       permissions: {
         'documents.uploadOwn': true,
@@ -187,14 +200,49 @@
     return remote.member && remote.member.staffId || authUser && authUser.uid || '';
   }
 
+  function normalizePermissionSetId(id) {
+    var raw = String(id || 'staff').trim();
+    return PERMISSION_SET_ALIASES[raw] || PERMISSION_SET_ALIASES[raw.toLowerCase()] || raw || 'staff';
+  }
+
+  function roleToPermissionSetId(role) {
+    var key = String(role || 'Staff').trim();
+    return PERMISSION_SET_ALIASES[key] || PERMISSION_SET_ALIASES[key.toLowerCase()] || (key.toLowerCase().indexOf('admin') !== -1 || key.toLowerCase() === 'owner' ? 'full-admin' : key.toLowerCase());
+  }
+
+  function isFullAccessRecord(record) {
+    if (!record || record.active === false || record.archived === true) return false;
+    var role = String(record.role || '').toLowerCase();
+    var setId = normalizePermissionSetId(record.permissionSetId || record.role);
+    return role === 'owner' || role === 'admin' || role === 'manager' || setId === 'full-admin' || setId === 'manager';
+  }
+
+  function showSystemUsers() {
+    return localStorage.getItem(SHOW_SYSTEM_USERS_KEY) === 'true' && hasPermission('users.edit');
+  }
+
+  function fullAdminCountFromUsers(users) {
+    var seen = {};
+    var count = 0;
+    (Array.isArray(users) ? users : []).forEach(function (user) {
+      var key = user.memberUid || user.authUid || user.id;
+      if (!key || seen[key] || !isFullAccessRecord(user)) return;
+      seen[key] = true;
+      count += 1;
+    });
+    if (remote.member && isFullAccessRecord(remote.member) && !seen[remote.member.uid || authUser && authUser.uid]) count += 1;
+    return count;
+  }
+
   function permissionSetById(id) {
-    var found = remote.permissionSets.find(function (set) { return set.id === id; });
+    var normalized = normalizePermissionSetId(id);
+    var found = remote.permissionSets.find(function (set) { return set.id === id || set.id === normalized; });
     if (found) return found;
-    return DEFAULT_PERMISSION_SETS[id] ? Object.assign({ id: id }, DEFAULT_PERMISSION_SETS[id]) : DEFAULT_PERMISSION_SETS.Staff;
+    return DEFAULT_PERMISSION_SETS[normalized] ? Object.assign({ id: normalized }, DEFAULT_PERMISSION_SETS[normalized]) : Object.assign({ id: 'staff' }, DEFAULT_PERMISSION_SETS.staff);
   }
 
   function permissionMapFor(member) {
-    var set = permissionSetById(member && member.permissionSetId || member && member.role || 'Staff');
+    var set = permissionSetById(member && (member.permissionSetId || member.role) || 'staff');
     var permissions = Object.assign({}, set && set.permissions || set || {});
     if (permissions['*'] === true) return permissions;
     Object.keys(PERMISSION_ALIASES).forEach(function (key) {
@@ -294,6 +342,11 @@
       return;
     }
     if (!memberActive(remote.member)) {
+      if (isSetupAdmin() && remote.pub && (remote.pub.setupComplete !== true || !remote.pub.fullAdminCount)) {
+        accessMode = 'setup';
+        renderAuthUI();
+        return;
+      }
       accessMode = remote.member && remote.member.archived ? 'archived' : 'no-member';
       renderAuthUI();
       return;
@@ -443,7 +496,10 @@
     remote.staff.forEach(function (staff) { byStaffId[staff.id] = staff; });
     var byUid = {};
     if (remote.member) byUid[remote.member.uid || authUser.uid] = remote.member;
-    return remote.staff.map(function (staff) {
+    var includeSystem = showSystemUsers();
+    return remote.staff.filter(function (staff) {
+      return includeSystem || (staff.hidden !== true && staff.setupAdmin !== true);
+    }).map(function (staff) {
       var member = remote.member && remote.member.staffId === staff.id ? remote.member : null;
       return Object.assign({}, staff, {
         id: staff.id,
@@ -452,10 +508,12 @@
         name: staff.name || staff.displayName || '',
         nickname: staff.nickname || staff.displayName || staff.name || '',
         role: member && member.role || staff.role || staff.permissionSetId || 'Staff',
-        permissionSetId: member && member.permissionSetId || staff.permissionSetId || staff.role || 'Staff',
+        permissionSetId: normalizePermissionSetId(member && member.permissionSetId || staff.permissionSetId || staff.role || 'staff'),
         area: staff.area || staff.jobArea || '',
         active: member ? member.active !== false : staff.active !== false,
-        archived: member ? member.archived === true : staff.archived === true
+        archived: member ? member.archived === true : staff.archived === true,
+        hidden: member ? member.hidden === true : staff.hidden === true,
+        setupAdmin: member ? member.setupAdmin === true : staff.setupAdmin === true
       });
     });
   }
@@ -518,7 +576,7 @@
     if (canManageSettings) {
       var pubRecord = Object.assign({}, state.pub || {});
       delete pubRecord.logoData;
-      batch.set(pubRef(), clean(Object.assign({}, pubRecord, { updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+      batch.set(pubRef(), clean(Object.assign({}, pubRecord, { fullAdminCount: fullAdminCountFromUsers(state.users || []), updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
     }
     if (canManagePermissions) writePermissionSets(batch, state.permissionMatrix || {});
     if (canManageSettings || hasPermission('workAreas.manage')) writeWorkAreas(batch, state.areas || []);
@@ -615,17 +673,22 @@
     users.filter(function (user) { return user.authUid || user.memberUid; }).forEach(function (user) {
       var staffId = user.id || user.authUid || user.memberUid;
       var memberUid = user.authUid || user.memberUid;
-      batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', staffId), clean(Object.assign({}, user, { id: staffId, authUid: memberUid, displayName: user.name || user.nickname || '', updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
+      var permissionSetId = normalizePermissionSetId(user.permissionSetId || roleToPermissionSetId(user.role));
+      batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', staffId), clean(Object.assign({}, user, { id: staffId, authUid: memberUid, permissionSetId: permissionSetId, displayName: user.name || user.nickname || '', updatedAt: services.serverTimestamp(), updatedBy: authUser.uid })), { merge: true });
       if (memberUid && memberUid !== authUser.uid) {
         batch.set(services.doc(services.db, 'pubs', pubId(), 'members', memberUid), clean({
           uid: memberUid,
           staffId: staffId,
+          email: user.email || '',
+          name: user.name || user.nickname || '',
           displayName: user.name || user.nickname || '',
           role: user.role || user.permissionSetId || 'Staff',
-          permissionSetId: user.permissionSetId || user.role || 'Staff',
+          permissionSetId: permissionSetId,
           workAreaIds: user.area ? [stableId(user.area)] : [],
           active: user.active !== false,
           archived: user.archived === true,
+          hidden: user.hidden === true,
+          setupAdmin: user.setupAdmin === true,
           updatedAt: services.serverTimestamp(),
           updatedBy: authUser.uid
         }), { merge: true });
@@ -730,7 +793,7 @@
       return Promise.reject(new Error('Image too large. Retake closer/crop document.'));
     }
     var targetBytes = 650 * 1024;
-    var hardLimitBytes = 900 * 1024;
+    var hardLimitBytes = 900000;
     var qualitySteps = [0.55, 0.5, 0.45, 0.4, 0.35];
     var scaleSteps = [1, 0.9, 0.8];
     var best = null;
@@ -806,9 +869,8 @@
     return compressImageForFirestore(file).then(function (compressed) {
       var parts = imageChunks(compressed.dataUrl);
       if (!parts.chunks.length) throw new Error('Compression failed.');
-      var batch = services.writeBatch(services.db);
       var metaRef = services.doc(services.db, 'pubs', pubId(), 'documentImages', imageId);
-      batch.set(metaRef, clean({
+      var meta = clean({
         id: imageId,
         kind: kind,
         documentId: documentId,
@@ -821,29 +883,34 @@
         fileName: file.name || 'Document photo',
         fileType: compressed.blob.type || 'image/jpeg',
         fileSize: compressed.blob.size,
+        sizeBytes: compressed.blob.size,
         originalFileSize: file.size || 0,
         width: compressed.width,
         height: compressed.height,
         quality: compressed.quality,
         storageMode: 'firestore-images',
         archived: false,
+        createdBy: authUser.uid,
         uploadedAt: services.serverTimestamp(),
         uploadedBy: authUser.uid,
         updatedAt: services.serverTimestamp(),
         updatedBy: authUser.uid
-      }));
-      parts.chunks.forEach(function (chunk, index) {
-        var chunkId = String(index).padStart(4, '0');
-        batch.set(services.doc(services.db, 'pubs', pubId(), 'documentImages', imageId, 'chunks', chunkId), clean({
-          imageId: imageId,
-          index: index,
-          data: chunk,
-          createdAt: services.serverTimestamp(),
-          uploadedBy: authUser.uid
-        }));
       });
       setStatus('Uploading compressed image');
-      return batch.commit().then(function () {
+      return services.setDoc(metaRef, meta).then(function () {
+        var batch = services.writeBatch(services.db);
+        parts.chunks.forEach(function (chunk, index) {
+          var chunkId = String(index).padStart(4, '0');
+          batch.set(services.doc(services.db, 'pubs', pubId(), 'documentImages', imageId, 'chunks', chunkId), clean({
+            imageId: imageId,
+            index: index,
+            data: chunk,
+            createdAt: services.serverTimestamp(),
+            uploadedBy: authUser.uid
+          }));
+        });
+        return batch.commit();
+      }).then(function () {
         setStatus('Image uploaded');
         return {
           imageId: imageId,
@@ -914,6 +981,43 @@
     return services.signInWithEmailAndPassword(services.auth, email, password);
   }
 
+  function setupEmailAllowed(email) {
+    var normalized = String(email || '').trim().toLowerCase();
+    return (options().setupAdminEmails || []).map(function (item) { return String(item || '').trim().toLowerCase(); }).indexOf(normalized) !== -1;
+  }
+
+  function createOrSignInSetupAdmin(email, displayName, password) {
+    email = String(email || '').trim().toLowerCase();
+    displayName = String(displayName || '').trim() || email;
+    password = String(password || '');
+    if (!setupEmailAllowed(email)) return Promise.reject(new Error('This email is not approved for first-run setup.'));
+    if (!password) return Promise.reject(new Error('Password is required.'));
+    setStatus('Creating setup admin');
+    return services.createUserWithEmailAndPassword(services.auth, email, password)
+      .catch(function (error) {
+        if (error && error.code === 'auth/email-already-in-use') {
+          setStatus('Signing in setup admin');
+          return services.signInWithEmailAndPassword(services.auth, email, password);
+        }
+        throw error;
+      })
+      .then(function (credential) {
+        authUser = credential.user;
+        return services.updateProfile(credential.user, { displayName: displayName }).catch(function () {}).then(function () {
+          return services.getDoc(pubRef()).then(function (snapshot) {
+            var pub = snapshot.exists() ? snapshot.data() || {} : null;
+            if (pub && Number(pub.fullAdminCount || 0) >= 1) throw new Error('This pub is already set up. Sign in normally.');
+            return createPub({ displayName: displayName });
+          });
+        });
+      })
+      .then(function (result) {
+        setStatus('First-run setup complete');
+        startListening();
+        return result;
+      });
+  }
+
   function signOutUser() {
     if (!ready || !services.auth) return Promise.resolve();
     return services.signOut(services.auth);
@@ -923,9 +1027,128 @@
     return Promise.reject(new Error('This Spark build does not include browser-triggered admin backend actions.'));
   }
 
+  function createSecondaryAuth() {
+    var name = 'compliance-user-create-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    var app = services.initializeApp(currentConfig(), name);
+    return { app: app, auth: services.getAuth(app) };
+  }
+
+  function disposeSecondaryAuth(context) {
+    if (!context) return Promise.resolve();
+    return Promise.resolve()
+      .then(function () { return context.auth ? services.signOut(context.auth).catch(function () {}) : null; })
+      .then(function () { return context.app && services.deleteApp ? services.deleteApp(context.app).catch(function () {}) : null; });
+  }
+
+  function createAuthUserWithSecondary(email, password, displayName) {
+    var context = createSecondaryAuth();
+    return services.createUserWithEmailAndPassword(context.auth, email, password)
+      .catch(function (error) {
+        if (error && error.code === 'auth/email-already-in-use') return services.signInWithEmailAndPassword(context.auth, email, password);
+        throw error;
+      })
+      .then(function (credential) {
+        return services.updateProfile(credential.user, { displayName: displayName || email }).catch(function () {}).then(function () {
+          return { credential: credential, context: context };
+        });
+      })
+      .catch(function (error) {
+        return disposeSecondaryAuth(context).then(function () { throw error; });
+      });
+  }
+
+  function createMemberAndStaffBatch(payload, createdUser) {
+    var uid = createdUser.uid;
+    var role = payload.role || 'Staff';
+    var permissionSetId = normalizePermissionSetId(payload.permissionSetId || roleToPermissionSetId(role));
+    var staffProfile = payload.staffProfile || {};
+    var staffId = safeSegment(payload.staffId || uid);
+    var displayName = payload.displayName || staffProfile.name || payload.name || payload.email || 'Staff member';
+    var nickname = staffProfile.nickname || displayName.split(/\s+/)[0] || displayName;
+    var workAreaIds = Array.isArray(payload.workAreaIds) ? payload.workAreaIds : [];
+    var area = staffProfile.area || staffProfile.jobArea || workAreaIds[0] || '';
+    var batch = services.writeBatch(services.db);
+    batch.set(services.doc(services.db, 'pubs', pubId(), 'members', uid), clean({
+      uid: uid,
+      pubId: pubId(),
+      staffId: staffId,
+      email: payload.email || createdUser.email || '',
+      name: displayName,
+      displayName: displayName,
+      role: role,
+      permissionSetId: permissionSetId,
+      workAreaIds: workAreaIds,
+      active: true,
+      archived: false,
+      hidden: false,
+      setupAdmin: false,
+      createdAt: services.serverTimestamp(),
+      createdBy: authUser.uid,
+      updatedAt: services.serverTimestamp(),
+      updatedBy: authUser.uid
+    }));
+    batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', staffId), clean(Object.assign({}, staffProfile, {
+      id: staffId,
+      uid: uid,
+      authUid: uid,
+      memberUid: uid,
+      email: payload.email || createdUser.email || '',
+      name: displayName,
+      nickname: nickname,
+      displayName: displayName,
+      role: role,
+      permissionSetId: permissionSetId,
+      area: area,
+      jobArea: area,
+      active: true,
+      archived: false,
+      hidden: false,
+      setupAdmin: false,
+      accountStatus: 'confirmed',
+      createdAt: services.serverTimestamp(),
+      createdBy: authUser.uid,
+      updatedAt: services.serverTimestamp(),
+      updatedBy: authUser.uid
+    })), { merge: true });
+    var createdFullAdmin = isFullAccessRecord({ role: role, permissionSetId: permissionSetId, active: true, archived: false });
+    var nextFullAdminCount = Math.max(remote.pub && Number(remote.pub.fullAdminCount || 0) || 0, fullAdminCountFromUsers((api() && api().getState && api().getState().users) || []));
+    if (createdFullAdmin) nextFullAdminCount += 1;
+    var pubPatch = { fullAdminCount: Math.max(1, nextFullAdminCount), updatedAt: services.serverTimestamp(), updatedBy: authUser.uid };
+    if (createdFullAdmin) pubPatch.setupComplete = true;
+    batch.set(pubRef(), clean(pubPatch), { merge: true });
+    batch.set(services.doc(services.db, 'pubs', pubId(), 'auditLogs', safeSegment(Date.now() + '-user-created-' + uid)), clean({
+      type: 'user.created',
+      actorUid: authUser.uid,
+      actorEmail: authUser.email || '',
+      targetUid: uid,
+      details: { email: payload.email || '', role: role, permissionSetId: permissionSetId },
+      createdAt: services.serverTimestamp()
+    }));
+    return batch.commit().then(function () { return { uid: uid, staffId: staffId, role: role, permissionSetId: permissionSetId }; });
+  }
+
   function createPubUser(payload) {
     payload = Object.assign({ pubId: pubId() }, payload || {});
-    return callFunction('createPubUser', payload);
+    if (!ready || !services.auth || !services.db || !authUser || !pubId()) return Promise.reject(new Error('Firebase is not ready.'));
+    if (!hasPermission('users.create')) return Promise.reject(new Error('You do not have permission to create users.'));
+    var email = String(payload.email || '').trim().toLowerCase();
+    var password = String(payload.temporaryPassword || payload.password || '');
+    if (!email || !password) return Promise.reject(new Error('Email and temporary password are required.'));
+    setStatus('Creating Firebase user');
+    var secondaryContext = null;
+    return createAuthUserWithSecondary(email, password, payload.displayName || payload.name || email)
+      .then(function (result) {
+        secondaryContext = result.context;
+        return createMemberAndStaffBatch(Object.assign({}, payload, { email: email }), result.credential.user);
+      })
+      .then(function (created) {
+        setStatus('User created');
+        return disposeSecondaryAuth(secondaryContext).then(function () { return created; });
+      })
+      .catch(function (error) {
+        setStatus('User creation failed', error && error.message || String(error));
+        return disposeSecondaryAuth(secondaryContext).then(function () { throw error; });
+      });
   }
 
   function createPub(payload) {
@@ -934,19 +1157,19 @@
     if (!isSetupAdmin()) return Promise.reject(new Error('Only an approved setup admin can create the first pub.'));
     var batch = services.writeBatch(services.db);
     var setupStaffId = authUser.uid;
-    var displayName = authUser.displayName || authUser.email || 'Setup Admin';
+    var displayName = payload.displayName || authUser.displayName || authUser.email || 'Setup Admin';
     batch.set(pubRef(), clean({
       id: pubId(),
-      name: payload.name || 'New Pub',
-      licence: payload.licence || '',
-      dps: payload.dps || '',
-      address: payload.address || '',
+      name: '',
+      displayName: '',
+      active: true,
       setupComplete: false,
+      fullAdminCount: 1,
       createdAt: services.serverTimestamp(),
       createdBy: authUser.uid,
       updatedAt: services.serverTimestamp(),
       updatedBy: authUser.uid
-    }));
+    }), { merge: true });
     Object.keys(DEFAULT_PERMISSION_SETS).forEach(function (id) {
       batch.set(services.doc(services.db, 'pubs', pubId(), 'permissionSets', id), clean(Object.assign({ id: id, updatedAt: services.serverTimestamp(), updatedBy: authUser.uid }, DEFAULT_PERMISSION_SETS[id])), { merge: true });
     });
@@ -955,12 +1178,14 @@
       pubId: pubId(),
       staffId: setupStaffId,
       email: authUser.email || '',
+      name: displayName,
       displayName: displayName,
-      role: 'Owner',
-      permissionSetId: 'Owner',
+      role: 'Admin',
+      permissionSetId: 'full-admin',
       workAreaIds: [],
       active: true,
       archived: false,
+      hidden: true,
       setupAdmin: true,
       createdAt: services.serverTimestamp(),
       createdBy: authUser.uid,
@@ -973,11 +1198,13 @@
       email: authUser.email || '',
       name: displayName,
       nickname: displayName.split(/\s+/)[0] || 'Setup',
-      role: 'Owner',
-      permissionSetId: 'Owner',
+      role: 'Admin',
+      permissionSetId: 'full-admin',
       accountStatus: 'confirmed',
       active: true,
       archived: false,
+      hidden: true,
+      setupAdmin: true,
       createdAt: services.serverTimestamp(),
       createdBy: authUser.uid,
       updatedAt: services.serverTimestamp(),
@@ -987,7 +1214,7 @@
       type: 'pub.created',
       actorUid: authUser.uid,
       actorEmail: authUser.email || '',
-      details: { pubId: pubId(), name: payload.name || 'New Pub' },
+      details: { pubId: pubId(), setupAdmin: authUser.email || '' },
       createdAt: services.serverTimestamp()
     }));
     return batch.commit().then(function () { return { pubId: pubId(), uid: authUser.uid, staffId: setupStaffId }; });
@@ -1056,8 +1283,9 @@
     if (!authUser) {
       els.bar.innerHTML = '<span><strong>Firebase</strong><small>Sign in required</small></span>';
       els.gate.classList.remove('hidden');
-      els.gate.innerHTML = '<div class="firebaseGateCard"><h2>Sign In</h2><form id="firebaseAuthForm" class="firebaseGateForm"><input name="email" type="email" placeholder="Email" autocomplete="email" required><input name="password" type="password" placeholder="Password" autocomplete="current-password" required><div class="firebaseGateActions"><button class="primary">Sign In</button></div></form>' + (lastError ? '<p class="firebaseError">' + escapeHtml(lastError) + '</p>' : '') + '</div>';
+      els.gate.innerHTML = '<div class="firebaseGateCard"><h2>Sign In</h2><form id="firebaseAuthForm" class="firebaseGateForm"><input name="email" type="email" placeholder="Email" autocomplete="email" required><input name="password" type="password" placeholder="Password" autocomplete="current-password" required><div class="firebaseGateActions"><button class="primary">Sign In</button></div></form>' + setupPanelHtml() + (lastError ? '<p class="firebaseError">' + escapeHtml(lastError) + '</p>' : '') + '</div>';
       bindAuthForm();
+      bindSetupForm();
       return;
     }
     els.bar.innerHTML = '<span><strong>' + escapeHtml(authUser.email || 'Signed in') + '</strong><small>' + escapeHtml(statusText) + '</small></span><button type="button" class="ghost small" data-firebase-signout>Sign Out</button>';
@@ -1077,15 +1305,20 @@
 
   function renderSetupGate(gate) {
     gate.classList.remove('hidden');
-    gate.innerHTML = '<div class="firebaseGateCard"><h2>Create Pub</h2><p class="firebaseSmallText">Approved setup admin only. This creates the pub, default permission sets and your setup member record.</p><form id="firebaseCreatePubForm" class="firebaseGateForm"><input name="name" placeholder="Pub name" required><input name="licence" placeholder="Premises licence number"><input name="dps" placeholder="DPS name"><textarea name="address" placeholder="Pub address"></textarea><button class="primary">Create Pub</button></form>' + (lastError ? '<p class="firebaseError">' + escapeHtml(lastError) + '</p>' : '') + '</div>';
+    gate.innerHTML = '<div class="firebaseGateCard"><h2>First-Run Setup</h2><p class="firebaseSmallText">This Firebase project is empty. The approved setup admin can create the blank pub structure now.</p><form id="firebaseCreatePubForm" class="firebaseGateForm"><input name="displayName" placeholder="Display name" value="' + escapeHtml(authUser && authUser.displayName || '') + '" required><button class="primary">Create Blank Pub</button></form>' + (lastError ? '<p class="firebaseError">' + escapeHtml(lastError) + '</p>' : '') + '</div>';
     var form = document.getElementById('firebaseCreatePubForm');
     if (form) form.onsubmit = function (event) {
       event.preventDefault();
       var data = new FormData(form);
-      createPub({ name: data.get('name'), licence: data.get('licence'), dps: data.get('dps'), address: data.get('address') })
+      createPub({ displayName: data.get('displayName') })
         .then(function () { setStatus('Pub created'); startListening(); })
         .catch(function (error) { setStatus('Pub setup failed', error && error.message || String(error)); });
     };
+  }
+
+  function setupPanelHtml() {
+    if (!(options().setupAdminEmails || []).length) return '';
+    return '<details class="firebaseSetupDetails"><summary>First-run setup</summary><form id="firebaseFirstRunSetupForm" class="firebaseGateForm"><input name="email" type="email" placeholder="Approved setup email" autocomplete="email" required><input name="displayName" placeholder="Display name" required><input name="password" type="password" placeholder="Password" autocomplete="new-password" minlength="6" required><button class="primary">Create / Sign In Setup Admin</button></form></details>';
   }
 
   function bindAuthForm() {
@@ -1095,6 +1328,17 @@
       event.preventDefault();
       signIn(String(form.elements.email.value || '').trim(), String(form.elements.password.value || ''))
         .catch(function (error) { setStatus('Authentication failed', error && error.message || String(error)); });
+    };
+  }
+
+  function bindSetupForm() {
+    var form = document.getElementById('firebaseFirstRunSetupForm');
+    if (!form) return;
+    form.onsubmit = function (event) {
+      event.preventDefault();
+      var data = new FormData(form);
+      createOrSignInSetupAdmin(data.get('email'), data.get('displayName'), data.get('password'))
+        .catch(function (error) { setStatus('First-run setup failed', error && error.message || String(error)); });
     };
   }
 
@@ -1116,8 +1360,11 @@
     ]).then(function (modules) {
       var appMod = modules[0], authMod = modules[1], firestoreMod = modules[2];
       var app = appMod.initializeApp(currentConfig());
+      services.initializeApp = appMod.initializeApp;
+      services.deleteApp = appMod.deleteApp;
       services.app = app;
       services.auth = authMod.getAuth(app);
+      services.getAuth = authMod.getAuth;
       services.db = firestoreMod.getFirestore(app);
       services.doc = firestoreMod.doc;
       services.collection = firestoreMod.collection;
@@ -1131,6 +1378,8 @@
       services.writeBatch = firestoreMod.writeBatch;
       services.serverTimestamp = firestoreMod.serverTimestamp;
       services.signInWithEmailAndPassword = authMod.signInWithEmailAndPassword;
+      services.createUserWithEmailAndPassword = authMod.createUserWithEmailAndPassword;
+      services.updateProfile = authMod.updateProfile;
       services.signOut = authMod.signOut;
       ready = true;
       setStatus('Firebase ready');
@@ -1170,6 +1419,12 @@
     importLegacyState: importLegacyState,
     signOut: signOutUser,
     hasPermission: hasPermission,
+    showSystemUsers: showSystemUsers,
+    setShowSystemUsers: function (value) {
+      localStorage.setItem(SHOW_SYSTEM_USERS_KEY, value ? 'true' : 'false');
+      rebuildLocalState();
+    },
+    refreshLocalState: rebuildLocalState,
     isApplyingRemote: function () { return applyingRemote; },
     isSignedIn: function () { return !!authUser; },
     currentUser: function () { return authUser; },

@@ -15,6 +15,13 @@ const AVAILABILITY_DAYS = [
   ['sun', 'Sunday']
 ];
 
+if (!document.getElementById('system-users-toggle-style')) {
+  const systemToggleStyle = document.createElement('style');
+  systemToggleStyle.id = 'system-users-toggle-style';
+  systemToggleStyle.textContent = '.systemUsersToggle{display:flex;align-items:center;gap:8px;min-height:38px;padding:8px 10px;border:1px solid rgba(208,173,88,.4);border-radius:10px;background:rgba(255,255,255,.04);color:#fff8ea;font-size:12px;font-weight:850}.systemUsersToggle input{width:18px;height:18px;min-height:18px;margin:0;accent-color:#d0ad58}.coreSystemUsersToggle{margin-bottom:10px}';
+  document.head.appendChild(systemToggleStyle);
+}
+
 function normaliseUserValue(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -148,6 +155,16 @@ function userStatusLine(user) {
   return user.jobArea || user.area || '';
 }
 
+function canToggleSystemUsers() {
+  return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.hasPermission === 'function' && window.ComplianceFirebase.hasPermission('users.edit'));
+}
+
+function systemUsersToggleHtml() {
+  if (!canToggleSystemUsers()) return '';
+  const checked = window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers();
+  return `<label class="systemUsersToggle"><input id="showSystemUsersToggle" type="checkbox" ${checked ? 'checked' : ''}><span>Show hidden/system users</span></label>`;
+}
+
 staff = function centralUsersPage() {
   if (centralUserPanel === 'profile' && centralUserProfileId) return centralUserProfilePage();
   return `<section class="rotaPeopleShell">
@@ -155,6 +172,7 @@ staff = function centralUsersPage() {
       <h2>People</h2>
       ${isAdminUser() ? '<button class="rotaRoundAdd usersAddUserBtn" data-new-user="true" type="button">Add User</button>' : ''}
     </div>
+    ${systemUsersToggleHtml()}
     <input id="centralPeopleSearch" class="rotaPeopleSearch" placeholder="Search ${state.users.length} people">
     <div id="centralPeopleList" class="rotaPeopleList"></div>
   </section>`;
@@ -427,6 +445,10 @@ function bindAvailabilityEditor() {
 function bindCentralUsers() {
   const search = document.getElementById('centralPeopleSearch');
   if (search) { search.oninput = drawCentralPeopleList; drawCentralPeopleList(); }
+  const systemToggle = document.getElementById('showSystemUsersToggle');
+  if (systemToggle && window.ComplianceFirebase && typeof window.ComplianceFirebase.setShowSystemUsers === 'function') {
+    systemToggle.onchange = () => window.ComplianceFirebase.setShowSystemUsers(systemToggle.checked);
+  }
   document.querySelectorAll('[data-new-user]').forEach(btn => btn.onclick = openCentralAddUserModal);
   document.querySelectorAll('[data-users-back]').forEach(btn => btn.onclick = () => { centralUserPanel = 'list'; centralUserProfileId = null; centralUserActiveSection = 'personal'; render(); });
   document.querySelectorAll('[data-central-section]').forEach(btn => btn.onclick = () => {

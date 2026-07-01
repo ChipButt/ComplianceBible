@@ -62,7 +62,8 @@ window.COMPLIANCE_FIREBASE_OPTIONS = {
   production: true,
   storageMode: 'firestore-images',
   allowFirebaseStorage: false,
-  allowLocalFallback: false
+  allowLocalFallback: false,
+  setupAdminEmails: ['jameschipbutt@hotmail.com']
 };
 ```
 
@@ -74,16 +75,25 @@ firebase deploy --only firestore:rules,hosting
 
 ## First setup admin
 
-1. Create the first setup admin user in Firebase Authentication.
-2. Give that Auth user a custom claim before they sign in:
+For a blank Firebase project, open the app and use the First-run setup panel with an email listed in `window.COMPLIANCE_FIREBASE_OPTIONS.setupAdminEmails`.
 
-```js
-{ "setupAdmin": true, "complianceSetupAdmin": true }
-```
+The app uses Firebase Auth email/password to create or sign in the setup admin, then creates:
 
-You can set the claim with the Firebase Admin SDK from a trusted machine or Cloud Shell. The setup admin signs in and creates the pub, default permission sets, and their own Owner member/profile records through Firestore.
+- `pubs/{pubId}`
+- `pubs/{pubId}/members/{uid}` for the hidden setup admin
+- `pubs/{pubId}/staff/{uid}` as a hidden setup profile
+- `pubs/{pubId}/permissionSets/full-admin`
+- `pubs/{pubId}/permissionSets/manager`
+- `pubs/{pubId}/permissionSets/supervisor`
+- `pubs/{pubId}/permissionSets/staff`
 
-Because this emergency build does not use Cloud Functions, creating additional Firebase Auth accounts must be done in Firebase Authentication or another trusted admin process. The app can store staff profiles, permissions and document/check data in Firestore, but it cannot securely create Auth users from browser-only code.
+The setup admin is hidden from normal staff lists, rota assignment lists and document assignment lists unless a full admin enables `Show hidden/system users`.
+
+## User creation
+
+Admins/managers with `users.create` can create staff users inside the app on Spark. The app initialises a short-lived secondary Firebase app instance, creates or signs into the new Auth user there, writes the member/staff documents, then signs out and deletes the secondary app instance. The current admin stays signed in.
+
+The app does not use Cloud Functions for user creation.
 
 ## Firestore image storage
 
@@ -145,6 +155,8 @@ Before handing the app to staff, test these flows against a Firebase project:
 4. Staff user can upload their own allowed document photos and complete assigned checks.
 5. Uploaded photos are compressed, saved as Firestore chunks, then reopened from the viewer.
 6. Oversized photos show `Image too large. Retake closer/crop document.`
-7. Staff user cannot write protected Firestore documents or access another staff member's private document images.
-8. Admin can manage permission groups, documents, checks, rota and settings.
-9. Archived users cannot access the app.
+7. Admin can create a staff Auth user without being signed out.
+8. Hidden setup admin does not appear in normal staff, rota or document assignment lists.
+9. Staff user cannot write protected Firestore documents or access another staff member's private document images.
+10. Admin can manage permission groups, documents, checks, rota and settings.
+11. Archived users cannot access the app.

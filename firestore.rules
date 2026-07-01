@@ -6,9 +6,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function pubPath(pubId) {
+      return /databases/$(database)/documents/pubs/$(pubId);
+    }
+
     function setupAdmin() {
       return signedIn()
-        && (request.auth.token.setupAdmin == true || request.auth.token.complianceSetupAdmin == true);
+        && (
+          request.auth.token.setupAdmin == true
+          || request.auth.token.complianceSetupAdmin == true
+          || request.auth.token.email == 'jameschipbutt@hotmail.com'
+        );
     }
 
     function memberPath(pubId) {
@@ -30,7 +38,13 @@ service cloud.firestore {
     }
 
     function setupAdminAllowed(pubId) {
-      return setupAdmin() && (!hasMember(pubId) || activeMember(pubId));
+      return setupAdmin()
+        && (
+          !exists(pubPath(pubId))
+          || get(pubPath(pubId)).data.setupComplete != true
+          || get(pubPath(pubId)).data.fullAdminCount < 1
+          || activeMember(pubId)
+        );
     }
 
     function staffId(pubId) {
@@ -52,7 +66,17 @@ service cloud.firestore {
     }
 
     function fullRole(pubId) {
-      return member(pubId).role in ['Owner', 'Admin', 'Manager'];
+      return member(pubId).role in ['Owner', 'Admin', 'Manager']
+        || member(pubId).permissionSetId in ['full-admin', 'manager'];
+    }
+
+    function fullAccessData(data) {
+      return data.active == true
+        && data.archived != true
+        && (
+          data.role in ['Owner', 'Admin', 'Manager']
+          || data.permissionSetId in ['full-admin', 'manager']
+        );
     }
 
     function hasPermission(pubId, key) {
@@ -74,6 +98,24 @@ service cloud.firestore {
 
     function onlyStaffDocumentGroupPubFields() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly(['staffDocumentGroups', 'updatedAt', 'updatedBy']);
+    }
+
+    function onlyAdminCountPubFields() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['fullAdminCount', 'updatedAt', 'updatedBy']);
+    }
+
+    function protectedMemberFieldsChanged() {
+      return request.resource.data.diff(resource.data).changedKeys().hasAny(['role', 'permissionSetId', 'active', 'archived', 'hidden', 'setupAdmin']);
+    }
+
+    function adminSafetySatisfied(pubId) {
+      return !protectedMemberFieldsChanged()
+        || !fullAccessData(resource.data)
+        || fullAccessData(request.resource.data)
+        || (
+          get(pubPath(pubId)).data.fullAdminCount > 1
+          && getAfter(pubPath(pubId)).data.fullAdminCount >= 1
+        );
     }
 
     function imagePath(pubId, imageId) {
@@ -120,9 +162,12 @@ service cloud.firestore {
         && request.resource.data.storageMode == 'firestore-images'
         && request.resource.data.chunkCount is int
         && request.resource.data.chunkCount > 0
-        && request.resource.data.chunkCount <= 8
+        && request.resource.data.chunkCount <= 6
         && request.resource.data.fileSize is int
-        && request.resource.data.fileSize <= 921600
+        && request.resource.data.fileSize <= 900000
+        && request.resource.data.sizeBytes is int
+        && request.resource.data.sizeBytes <= 900000
+        && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.base64Length is int
         && request.resource.data.base64Length <= 1300000
         && request.resource.data.dataPrefix is string
@@ -133,16 +178,22 @@ service cloud.firestore {
       return request.resource.data.imageId == imageId
         && request.resource.data.index is int
         && request.resource.data.index >= 0
-        && request.resource.data.index < 8
+        && request.resource.data.index < 6
         && request.resource.data.data is string
         && request.resource.data.data.size() <= 350000;
     }
 
     match /pubs/{pubId} {
-      allow create: if setupAdminAllowed(pubId);
+      allow create: if setupAdminAllowed(pubId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.active == true
+        && request.resource.data.setupComplete == false
+        && request.resource.data.fullAdminCount >= 1;
       allow read: if setupAdminAllowed(pubId) || activeMember(pubId);
       allow update: if hasPermission(pubId, 'settings.manage')
         || hasPermission(pubId, 'pub.manage')
+        || (setupAdminAllowed(pubId) && request.resource.data.updatedBy == request.auth.uid && request.resource.data.fullAdminCount >= 1)
+        || (onlyAdminCountPubFields() && (hasPermission(pubId, 'users.edit') || hasPermission(pubId, 'users.create')) && request.resource.data.fullAdminCount >= 1)
         || (
           onlyStaffDocumentGroupPubFields()
           && (hasPermission(pubId, 'documents.manageStaff') || hasPermission(pubId, 'staffDocs.manage'))
@@ -158,21 +209,41 @@ service cloud.firestore {
             || hasPermission(pubId, 'documents.viewAll')
             || hasPermission(pubId, 'checks.viewAll')
           );
-        allow create: if setupAdminAllowed(pubId)
+        allow create: if (
+          setupAdminAllowed(pubId)
           && uid == request.auth.uid
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.staffId == request.auth.uid
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.role == 'Admin'
+          && request.resource.data.permissionSetId == 'full-admin'
           && request.resource.data.setupAdmin == true
+          && request.resource.data.hidden == true
           && request.resource.data.active == true
-          && request.resource.data.archived == false;
+          && request.resource.data.archived == false
+        ) || (
+          activeMember(pubId)
+          && hasPermission(pubId, 'users.create')
+          && uid == request.resource.data.uid
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.active == true
+          && request.resource.data.archived == false
+          && request.resource.data.setupAdmin == false
+        );
         allow update: if activeMember(pubId)
           && hasPermission(pubId, 'users.edit')
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.pubId == resource.data.pubId
           && request.resource.data.staffId == resource.data.staffId
-          && unchanged(['active', 'archived', 'setupAdmin', 'createdAt', 'createdBy'])
-          && (uid != request.auth.uid || unchanged(['role', 'permissionSetId']));
+          && unchanged(['createdAt', 'createdBy'])
+          && (uid != request.auth.uid || unchanged(['role', 'permissionSetId', 'active', 'archived', 'hidden', 'setupAdmin']))
+          && (resource.data.setupAdmin != true || request.resource.data.setupAdmin == true)
+          && adminSafetySatisfied(pubId);
         allow delete: if false;
+      }
+
+      match /app/state {
+        allow read, write: if activeMember(pubId);
       }
 
       match /permissionSets/{permissionSetId} {
@@ -180,7 +251,7 @@ service cloud.firestore {
         allow create: if setupAdminAllowed(pubId) || hasPermission(pubId, 'permissions.manage');
         allow update: if hasPermission(pubId, 'permissions.manage');
         allow delete: if hasPermission(pubId, 'permissions.manage')
-          && !(permissionSetId in ['Owner', 'Admin', 'Manager']);
+          && !(permissionSetId in ['Owner', 'Admin', 'Manager', 'full-admin', 'manager']);
       }
 
       match /staff/{targetStaffId} {
@@ -189,15 +260,30 @@ service cloud.firestore {
           || hasPermission(pubId, 'documents.viewAll')
           || hasPermission(pubId, 'checks.viewAll')
           || hasPermission(pubId, 'staffDocs.viewAll');
-        allow create: if setupAdminAllowed(pubId)
+        allow create: if (
+          setupAdminAllowed(pubId)
           && targetStaffId == request.auth.uid
           && request.resource.data.authUid == request.auth.uid
+          && request.resource.data.setupAdmin == true
+          && request.resource.data.hidden == true
           && request.resource.data.active == true
-          && request.resource.data.archived == false;
+          && request.resource.data.archived == false
+        ) || (
+          activeMember(pubId)
+          && hasPermission(pubId, 'users.create')
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.active == true
+          && request.resource.data.archived == false
+          && request.resource.data.setupAdmin == false
+        );
         allow update: if (
           ownsStaff(pubId, targetStaffId)
-          && unchanged(['authUid', 'role', 'permissionSetId', 'active', 'archived', 'createdAt', 'createdBy'])
-        ) || hasPermission(pubId, 'users.edit');
+          && unchanged(['authUid', 'role', 'permissionSetId', 'active', 'archived', 'hidden', 'setupAdmin', 'createdAt', 'createdBy'])
+        ) || (
+          hasPermission(pubId, 'users.edit')
+          && unchanged(['createdAt', 'createdBy'])
+          && (resource.data.setupAdmin != true || request.resource.data.setupAdmin == true)
+        );
         allow delete: if false;
 
         match /documents/{documentId} {
@@ -304,6 +390,9 @@ service cloud.firestore {
         match /chunks/{chunkId} {
           allow read: if exists(imagePath(pubId, imageId)) && canReadImage(pubId, imageData(pubId, imageId));
           allow create: if validImageChunk(imageId)
+            && exists(imagePath(pubId, imageId))
+            && imageData(pubId, imageId).createdBy == request.auth.uid
+            && request.resource.data.uploadedBy == request.auth.uid
             && (
               hasPermission(pubId, 'documents.uploadOwn')
               || hasPermission(pubId, 'documents.managePremises')
@@ -323,7 +412,7 @@ service cloud.firestore {
 
       match /auditLogs/{logId} {
         allow read: if hasPermission(pubId, 'audit.view');
-        allow create: if setupAdminAllowed(pubId);
+        allow create: if setupAdminAllowed(pubId) || activeMember(pubId);
         allow update, delete: if false;
       }
 
