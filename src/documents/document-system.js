@@ -48,10 +48,13 @@
   }
   function userDocs() { state.userRequiredDocuments = state.userRequiredDocuments || []; return state.userRequiredDocuments; }
   function saveNow() { try { save(); } catch {} }
-  function readFile(file, done) {
+  function readFile(file, done, options) {
     if (!file) return done(null);
     if (window.ComplianceFirebase && typeof window.ComplianceFirebase.uploadFile === 'function') {
-      window.ComplianceFirebase.uploadFile(file, { folder: 'documents' }).then(done);
+      window.ComplianceFirebase.uploadFile(file, options || { folder: 'documents' }).then(done).catch(error => {
+        alert(error && error.message || 'Upload failed.');
+        done(null);
+      });
       return;
     }
     const r = new FileReader();
@@ -346,7 +349,7 @@
     });
     scope.querySelectorAll('[data-fdoc-file],[data-fdoc-photo]').forEach(input => input.onchange = () => {
       const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); const file = input.files[0]; if (!file) return;
-      readFile(file, uploaded => { applyFileRecord(r, file, uploaded); saveNow(); render(); });
+      readFile(file, uploaded => { applyFileRecord(r, file, uploaded); saveNow(); render(); }, article.dataset.fdocKind === 'userdoc' ? { kind: 'userdoc', folder: 'staff-documents', staffId: r.userId, userId: r.userId, documentId: r.requirementId || r.id, requirementId: r.requirementId || r.id } : { kind: 'premises', folder: 'documents', documentId: r.id });
     });
     scope.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
     scope.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
@@ -392,7 +395,7 @@
       const file = (add.elements.file.files && add.elements.file.files[0]) || (add.elements.photo.files && add.elements.photo.files[0]);
       const record = { id: uidx(), title: data.get('title'), cat: data.get('cat'), notes: data.get('notes') || '', expiry: data.get('expiry') || '', expiryDate: data.get('expiry') || '', noExpiry: !!data.get('noExpiry'), status: file ? 'Stored' : 'Missing' };
       const finish = uploaded => { if (uploaded) applyFileRecord(record, file, uploaded); state.docs.push(record); saveNow(); render(); };
-      if (file) readFile(file, finish); else finish(null);
+      if (file) readFile(file, finish, { kind: 'premises', folder: 'documents', documentId: record.id }); else finish(null);
     };
   }
 

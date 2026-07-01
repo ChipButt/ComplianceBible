@@ -183,13 +183,38 @@ function drawCentralPeopleList() {
 
 function openCentralAddUserModal() {
   if (!isAdminUser()) return;
-  modalRoot.innerHTML = `<div class="modalCard userModalCard"><button class="close" id="closeModal" type="button">x</button><h2>Add User</h2><form id="centralAddUserForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown on rota/checks" required><input name="email" type="email" placeholder="Email"><select name="employmentType"><option>Employee</option><option>Contractor</option></select><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], 'Staff')}</select><select name="area">${optionList(state.areas, state.areas[0] || '')}</select><button class="primary">Add User</button></form></div>`;
+  modalRoot.innerHTML = `<div class="modalCard userModalCard"><button class="close" id="closeModal" type="button">x</button><h2>Add User</h2><form id="centralAddUserForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown on rota/checks" required><input name="email" type="email" placeholder="Email" required><input name="temporaryPassword" type="password" placeholder="Temporary password" autocomplete="new-password" minlength="6" required><select name="employmentType"><option>Employee</option><option>Contractor</option></select><select name="role">${optionList(['Staff', 'Supervisor', 'Manager', 'Admin', 'Owner'], 'Staff')}</select><select name="area">${optionList(state.areas, state.areas[0] || '')}</select><button class="primary">Add User</button></form></div>`;
   modalRoot.classList.remove('hidden');
   const close = document.getElementById('closeModal');
   if (close) close.onclick = () => modalRoot.classList.add('hidden');
   const form = document.getElementById('centralAddUserForm');
-  if (form) form.onsubmit = event => {
+  if (form) form.onsubmit = async event => {
     const data = fd(event);
+    if (window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn() && typeof window.ComplianceFirebase.createPubUser === 'function') {
+      try {
+        await window.ComplianceFirebase.createPubUser({
+          email: data.email,
+          temporaryPassword: data.temporaryPassword,
+          displayName: data.name,
+          role: data.role || 'Staff',
+          permissionSetId: data.role || 'Staff',
+          workAreaIds: data.area ? [data.area] : [],
+          staffProfile: {
+            name: data.name,
+            nickname: data.nickname,
+            email: data.email,
+            employmentType: data.employmentType || 'Employee',
+            area: data.area || '',
+            jobArea: data.area || ''
+          }
+        });
+        modalRoot.classList.add('hidden');
+        return;
+      } catch (error) {
+        alert(error && error.message ? error.message : 'Could not create user');
+        return;
+      }
+    }
     const newUser = {
       id: uid(),
       name: data.name,

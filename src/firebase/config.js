@@ -7,5 +7,12 @@
     messagingSenderId: '',
     appId: ''
   };
-  window.COMPLIANCE_FIREBASE_PUB_ID = window.COMPLIANCE_FIREBASE_PUB_ID || 'default-pub';
+  window.COMPLIANCE_FIREBASE_PUB_ID = window.COMPLIANCE_FIREBASE_PUB_ID || '';
+  window.COMPLIANCE_FIREBASE_OPTIONS = window.COMPLIANCE_FIREBASE_OPTIONS || {
+    production: true,
+    allowSetupPopup: false,
+    allowLocalFallback: false,
+    functionsRegion: 'europe-west2',
+    setupAdminEmails: []
+  };
 })();

@@ -9,7 +9,7 @@
   var REQ_KEY = 'complianceUserDocumentRequirementsV1';
   var GROUP_KEY = 'complianceStaffDocumentGroupsV1';
   var CLEAN_FLAG = 'complianceStaffDocGroupsCleanedToSevenV1';
-  var CORE_GROUPS = ['Admin', 'Supervisor', 'Staff'];
+  var CORE_GROUPS = ['Owner', 'Admin', 'Manager', 'Supervisor', 'Staff'];
   var CORE_STAFF_GROUPS = [
     { id: 'Office', label: 'Office' },
     { id: 'FOH', label: 'FOH' },
@@ -47,7 +47,10 @@
       ['users.viewPersonal', 'View User Personal Details'],
       ['users.viewEmployment', 'View User Employment Details'],
       ['users.viewTraining', 'View User Training Details'],
-      ['users.manage', 'Manage Users']
+      ['users.manage', 'Manage Users'],
+      ['users.create', 'Create Firebase Users'],
+      ['users.edit', 'Edit Users'],
+      ['users.archive', 'Archive Users']
     ]],
     ['Documents', [
       ['premisesDocs.view', 'View Premises Documents'],
@@ -56,56 +59,92 @@
       ['staffDocs.viewOwn', 'View Own Staff Documents'],
       ['staffDocs.viewAll', 'View All Staff Documents'],
       ['staffDocs.manage', 'Manage Staff Documents'],
-      ['staffDocs.notify', 'Staff Document Notifications']
+      ['staffDocs.notify', 'Staff Document Notifications'],
+      ['documents.managePremises', 'Manage Premises Documents'],
+      ['documents.manageStaff', 'Manage Staff Documents'],
+      ['documents.uploadOwn', 'Upload Own Documents'],
+      ['documents.viewOwn', 'View Own Documents'],
+      ['documents.viewAll', 'View All Documents']
     ]],
     ['Checks', [
       ['checks.viewAll', 'View All Checks'],
       ['checks.manage', 'Manage Checks'],
-      ['checks.notify', 'Check Notifications']
+      ['checks.notify', 'Check Notifications'],
+      ['checks.create', 'Create Checks'],
+      ['checks.complete', 'Complete Checks']
     ]],
     ['Rota & Time', [
       ['rota.view', 'View Rota'],
       ['rota.manage', 'Manage Rota & Time Records'],
+      ['rota.viewOwn', 'View Own Rota'],
       ['time.clockOwn', 'Clock In/Out'],
       ['rota.notify', 'Rota Notifications']
     ]],
     ['Issues & Inspection', [
       ['issues.view', 'View Issues'],
       ['issues.manage', 'Manage Issues'],
+      ['issues.create', 'Create Issues'],
       ['issues.resolve', 'Resolve Maintenance Issues'],
       ['issues.notify', 'Issue Notifications'],
       ['shopping.manage', 'Complete / Remove Shopping Items'],
       ['inspection.view', 'View Inspection Mode'],
-      ['inspection.export', 'Export Inspection Report']
+      ['inspection.export', 'Export Inspection Report'],
+      ['audit.view', 'View Audit Log']
     ]],
     ['Work Areas', [
       ['workAreas.view', 'View Work Areas'],
       ['workAreas.manage', 'Manage Work Areas']
+    ]],
+    ['Security', [
+      ['settings.manage', 'Manage Settings'],
+      ['permissions.manage', 'Manage Permissions']
     ]]
   ];
 
   var DEFAULTS = {
+    Owner: '*',
     Admin: '*',
+    Manager: '*',
     Supervisor: {
-      'settings.view': true, 'settings.managePermissionGroups': false, 'settings.manageNotificationRules': false, 'pub.manage': false,
-      'users.viewList': true, 'users.viewPersonal': false, 'users.viewEmployment': true, 'users.viewTraining': true, 'users.manage': false,
+      'settings.view': true, 'settings.manage': false, 'settings.managePermissionGroups': false, 'settings.manageNotificationRules': false, 'permissions.manage': false, 'pub.manage': false,
+      'users.viewList': true, 'users.viewPersonal': false, 'users.viewEmployment': true, 'users.viewTraining': true, 'users.manage': false, 'users.create': false, 'users.edit': false, 'users.archive': false,
       'premisesDocs.view': true, 'premisesDocs.manage': false, 'premisesDocs.notify': true,
       'staffDocs.viewOwn': true, 'staffDocs.viewAll': true, 'staffDocs.manage': false, 'staffDocs.notify': true,
-      'checks.viewAll': true, 'checks.manage': false, 'checks.notify': true,
-      'rota.view': true, 'rota.manage': false, 'time.clockOwn': true, 'rota.notify': true,
-      'issues.view': true, 'issues.manage': true, 'issues.resolve': true, 'issues.notify': true, 'shopping.manage': true, 'inspection.view': true, 'inspection.export': false,
+      'documents.managePremises': false, 'documents.manageStaff': false, 'documents.uploadOwn': true, 'documents.viewOwn': true, 'documents.viewAll': true,
+      'checks.viewAll': true, 'checks.manage': false, 'checks.create': false, 'checks.complete': true, 'checks.notify': true,
+      'rota.view': true, 'rota.viewOwn': true, 'rota.manage': false, 'time.clockOwn': true, 'rota.notify': true,
+      'issues.view': true, 'issues.manage': true, 'issues.create': true, 'issues.resolve': true, 'issues.notify': true, 'shopping.manage': true, 'inspection.view': true, 'inspection.export': false, 'audit.view': false,
       'workAreas.view': true, 'workAreas.manage': false
     },
     Staff: {
-      'settings.view': false, 'settings.managePermissionGroups': false, 'settings.manageNotificationRules': false, 'pub.manage': false,
-      'users.viewList': true, 'users.viewPersonal': false, 'users.viewEmployment': false, 'users.viewTraining': false, 'users.manage': false,
+      'settings.view': false, 'settings.manage': false, 'settings.managePermissionGroups': false, 'settings.manageNotificationRules': false, 'permissions.manage': false, 'pub.manage': false,
+      'users.viewList': false, 'users.viewPersonal': false, 'users.viewEmployment': false, 'users.viewTraining': false, 'users.manage': false, 'users.create': false, 'users.edit': false, 'users.archive': false,
       'premisesDocs.view': true, 'premisesDocs.manage': false, 'premisesDocs.notify': false,
       'staffDocs.viewOwn': true, 'staffDocs.viewAll': false, 'staffDocs.manage': false, 'staffDocs.notify': false,
-      'checks.viewAll': false, 'checks.manage': false, 'checks.notify': true,
-      'rota.view': true, 'rota.manage': false, 'time.clockOwn': true, 'rota.notify': true,
-      'issues.view': false, 'issues.manage': false, 'issues.resolve': false, 'issues.notify': false, 'shopping.manage': false, 'inspection.view': false, 'inspection.export': false,
+      'documents.managePremises': false, 'documents.manageStaff': false, 'documents.uploadOwn': true, 'documents.viewOwn': true, 'documents.viewAll': false,
+      'checks.viewAll': false, 'checks.manage': false, 'checks.create': false, 'checks.complete': true, 'checks.notify': true,
+      'rota.view': true, 'rota.viewOwn': true, 'rota.manage': false, 'time.clockOwn': true, 'rota.notify': true,
+      'issues.view': false, 'issues.manage': false, 'issues.create': true, 'issues.resolve': false, 'issues.notify': false, 'shopping.manage': false, 'inspection.view': false, 'inspection.export': false, 'audit.view': false,
       'workAreas.view': true, 'workAreas.manage': false
     }
+  };
+
+  var PERMISSION_ALIASES = {
+    'settings.manage': ['settings.manage', 'pub.manage'],
+    'permissions.manage': ['permissions.manage', 'settings.managePermissionGroups'],
+    'users.create': ['users.create', 'users.manage'],
+    'users.edit': ['users.edit', 'users.manage'],
+    'users.archive': ['users.archive', 'users.manage'],
+    'documents.managePremises': ['documents.managePremises', 'premisesDocs.manage'],
+    'documents.manageStaff': ['documents.manageStaff', 'staffDocs.manage'],
+    'documents.uploadOwn': ['documents.uploadOwn', 'staffDocs.viewOwn'],
+    'documents.viewOwn': ['documents.viewOwn', 'staffDocs.viewOwn'],
+    'documents.viewAll': ['documents.viewAll', 'staffDocs.viewAll'],
+    'checks.create': ['checks.create', 'checks.manage'],
+    'checks.complete': ['checks.complete', 'checks.viewAll'],
+    'rota.viewOwn': ['rota.viewOwn', 'rota.view'],
+    'issues.create': ['issues.create', 'issues.view'],
+    'issues.manage': ['issues.manage', 'issues.resolve']
   };
 
   function h(value) {
@@ -277,11 +316,15 @@
 
   window.appPermissionAllows = function (key, user) {
     ensureState();
+    if (!user && window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn() && typeof window.ComplianceFirebase.hasPermission === 'function') {
+      return window.ComplianceFirebase.hasPermission(key);
+    }
     user = user || (typeof me === 'function' ? me() : null);
     if (!user) return false;
     if (namedAdmin(user)) return true;
     var matrix = state.permissionMatrix && state.permissionMatrix[groupOf(user)];
-    return !!(matrix && matrix[key]);
+    var keys = PERMISSION_ALIASES[key] || [key];
+    return !!(matrix && (matrix['*'] === true || keys.some(function (item) { return matrix[item] === true; })));
   };
 
   function allGroups() {

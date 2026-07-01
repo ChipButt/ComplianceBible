@@ -2,8 +2,236 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /pubs/{pubId}/{document=**} {
-      allow read, write: if request.auth != null;
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function setupAdmin() {
+      return signedIn()
+        && (request.auth.token.setupAdmin == true || request.auth.token.complianceSetupAdmin == true);
+    }
+
+    function memberPath(pubId) {
+      return /databases/$(database)/documents/pubs/$(pubId)/members/$(request.auth.uid);
+    }
+
+    function hasMember(pubId) {
+      return signedIn() && exists(memberPath(pubId));
+    }
+
+    function member(pubId) {
+      return get(memberPath(pubId)).data;
+    }
+
+    function activeMember(pubId) {
+      return hasMember(pubId)
+        && member(pubId).active == true
+        && member(pubId).archived != true;
+    }
+
+    function setupAdminAllowed(pubId) {
+      return setupAdmin() && (!hasMember(pubId) || activeMember(pubId));
+    }
+
+    function staffId(pubId) {
+      return member(pubId).staffId;
+    }
+
+    function permissionSetId(pubId) {
+      return member(pubId).permissionSetId == null ? 'Staff' : member(pubId).permissionSetId;
+    }
+
+    function permissionPath(pubId) {
+      return /databases/$(database)/documents/pubs/$(pubId)/permissionSets/$(permissionSetId(pubId));
+    }
+
+    function permissionData(pubId) {
+      return exists(permissionPath(pubId)) && get(permissionPath(pubId)).data.permissions is map
+        ? get(permissionPath(pubId)).data.permissions
+        : {};
+    }
+
+    function fullRole(pubId) {
+      return member(pubId).role in ['Owner', 'Admin', 'Manager'];
+    }
+
+    function hasPermission(pubId, key) {
+      return activeMember(pubId)
+        && (
+          fullRole(pubId)
+          || permissionData(pubId)['*'] == true
+          || permissionData(pubId)[key] == true
+        );
+    }
+
+    function ownsStaff(pubId, targetStaffId) {
+      return activeMember(pubId) && staffId(pubId) == targetStaffId;
+    }
+
+    function unchanged(keys) {
+      return !request.resource.data.diff(resource.data).changedKeys().hasAny(keys);
+    }
+
+    function onlyStaffDocumentGroupPubFields() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['staffDocumentGroups', 'updatedAt', 'updatedBy']);
+    }
+
+    match /pubs/{pubId} {
+      allow create: if setupAdminAllowed(pubId);
+      allow read: if setupAdminAllowed(pubId) || activeMember(pubId);
+      allow update: if hasPermission(pubId, 'settings.manage')
+        || hasPermission(pubId, 'pub.manage')
+        || (
+          onlyStaffDocumentGroupPubFields()
+          && (hasPermission(pubId, 'documents.manageStaff') || hasPermission(pubId, 'staffDocs.manage'))
+        );
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow read: if activeMember(pubId)
+          && (
+            uid == request.auth.uid
+            || hasPermission(pubId, 'users.edit')
+            || hasPermission(pubId, 'users.create')
+            || hasPermission(pubId, 'documents.viewAll')
+            || hasPermission(pubId, 'checks.viewAll')
+          );
+        allow create: if false;
+        allow update: if activeMember(pubId)
+          && hasPermission(pubId, 'users.edit')
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.pubId == resource.data.pubId
+          && request.resource.data.staffId == resource.data.staffId
+          && unchanged(['active', 'archived', 'setupAdmin', 'createdAt', 'createdBy'])
+          && (uid != request.auth.uid || unchanged(['role', 'permissionSetId']));
+        allow delete: if false;
+      }
+
+      match /permissionSets/{permissionSetId} {
+        allow read: if activeMember(pubId);
+        allow create, update: if hasPermission(pubId, 'permissions.manage');
+        allow delete: if hasPermission(pubId, 'permissions.manage')
+          && !(permissionSetId in ['Owner', 'Admin', 'Manager']);
+      }
+
+      match /staff/{targetStaffId} {
+        allow read: if ownsStaff(pubId, targetStaffId)
+          || hasPermission(pubId, 'users.edit')
+          || hasPermission(pubId, 'documents.viewAll')
+          || hasPermission(pubId, 'checks.viewAll')
+          || hasPermission(pubId, 'staffDocs.viewAll');
+        allow create: if false;
+        allow update: if (
+          ownsStaff(pubId, targetStaffId)
+          && unchanged(['authUid', 'role', 'permissionSetId', 'active', 'archived', 'createdAt', 'createdBy'])
+        ) || hasPermission(pubId, 'users.edit');
+        allow delete: if false;
+
+        match /documents/{documentId} {
+          allow read: if (
+            ownsStaff(pubId, targetStaffId)
+            && (
+              hasPermission(pubId, 'documents.viewOwn')
+              || hasPermission(pubId, 'staffDocs.viewOwn')
+              || hasPermission(pubId, 'documents.uploadOwn')
+            )
+          )
+          || hasPermission(pubId, 'documents.viewAll')
+          || hasPermission(pubId, 'documents.manageStaff')
+          || hasPermission(pubId, 'staffDocs.viewAll')
+          || hasPermission(pubId, 'staffDocs.manage');
+          allow create, update: if (
+            ownsStaff(pubId, targetStaffId)
+            && (
+              hasPermission(pubId, 'documents.uploadOwn')
+              || hasPermission(pubId, 'staffDocs.viewOwn')
+            )
+          )
+          || hasPermission(pubId, 'documents.manageStaff')
+          || hasPermission(pubId, 'staffDocs.manage');
+          allow delete: if hasPermission(pubId, 'documents.manageStaff') || hasPermission(pubId, 'staffDocs.manage');
+        }
+      }
+
+      match /premisesDocuments/{documentId} {
+        allow read: if activeMember(pubId);
+        allow create, update, delete: if hasPermission(pubId, 'documents.managePremises') || hasPermission(pubId, 'premisesDocs.manage');
+      }
+
+      match /documentRequirements/{requirementId} {
+        allow read: if activeMember(pubId);
+        allow create, update, delete: if hasPermission(pubId, 'documents.manageStaff')
+          || hasPermission(pubId, 'documents.managePremises')
+          || hasPermission(pubId, 'staffDocs.manage')
+          || hasPermission(pubId, 'premisesDocs.manage');
+      }
+
+      match /workAreas/{workAreaId} {
+        allow read: if activeMember(pubId);
+        allow create, update, delete: if hasPermission(pubId, 'settings.manage')
+          || hasPermission(pubId, 'pub.manage')
+          || hasPermission(pubId, 'workAreas.manage');
+      }
+
+      match /checks/{checkId} {
+        allow read: if activeMember(pubId);
+        allow create, update, delete: if hasPermission(pubId, 'checks.create') || hasPermission(pubId, 'checks.manage');
+      }
+
+      match /checkCompletions/{completionId} {
+        allow read: if activeMember(pubId)
+          && (
+            hasPermission(pubId, 'checks.viewAll')
+            || resource.data.userId == staffId(pubId)
+            || resource.data.createdBy == request.auth.uid
+            || resource.data.updatedBy == request.auth.uid
+          );
+        allow create: if hasPermission(pubId, 'checks.complete')
+          && (
+            hasPermission(pubId, 'checks.viewAll')
+            || request.resource.data.userId == staffId(pubId)
+            || request.resource.data.createdBy == request.auth.uid
+          );
+        allow update: if hasPermission(pubId, 'checks.complete')
+          && (
+            hasPermission(pubId, 'checks.viewAll')
+            || resource.data.userId == staffId(pubId)
+            || resource.data.createdBy == request.auth.uid
+          );
+        allow delete: if hasPermission(pubId, 'checks.viewAll') || hasPermission(pubId, 'checks.manage');
+      }
+
+      match /rota/{shiftId} {
+        allow read: if activeMember(pubId)
+          && (hasPermission(pubId, 'rota.manage') || resource.data.userId == staffId(pubId));
+        allow create, update, delete: if hasPermission(pubId, 'rota.manage');
+      }
+
+      match /issues/{issueId} {
+        allow read: if activeMember(pubId)
+          && (
+            hasPermission(pubId, 'issues.create')
+            || hasPermission(pubId, 'issues.manage')
+            || hasPermission(pubId, 'issues.view')
+            || resource.data.userId == staffId(pubId)
+            || resource.data.createdBy == request.auth.uid
+          );
+        allow create: if hasPermission(pubId, 'issues.create');
+        allow update, delete: if hasPermission(pubId, 'issues.manage') || hasPermission(pubId, 'issues.resolve');
+      }
+
+      match /auditLogs/{logId} {
+        allow read: if hasPermission(pubId, 'audit.view');
+        allow write: if false;
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

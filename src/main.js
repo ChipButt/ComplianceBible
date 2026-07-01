@@ -11,45 +11,22 @@ const today = () => new Date().toISOString().slice(0, 10);
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const defaults = {
-  pub: { name: 'The Compliance Arms', licence: 'PREM-0001', dps: 'Manager Name', address: '1 High Street, Your Town' },
-  currentUser: 'u1',
-  users: [
-    { id: 'u1', name: 'Admin Manager', nickname: 'Admin', role: 'Admin', area: 'Office', email: 'admin@example.com' },
-    { id: 'u2', name: 'Bar Supervisor', nickname: 'Bar Sup', role: 'Supervisor', area: 'Bar', email: 'bar@example.com' },
-    { id: 'u3', name: 'Kitchen Team', nickname: 'Kitchen', role: 'Staff', area: 'Kitchen', email: 'kitchen@example.com' }
-  ],
-  areas: ['Bar', 'Kitchen', 'Cellar', 'Toilets', 'Beer Garden', 'Office', 'FOH'],
-  docs: [
-    ['Licensing', 'Premises licence'],
-    ['Licensing', 'Premises licence summary'],
-    ['Food Safety', 'HACCP / SFBB pack'],
-    ['Fire Safety', 'Fire risk assessment'],
-    ['Health & Safety', 'General risk assessment'],
-    ['Equipment', 'Gas safety certificate']
-  ].map(([cat, title]) => ({ id: uid(), cat, title, status: 'Missing', expiry: '', notes: 'Add record, expiry date and storage location.' })),
-  checks: [
-    { id: 'open', title: 'Opening Checks', area: 'Whole Pub', freq: 'Daily', due: '10:00', sign: true, items: ['Fire exits clear', 'Toilets clean and stocked', 'Bar ready', 'First aid kit present', 'No obvious hazards', 'Fridges checked'] },
-    { id: 'clean', title: 'Cleaning Schedule', area: 'Whole Pub', freq: 'Daily', due: '16:00', items: ['Bar surfaces sanitised', 'Tables wiped', 'Toilets checked', 'Bins checked'] },
-    { id: 'close', title: 'Closing Checks', area: 'Whole Pub', freq: 'Daily', due: '23:59', sign: true, items: ['Appliances off where required', 'Fridges/freezers shut', 'Waste removed', 'Doors/windows secure', 'Incidents logged', 'Alarm set'] },
-    { id: 'fire', title: 'Weekly Fire Alarm Test', area: 'Whole Pub', freq: 'Weekly', due: '12:00', sign: true, items: ['Call point tested', 'Alarm sounded', 'Panel reset', 'Faults reported'] },
-    { id: 'cellar', title: 'Cellar Safety Check', area: 'Cellar', freq: 'Weekly', due: '15:00', items: ['Access clear', 'CO2 safety signage visible', 'Gas cylinders secure', 'Temperature acceptable', 'Leaks or hazards checked'] }
-  ],
+  pub: { name: '', licence: '', dps: '', address: '' },
+  currentUser: '',
+  users: [],
+  areas: [],
+  docs: [],
+  checks: [],
   done: [],
   temps: [],
   logs: [],
-  training: [
-    { id: uid(), userId: 'u1', course: 'Challenge 25', status: 'Valid', expiry: '2026-12-31', evidence: 'Signed policy acknowledgement' },
-    { id: uid(), userId: 'u2', course: 'Food Hygiene', status: 'Due Soon', expiry: '2026-07-31', evidence: 'Certificate needed' },
-    { id: uid(), userId: 'u3', course: 'Allergen Awareness', status: 'Missing', expiry: '', evidence: 'Training not yet recorded' }
-  ],
-  issues: [
-    { id: uid(), title: 'Example: replace missing wet-floor sign', area: 'Bar', severity: 'Medium', status: 'Open', notes: 'Demo issue - edit or resolve.', created: new Date().toISOString() }
-  ],
+  training: [],
+  issues: [],
   trainingDocs: [],
   userRequiredDocuments: [],
   rotaSettings: {
-    source: 'Pending integration with existing Rota App',
-    sections: ['Kitchen', 'FOH', 'Office', 'WFH', 'Housekeeping', 'KP']
+    source: 'Firebase structured pub setup',
+    sections: []
   },
   documentCategories: ['Licensing', 'Food Safety', 'Fire Safety', 'Health & Safety', 'Staff', 'Equipment'],
   permissionMatrix: {
@@ -133,7 +110,10 @@ window.ComplianceApp = {
   currentUser: () => me()
 };
 function esc(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
-function user(id) { return state.users.find(u => u.id === id) || state.users[0]; }
+function fallbackSetupUser() {
+  return { id: 'setup-local', name: 'Setup Admin', nickname: 'Setup', role: 'Admin', permissionSetId: 'Admin', area: '', email: '' };
+}
+function user(id) { return state.users.find(u => u.id === id) || state.users[0] || fallbackSetupUser(); }
 function me() { return user(state.currentUser); }
 function done(checkId) { return state.done.find(c => c.checkId === checkId && c.date === today()); }
 function dueDT(check) { const [h, m] = check.due.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d; }
@@ -220,12 +200,26 @@ function ensureExtendedState() {
 function isAdminUser() {
   const current = me();
   if (!current) return false;
+  if (window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn() && typeof window.ComplianceFirebase.hasPermission === 'function') {
+    return [
+      'settings.manage',
+      'permissions.manage',
+      'users.create',
+      'users.edit',
+      'documents.managePremises',
+      'documents.manageStaff',
+      'checks.create',
+      'rota.manage',
+      'issues.manage',
+      'audit.view'
+    ].some(key => window.ComplianceFirebase.hasPermission(key));
+  }
   if (isNamedAdminUser(current)) return true;
   const role = String(current.role || '').toLowerCase();
   if (role.includes('admin') || role.includes('supervisor') || role.includes('manager')) return true;
   const setName = current.permissionSetId || current.role || 'Staff';
   const permissions = state.permissionMatrix?.[setName];
-  if (permissions?.settings === true) return true;
+  if (permissions?.['*'] === true || permissions?.settings === true || permissions?.['settings.manage'] === true || permissions?.['pub.manage'] === true || permissions?.['permissions.manage'] === true || permissions?.['users.edit'] === true || permissions?.['documents.managePremises'] === true || permissions?.['checks.create'] === true || permissions?.['rota.manage'] === true) return true;
   const setLower = String(setName || '').toLowerCase();
   return setLower.includes('admin') || setLower.includes('supervisor') || setLower.includes('manager');
 }
@@ -373,7 +367,7 @@ function logList() {
 }
 function staff() {
   const courses = ['Food Hygiene', 'Allergen Awareness', 'Fire Safety', 'Challenge 25', 'Manual Handling'];
-  return `<section class="grid two"><article class="card"><h2>Staff</h2>${state.users.map(u => `<div class="staffCard"><strong>${esc(u.nickname)}</strong><span>${esc(u.name)} · ${esc(u.role)} · ${esc(u.area)}</span><small>${esc(u.email || '')}</small></div>`).join('')}</article><article class="card"><h2>Add staff member</h2><form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown internally" required><input name="email" type="email" placeholder="Email"><select name="role"><option>Staff</option><option>Supervisor</option><option>Admin</option></select><select name="area">${state.areas.map(a => `<option>${esc(a)}</option>`).join('')}</select><button class="primary">Add staff</button></form></article></section><section class="card"><h2>Training matrix</h2><div class="tableWrap"><table><thead><tr><th>Staff</th>${courses.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${state.users.map(u => `<tr><td>${esc(u.nickname)}</td>${courses.map(course => { const t = state.training.find(x => x.userId === u.id && x.course === course); return `<td>${t ? badge(t.status, t.status === 'Valid' ? 'ok' : 'warn') : badge('Missing', 'danger')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div><h3>Add training record</h3><form id="trainingForm" class="inlineForm"><select name="userId">${state.users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status"><option>Valid</option><option>Due Soon</option><option>Missing</option></select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form></section>`;
+  return `<section class="grid two"><article class="card"><h2>Staff</h2>${state.users.map(u => `<div class="staffCard"><strong>${esc(u.nickname)}</strong><span>${esc(u.name)} · ${esc(u.role)} · ${esc(u.area)}</span><small>${esc(u.email || '')}</small></div>`).join('')}</article><article class="card"><h2>Add staff member</h2><form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown internally" required><input name="email" type="email" placeholder="Email" required><input name="temporaryPassword" type="password" placeholder="Temporary password" autocomplete="new-password" minlength="6" required><select name="role">${optionList(['Staff', 'Supervisor', 'Manager', 'Admin', 'Owner'], 'Staff')}</select><select name="area">${state.areas.map(a => `<option>${esc(a)}</option>`).join('')}</select><button class="primary">Add staff</button></form></article></section><section class="card"><h2>Training matrix</h2><div class="tableWrap"><table><thead><tr><th>Staff</th>${courses.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${state.users.map(u => `<tr><td>${esc(u.nickname)}</td>${courses.map(course => { const t = state.training.find(x => x.userId === u.id && x.course === course); return `<td>${t ? badge(t.status, t.status === 'Valid' ? 'ok' : 'warn') : badge('Missing', 'danger')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div><h3>Add training record</h3><form id="trainingForm" class="inlineForm"><select name="userId">${state.users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status"><option>Valid</option><option>Due Soon</option><option>Missing</option></select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form></section>`;
 }
 
 function inspectRequirements() {
@@ -609,7 +603,7 @@ function settingsUsers() {
   return `<h2>User profile setup</h2>
   <div class="grid cards">${state.users.map(userProfileCard).join('')}</div>
   <h3>Add user</h3>
-  <form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown on rota/checks" required><input name="email" type="email" placeholder="Email"><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'])}</select><select name="area">${optionList(state.areas)}</select><button class="primary">Add user</button></form>
+  <form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown on rota/checks" required><input name="email" type="email" placeholder="Email" required><input name="temporaryPassword" type="password" placeholder="Temporary password" autocomplete="new-password" minlength="6" required><select name="role">${optionList(['Staff', 'Supervisor', 'Manager', 'Admin', 'Owner'])}</select><select name="area">${optionList(state.areas)}</select><button class="primary">Add user</button></form>
   <h3>Add training record</h3>
   <form id="trainingForm" class="inlineForm"><select name="userId">${state.users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status">${optionList(['Valid', 'Due Soon', 'Missing'])}</select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form>`;
 }
@@ -682,7 +676,24 @@ function bind() {
   on('tempForm', e => { const d = fd(e); const r = Number(d.reading); state.temps.push({ id: uid(), unit: d.unit, reading: r, action: d.action, status: r > 8 || r < -30 ? 'Check' : 'OK', userId: state.currentUser, created: new Date().toISOString() }); save(); render(); });
   on('logForm', e => { const d = fd(e); state.logs.push({ id: uid(), type: d.type, summary: d.summary, details: d.details, userId: state.currentUser, created: new Date().toISOString() }); save(); render(); });
   on('issueForm', e => { const d = fd(e); state.issues.push({ id: uid(), title: d.title, area: d.area, severity: d.severity, status: 'Open', notes: d.notes, created: new Date().toISOString() }); save(); render(); });
-  on('staffForm', e => { const d = fd(e); state.users.push({ id: uid(), name: d.name, nickname: d.nickname, email: d.email, role: d.role, area: d.area }); save(); render(); });
+  on('staffForm', e => {
+    const d = fd(e);
+    if (window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn() && typeof window.ComplianceFirebase.createPubUser === 'function') {
+      window.ComplianceFirebase.createPubUser({
+        email: d.email,
+        temporaryPassword: d.temporaryPassword,
+        displayName: d.name,
+        role: d.role,
+        permissionSetId: d.role,
+        workAreaIds: d.area ? [d.area] : [],
+        staffProfile: { name: d.name, nickname: d.nickname, email: d.email, role: d.role, area: d.area, jobArea: d.area }
+      }).catch(error => alert(error && error.message || 'Could not create Firebase user.'));
+      return;
+    }
+    state.users.push({ id: uid(), name: d.name, nickname: d.nickname, email: d.email, role: d.role, area: d.area });
+    save();
+    render();
+  });
   on('trainingForm', e => { const d = fd(e); const existing = state.training.find(t => t.userId === d.userId && t.course === d.course); existing ? Object.assign(existing, d) : state.training.push({ id: uid(), ...d }); save(); render(); });
   on('areaForm', e => { const d = fd(e); if (d.area && !state.areas.includes(d.area)) state.areas.push(d.area); save(); render(); });
   document.querySelectorAll('[data-delete-area]').forEach(b => b.onclick = () => { state.areas = state.areas.filter(a => a !== b.dataset.deleteArea); save(); render(); });
@@ -740,7 +751,7 @@ function openUserEditor(id) {
   const u = state.users.find(x => x.id === id);
   if (!u) return;
   modalRoot.innerHTML = `<div class="modalCard"><button class="close" id="closeModal">×</button><h2>Edit user profile</h2>
-    <form id="editUserForm" class="stack"><input name="name" value="${esc(u.name)}" required><input name="nickname" value="${esc(u.nickname)}" required><input name="email" value="${esc(u.email || '')}"><select name="role">${optionList(['Staff', 'Supervisor', 'Admin'], u.role)}</select><select name="area">${optionList(state.areas, u.area)}</select><button class="primary">Save user profile</button></form>
+    <form id="editUserForm" class="stack"><input name="name" value="${esc(u.name)}" required><input name="nickname" value="${esc(u.nickname)}" required><input name="email" value="${esc(u.email || '')}"><select name="role">${optionList(['Staff', 'Supervisor', 'Manager', 'Admin', 'Owner'], u.role)}</select><select name="area">${optionList(state.areas, u.area)}</select><button class="primary">Save user profile</button></form>
     <h3>Add training document record</h3><form id="trainingDocForm" class="stack"><input name="title" placeholder="Document title e.g. Food Hygiene Certificate" required><textarea name="note" placeholder="Upload/link note for now. Real file upload comes with backend storage."></textarea><button class="primary">Add training document record</button></form>
   </div>`;
   modalRoot.classList.remove('hidden');

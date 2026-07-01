@@ -2,8 +2,121 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function memberPath(pubId) {
+      return /databases/(default)/documents/pubs/$(pubId)/members/$(request.auth.uid);
+    }
+
+    function hasMember(pubId) {
+      return signedIn() && firestore.exists(memberPath(pubId));
+    }
+
+    function member(pubId) {
+      return firestore.get(memberPath(pubId)).data;
+    }
+
+    function activeMember(pubId) {
+      return hasMember(pubId)
+        && member(pubId).active == true
+        && member(pubId).archived != true;
+    }
+
+    function staffId(pubId) {
+      return member(pubId).staffId;
+    }
+
+    function permissionSetId(pubId) {
+      return member(pubId).permissionSetId == null ? 'Staff' : member(pubId).permissionSetId;
+    }
+
+    function permissionPath(pubId) {
+      return /databases/(default)/documents/pubs/$(pubId)/permissionSets/$(permissionSetId(pubId));
+    }
+
+    function permissionData(pubId) {
+      return firestore.exists(permissionPath(pubId)) && firestore.get(permissionPath(pubId)).data.permissions is map
+        ? firestore.get(permissionPath(pubId)).data.permissions
+        : {};
+    }
+
+    function fullRole(pubId) {
+      return member(pubId).role in ['Owner', 'Admin', 'Manager'];
+    }
+
+    function hasPermission(pubId, key) {
+      return activeMember(pubId)
+        && (
+          fullRole(pubId)
+          || permissionData(pubId)['*'] == true
+          || permissionData(pubId)[key] == true
+        );
+    }
+
+    function ownsStaff(pubId, targetStaffId) {
+      return activeMember(pubId) && staffId(pubId) == targetStaffId;
+    }
+
+    function validUpload() {
+      return request.resource != null && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    match /pubs/{pubId}/staff/{targetStaffId}/documents/{documentId}/{fileName} {
+      allow read: if (
+        ownsStaff(pubId, targetStaffId)
+        && (
+          hasPermission(pubId, 'documents.viewOwn')
+          || hasPermission(pubId, 'documents.uploadOwn')
+          || hasPermission(pubId, 'staffDocs.viewOwn')
+        )
+      )
+      || hasPermission(pubId, 'documents.viewAll')
+      || hasPermission(pubId, 'documents.manageStaff')
+      || hasPermission(pubId, 'staffDocs.viewAll')
+      || hasPermission(pubId, 'staffDocs.manage');
+
+      allow create, update: if validUpload()
+        && (
+          (
+            ownsStaff(pubId, targetStaffId)
+            && (
+              hasPermission(pubId, 'documents.uploadOwn')
+              || hasPermission(pubId, 'staffDocs.viewOwn')
+            )
+          )
+          || hasPermission(pubId, 'documents.manageStaff')
+          || hasPermission(pubId, 'staffDocs.manage')
+        );
+
+      allow delete: if hasPermission(pubId, 'documents.manageStaff') || hasPermission(pubId, 'staffDocs.manage');
+    }
+
+    match /pubs/{pubId}/premisesDocuments/{documentId}/{fileName} {
+      allow read: if activeMember(pubId);
+      allow create, update: if validUpload()
+        && (hasPermission(pubId, 'documents.managePremises') || hasPermission(pubId, 'premisesDocs.manage'));
+      allow delete: if hasPermission(pubId, 'documents.managePremises') || hasPermission(pubId, 'premisesDocs.manage');
+    }
+
+    match /pubs/{pubId}/checkCompletions/{completionId}/{fileName} {
+      allow read: if activeMember(pubId)
+        && (
+          hasPermission(pubId, 'checks.complete')
+          || hasPermission(pubId, 'checks.viewAll')
+          || hasPermission(pubId, 'checks.manage')
+        );
+      allow create, update: if validUpload() && hasPermission(pubId, 'checks.complete');
+      allow delete: if hasPermission(pubId, 'checks.viewAll') || hasPermission(pubId, 'checks.manage');
+    }
+
     match /pubs/{pubId}/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
