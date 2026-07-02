@@ -7,6 +7,8 @@
   const openCards = {};
   const editCards = {};
   const selectedDocFilters = new Set();
+  const thumbCache = {};
+  const thumbPending = {};
   const baseFilterLabels = ['Premises documents','Staff documents','Licensing','Food Safety','Fire Safety','Health & Safety','Staff','Equipment','Allergen Awareness','Food Hygiene','Challenge 25','Right to Work'];
 
   const icon = {
@@ -180,9 +182,56 @@
   function thumb(record) {
     if (!hasEvidence(record)) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
     const key = recordLookupKey(record);
-    if (record.imageId && !record.fileData) return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(key) + '">Photo uploaded</button>';
-    if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(key) + '"><img src="' + record.fileData + '" alt="Document preview"></button>';
+    if (record.imageId && !record.fileData) {
+      const cached = thumbCache[record.imageId];
+      if (cached) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(key) + '" data-fdoc-thumb-image-id="' + esc(record.imageId) + '"><img src="' + esc(cached) + '" alt="Document preview"></button>';
+      return '<button type="button" class="fdocThumb file fdocThumbLoading" data-fdoc-thumb="' + esc(key) + '" data-fdoc-thumb-image-id="' + esc(record.imageId) + '">Loading photo...</button>';
+    }
+    if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(key) + '"><img src="' + esc(record.fileData) + '" alt="Document preview"></button>';
     return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(key) + '">DOC</button>';
+  }
+
+  function setThumbPreview(button, dataUrl) {
+    if (!button || !dataUrl) return;
+    button.classList.remove('file', 'fdocThumbLoading', 'fdocThumbFailed');
+    button.textContent = '';
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.alt = 'Document preview';
+    button.appendChild(img);
+  }
+
+  function hydrateThumbButton(button) {
+    const imageId = button && button.dataset && button.dataset.fdocThumbImageId;
+    if (!imageId) return;
+    if (thumbCache[imageId]) {
+      setThumbPreview(button, thumbCache[imageId]);
+      return;
+    }
+    if (thumbPending[imageId]) return;
+    if (!window.ComplianceFirebase || typeof window.ComplianceFirebase.resolveImage !== 'function') {
+      button.textContent = 'Photo uploaded';
+      return;
+    }
+    thumbPending[imageId] = true;
+    window.ComplianceFirebase.resolveImage(imageId).then(result => {
+      const dataUrl = result && result.dataUrl;
+      if (!dataUrl) throw new Error('No image available.');
+      thumbCache[imageId] = dataUrl;
+      document.querySelectorAll('[data-fdoc-thumb-image-id]').forEach(item => {
+        if (item.dataset.fdocThumbImageId === imageId) setThumbPreview(item, dataUrl);
+      });
+    }).catch(() => {
+      button.classList.remove('fdocThumbLoading');
+      button.classList.add('fdocThumbFailed');
+      button.textContent = 'Photo uploaded';
+    }).finally(() => {
+      delete thumbPending[imageId];
+    });
+  }
+
+  function hydrateThumbs(root) {
+    (root || document).querySelectorAll('[data-fdoc-thumb-image-id]').forEach(hydrateThumbButton);
   }
 
   function docCategoryOptions(selected) {
@@ -402,6 +451,7 @@
       if (article) article.classList.toggle('open', isOpen);
       if (panel) panel.classList.toggle('closed', !isOpen);
       btn.setAttribute('aria-expanded', String(isOpen));
+      if (isOpen && article) hydrateThumbs(article);
     });
     scope.querySelectorAll('[data-fdoc-edit]').forEach(btn => btn.onclick = event => {
       event.preventDefault();
@@ -427,6 +477,7 @@
       if (!btn.dataset.fdocThumb) return;
       viewer(findRecordByLookupKey(btn.dataset.fdocThumb));
     });
+    hydrateThumbs(scope);
     scope.querySelectorAll('[data-fdoc-edit-form]').forEach(form => {
       const article = form.closest('.fdoc');
       if (!article || article.dataset.fdocKind !== 'premises') return;
