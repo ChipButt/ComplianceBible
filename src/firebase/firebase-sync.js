@@ -221,6 +221,33 @@
     return localStorage.getItem(SHOW_SYSTEM_USERS_KEY) === 'true' && hasPermission('users.edit');
   }
 
+  function isSystemRecord(record) {
+    return !!(record && (record.hidden === true || record.setupAdmin === true));
+  }
+
+  function staffRecordById(staffId) {
+    var id = String(staffId || '');
+    return remote.staff.find(function (staff) {
+      return staff && (String(staff.id || '') === id || String(staff.authUid || '') === id || String(staff.memberUid || '') === id || String(staff.uid || '') === id);
+    }) || null;
+  }
+
+  function normalizeStaffId(value) {
+    var raw = String(value || currentStaffId() || '').trim();
+    if (!raw) return '';
+    var staff = staffRecordById(raw);
+    if (staff && staff.id) return safeSegment(staff.id);
+    if (remote.member && (remote.member.uid === raw || remote.member.staffId === raw)) return safeSegment(remote.member.staffId || raw);
+    return safeSegment(raw);
+  }
+
+  function includeStaffDocumentOwner(staffId) {
+    if (showSystemUsers()) return true;
+    var staff = staffRecordById(staffId);
+    var currentMember = remote.member && (remote.member.staffId === staffId || remote.member.uid === staffId) ? remote.member : null;
+    return !isSystemRecord(staff) && !isSystemRecord(currentMember);
+  }
+
   function fullAdminCountFromUsers(users) {
     var seen = {};
     var count = 0;
@@ -403,6 +430,9 @@
   function refreshStaffDocumentListeners() {
     var allowedAll = hasPermission('documents.viewAll') || hasPermission('documents.manageStaff');
     var staffIds = allowedAll ? remote.staff.map(function (item) { return item.id; }) : [currentStaffId()];
+    staffIds = staffIds.map(normalizeStaffId).filter(function (staffId, index, list) {
+      return !!staffId && list.indexOf(staffId) === index && includeStaffDocumentOwner(staffId);
+    });
     staffIds.filter(Boolean).forEach(function (staffId) {
       if (staffDocUnsubscribers[staffId]) return;
       var ref = services.collection(services.db, 'pubs', pubId(), 'staff', staffId, 'documents');
@@ -548,11 +578,27 @@
   }
 
   function flattenStaffDocuments() {
-    return Object.keys(remote.staffDocuments).reduce(function (all, staffId) {
-      return all.concat((remote.staffDocuments[staffId] || []).map(function (doc) {
-        return Object.assign({}, doc, { id: doc.id, userId: staffId });
-      }));
-    }, []);
+    var byKey = {};
+    Object.keys(remote.staffDocuments).forEach(function (staffId) {
+      if (!includeStaffDocumentOwner(staffId)) return;
+      (remote.staffDocuments[staffId] || []).forEach(function (doc) {
+        var documentId = safeSegment(doc.requirementId || doc.documentId || doc.id || stableId([staffId, doc.title || 'staff-document'].join('-'), 'staff-document'));
+        var record = Object.assign({}, doc, {
+          id: documentId,
+          documentId: documentId,
+          requirementId: doc.requirementId || doc.documentId || documentId,
+          userId: staffId,
+          staffId: staffId,
+          recordKey: staffId + '|' + documentId
+        });
+        var key = staffId + '|' + String(record.requirementId || documentId);
+        var existing = byKey[key];
+        var recordHasEvidence = !!(record.imageId || record.fileData || record.fileUrl);
+        var existingHasEvidence = !!(existing && (existing.imageId || existing.fileData || existing.fileUrl));
+        if (!existing || (recordHasEvidence && !existingHasEvidence) || String(record.updatedAt || record.uploadedAt || '') > String(existing.updatedAt || existing.uploadedAt || '')) byKey[key] = record;
+      });
+    });
+    return Object.keys(byKey).map(function (key) { return byKey[key]; });
   }
 
   function flattenTraining() {
@@ -668,11 +714,15 @@
 
   function writeStaffDocuments(batch, records, allowAllStaff) {
     (Array.isArray(records) ? records : []).forEach(function (record) {
-      var targetStaffId = safeSegment(record.userId || record.staffId || currentStaffId());
+      var targetStaffId = normalizeStaffId(record.userId || record.staffId || currentStaffId());
       if (!allowAllStaff && targetStaffId !== currentStaffId()) return;
-      var id = record.id || record.requirementId || stableId([targetStaffId, record.title || record.requirementId || 'staff-document'].join('-'), 'staff-document');
+      if (!includeStaffDocumentOwner(targetStaffId)) return;
+      var rawId = record.requirementId || record.documentId || (String(record.id || '').indexOf('|') === -1 ? record.id : '') || stableId([targetStaffId, record.title || 'staff-document'].join('-'), 'staff-document');
+      var id = safeSegment(rawId);
       batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', targetStaffId, 'documents', id), clean(Object.assign({}, firestoreEvidenceRecord(record), {
         id: id,
+        documentId: id,
+        requirementId: record.requirementId || record.documentId || id,
         userId: targetStaffId,
         staffId: targetStaffId,
         updatedAt: services.serverTimestamp(),
@@ -1453,6 +1503,7 @@
     showSystemUsers: showSystemUsers,
     setShowSystemUsers: function (value) {
       localStorage.setItem(SHOW_SYSTEM_USERS_KEY, value ? 'true' : 'false');
+      refreshStaffDocumentListeners();
       rebuildLocalState();
     },
     refreshLocalState: rebuildLocalState,

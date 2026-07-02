@@ -19,6 +19,18 @@
     return text.indexOf('chip') !== -1 || text.indexOf('vicky') !== -1 || text.indexOf('rihanna') !== -1;
   }
 
+  function isSystemUser(user) {
+    return !!(user && (user.hidden === true || user.setupAdmin === true));
+  }
+
+  function showSystemUsers() {
+    return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers());
+  }
+
+  function userById(id) {
+    return (state.users || []).find(function (user) { return user.id === id; }) || null;
+  }
+
   function hasPermission(key) {
     var u = currentUser();
     if (!u) return false;
@@ -45,7 +57,10 @@
       function hasEvidence(d) { return !!(d && (d.imageId || d.fileData || d.fileUrl)); }
       var shared = hasPermission('documents') ? (state.docs || []).filter(function (d) { return d.status !== 'Stored' && !hasEvidence(d); }).length : 0;
       var personal = (state.userRequiredDocuments || []).filter(function (d) {
+        var owner = userById(d && d.userId);
+        if (owner && isSystemUser(owner) && !showSystemUsers()) return false;
         if (!hasPermission('documents') && u && d.userId !== u.id) return false;
+        if (u && isSystemUser(u) && !showSystemUsers() && d.userId === u.id) return false;
         return !(hasEvidence(d) && (d.noExpiry || d.expiryDate || d.expiry));
       }).length;
       return shared + personal;

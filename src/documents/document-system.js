@@ -37,6 +37,14 @@
   }
   function norm(value) { return String(value || '').trim().toLowerCase(); }
   function group(user) { return user.jobArea || user.area || user.role || user.permissionSetId || 'FOH'; }
+  function isSystemUser(user) { return !!(user && (user.hidden === true || user.setupAdmin === true)); }
+  function showSystemUsers() {
+    return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers());
+  }
+  function staffUsers() {
+    const users = Array.isArray(state.users) ? state.users : [];
+    return showSystemUsers() ? users : users.filter(user => !isSystemUser(user));
+  }
   function userGroupKeys(user) {
     return new Set([user.jobArea, user.area, user.role, user.permissionSetId, 'Staff', 'All staff'].map(norm).filter(Boolean));
   }
@@ -57,7 +65,7 @@
     if (!file) return done(null);
     if (window.ComplianceFirebase && typeof window.ComplianceFirebase.uploadFile === 'function') {
       window.ComplianceFirebase.uploadFile(file, options || { folder: 'documents' }).then(done).catch(error => {
-        alert(error && error.message || 'Upload failed.');
+        alert(error && error.message || 'Upload failed. Check connection.');
         done(null);
       });
       return;
@@ -113,9 +121,30 @@
     }
     return Promise.reject(new Error('No document uploaded'));
   }
+  function staffDocKey(userId, reqId) { return String(userId || '') + '|' + String(reqId || ''); }
+  function recordRequirementId(record) { return String(record?.requirementId || record?.documentId || record?.id || ''); }
+  function recordLookupKey(record) {
+    if (!record) return '';
+    const staffId = record.userId || record.staffId;
+    if (staffId) return staffDocKey(staffId, recordRequirementId(record));
+    return String(record.id || '');
+  }
+  function findRecordByLookupKey(key) {
+    return allRecords().find(record => recordLookupKey(record) === key || (!record?.userId && String(record?.id || '') === key));
+  }
   function getUserRecord(userId, reqId) {
-    let r = userDocs().find(x => x.userId === userId && x.requirementId === reqId);
-    if (!r) { r = { id: uidx(), userId, requirementId: reqId }; userDocs().push(r); }
+    let r = userDocs().find(x => String(x.userId || x.staffId || '') === String(userId) && String(x.requirementId || x.documentId || x.id || '') === String(reqId));
+    if (!r) {
+      r = { id: reqId, documentId: reqId, userId, staffId: userId, requirementId: reqId, recordKey: staffDocKey(userId, reqId) };
+      userDocs().push(r);
+    } else {
+      r.id = reqId;
+      r.documentId = reqId;
+      r.userId = userId;
+      r.staffId = userId;
+      r.requirementId = reqId;
+      r.recordKey = staffDocKey(userId, reqId);
+    }
     return r;
   }
   function getRecord(kind, key) {
@@ -150,9 +179,10 @@
   function allRecords() { return (state.docs || []).concat(state.userRequiredDocuments || []); }
   function thumb(record) {
     if (!hasEvidence(record)) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
-    if (record.imageId && !record.fileData) return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(record.id) + '">Photo uploaded</button>';
-    if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(record.id) + '"><img src="' + record.fileData + '" alt="Document preview"></button>';
-    return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(record.id) + '">DOC</button>';
+    const key = recordLookupKey(record);
+    if (record.imageId && !record.fileData) return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(key) + '">Photo uploaded</button>';
+    if (image(record)) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(key) + '"><img src="' + record.fileData + '" alt="Document preview"></button>';
+    return '<button type="button" class="fdocThumb file" data-fdoc-thumb="' + esc(key) + '">DOC</button>';
   }
 
   function docCategoryOptions(selected) {
@@ -227,7 +257,7 @@
   }
   function allStaffItems() {
     const out = [];
-    (state.users || []).forEach(user => reqs().forEach(req => {
+    staffUsers().forEach(user => reqs().forEach(req => {
       const required = requirementAppliesToUser(req, user);
       const existing = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
       if (!required && !existing) return;
@@ -290,7 +320,7 @@
     }).join('');
   }
   function staffItemsForRequirement(req) {
-    const users = (state.users || []).slice().sort((a, b) => staffName(a).localeCompare(staffName(b)));
+    const users = staffUsers().slice().sort((a, b) => staffName(a).localeCompare(staffName(b)));
     return users.map(user => {
       const required = requirementAppliesToUser(req, user);
       const existing = userDocs().find(x => x.userId === user.id && x.requirementId === req.id);
@@ -392,7 +422,11 @@
     });
     scope.querySelectorAll('[data-fdoc-noexpiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.noExpiry = input.checked; if (input.checked) { r.expiryDate = ''; r.expiry = ''; } saveNow(); render(); });
     scope.querySelectorAll('[data-fdoc-expiry]').forEach(input => input.onchange = () => { const article = input.closest('.fdoc'); const r = getRecord(article.dataset.fdocKind, article.dataset.fdocKey); r.expiryDate = input.value; r.expiry = input.value; r.noExpiry = false; saveNow(); render(); });
-    scope.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => { e.stopPropagation(); viewer(allRecords().find(r => r.id === btn.dataset.fdocThumb)); });
+    scope.querySelectorAll('[data-fdoc-thumb]').forEach(btn => btn.onclick = e => {
+      e.stopPropagation();
+      if (!btn.dataset.fdocThumb) return;
+      viewer(findRecordByLookupKey(btn.dataset.fdocThumb));
+    });
     scope.querySelectorAll('[data-fdoc-edit-form]').forEach(form => {
       const article = form.closest('.fdoc');
       if (!article || article.dataset.fdocKind !== 'premises') return;

@@ -90,6 +90,10 @@
     return !!(shift.publishedAt || (week && Array.isArray(week.shiftIds) && week.shiftIds.includes(shift.id)));
   }
 
+  function isSystemUser(user) {
+    return !!(user && (user.hidden === true || user.setupAdmin === true));
+  }
+
   function alertId() {
     return 'alert_' + Math.random().toString(36).slice(2, 9);
   }
@@ -178,7 +182,7 @@
     var user = (state.users || []).find(function findUser(candidate) {
       return candidate.id === shift.userId;
     });
-    if (!user || !user.email) return false;
+    if (!user || isSystemUser(user) || !user.email) return false;
     state.alerts = state.alerts || [];
     state.alerts.push({
       id: alertId(),
@@ -208,7 +212,7 @@
     var payload = {
       weekStart: weekStart,
       publishedAt: publishedAt,
-      users: (state.users || []).map(function pushUser(user) {
+      users: (state.users || []).filter(function visiblePushUser(user) { return !isSystemUser(user); }).map(function pushUser(user) {
         return {
           id: user.id,
           name: user.name || '',

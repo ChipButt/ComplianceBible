@@ -115,6 +115,14 @@ function fallbackSetupUser() {
 }
 function user(id) { return state.users.find(u => u.id === id) || state.users[0] || fallbackSetupUser(); }
 function me() { return user(state.currentUser); }
+function isSystemStaffUser(userRecord) { return !!(userRecord && (userRecord.hidden === true || userRecord.setupAdmin === true)); }
+function showSystemStaffUsers() {
+  return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers());
+}
+function visibleStaffUsers() {
+  const users = Array.isArray(state.users) ? state.users : [];
+  return showSystemStaffUsers() ? users : users.filter(userRecord => !isSystemStaffUser(userRecord));
+}
 function done(checkId) { return state.done.find(c => c.checkId === checkId && c.date === today()); }
 function dueDT(check) { const [h, m] = check.due.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d; }
 function overdue(check) { return !done(check.id) && new Date() > dueDT(check); }
@@ -331,7 +339,7 @@ function actions() {
   const items = [];
   state.checks.filter(overdue).forEach(c => items.push('Overdue: ' + c.title));
   state.docs.filter(d => d.status !== 'Stored').slice(0, 4).forEach(d => items.push('Document needed: ' + d.title));
-  state.training.filter(t => t.status !== 'Valid').forEach(t => items.push('Training: ' + user(t.userId).nickname + ' · ' + t.course));
+  state.training.filter(t => t.status !== 'Valid' && visibleStaffUsers().some(u => u.id === t.userId)).forEach(t => items.push('Training: ' + user(t.userId).nickname + ' · ' + t.course));
   return items.length ? `<ul class="plainList">${items.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted">No urgent actions.</p>';
 }
 function activity() {
@@ -367,7 +375,8 @@ function logList() {
 }
 function staff() {
   const courses = ['Food Hygiene', 'Allergen Awareness', 'Fire Safety', 'Challenge 25', 'Manual Handling'];
-  return `<section class="grid two"><article class="card"><h2>Staff</h2>${state.users.map(u => `<div class="staffCard"><strong>${esc(u.nickname)}</strong><span>${esc(u.name)} · ${esc(u.role)} · ${esc(u.area)}</span><small>${esc(u.email || '')}</small></div>`).join('')}</article><article class="card"><h2>Add staff member</h2><form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown internally" required><input name="email" type="email" placeholder="Email" required><input name="temporaryPassword" type="password" placeholder="Temporary password" autocomplete="new-password" minlength="6" required><select name="role">${optionList(['Staff', 'Supervisor', 'Manager', 'Admin', 'Owner'], 'Staff')}</select><select name="area">${state.areas.map(a => `<option>${esc(a)}</option>`).join('')}</select><button class="primary">Add staff</button></form></article></section><section class="card"><h2>Training matrix</h2><div class="tableWrap"><table><thead><tr><th>Staff</th>${courses.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${state.users.map(u => `<tr><td>${esc(u.nickname)}</td>${courses.map(course => { const t = state.training.find(x => x.userId === u.id && x.course === course); return `<td>${t ? badge(t.status, t.status === 'Valid' ? 'ok' : 'warn') : badge('Missing', 'danger')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div><h3>Add training record</h3><form id="trainingForm" class="inlineForm"><select name="userId">${state.users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status"><option>Valid</option><option>Due Soon</option><option>Missing</option></select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form></section>`;
+  const users = visibleStaffUsers();
+  return `<section class="grid two"><article class="card"><h2>Staff</h2>${users.map(u => `<div class="staffCard"><strong>${esc(u.nickname)}</strong><span>${esc(u.name)} · ${esc(u.role)} · ${esc(u.area)}</span><small>${esc(u.email || '')}</small></div>`).join('')}</article><article class="card"><h2>Add staff member</h2><form id="staffForm" class="stack"><input name="name" placeholder="Full name" required><input name="nickname" placeholder="Nickname shown internally" required><input name="email" type="email" placeholder="Email" required><input name="temporaryPassword" type="password" placeholder="Temporary password" autocomplete="new-password" minlength="6" required><select name="role">${optionList(['Staff', 'Supervisor', 'Manager', 'Admin', 'Owner'], 'Staff')}</select><select name="area">${state.areas.map(a => `<option>${esc(a)}</option>`).join('')}</select><button class="primary">Add staff</button></form></article></section><section class="card"><h2>Training matrix</h2><div class="tableWrap"><table><thead><tr><th>Staff</th>${courses.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${users.map(u => `<tr><td>${esc(u.nickname)}</td>${courses.map(course => { const t = state.training.find(x => x.userId === u.id && x.course === course); return `<td>${t ? badge(t.status, t.status === 'Valid' ? 'ok' : 'warn') : badge('Missing', 'danger')}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div><h3>Add training record</h3><form id="trainingForm" class="inlineForm"><select name="userId">${users.map(u => `<option value="${u.id}">${esc(u.nickname)}</option>`).join('')}</select><select name="course">${courses.map(c => `<option>${esc(c)}</option>`).join('')}</select><select name="status"><option>Valid</option><option>Due Soon</option><option>Missing</option></select><input name="expiry" type="date"><input name="evidence" placeholder="Evidence/notes"><button class="primary">Save</button></form></section>`;
 }
 
 function inspectRequirements() {
@@ -485,7 +494,7 @@ function inspectionDocuments() {
 }
 
 function inspectionStaffTraining() {
-  const cards = (state.users || []).map(u => {
+  const cards = visibleStaffUsers().map(u => {
     const training = (state.training || []).filter(item => item.userId === u.id);
     const docs = inspectUserDocumentRows(u);
     const completeCount = docs.filter(row => row.status.kind === 'ok').length;
@@ -797,7 +806,7 @@ function openCheck(id) {
   };
 }
 function exportReport() {
-  const staffDocumentLines = (state.users || []).flatMap(u => inspectUserDocumentRows(u).map(row => `${u.nickname || u.name} - ${row.req.title}: ${row.status.label} (${inspectExpiryText(row.record)})`));
+  const staffDocumentLines = visibleStaffUsers().flatMap(u => inspectUserDocumentRows(u).map(row => `${u.nickname || u.name} - ${row.req.title}: ${row.status.label} (${inspectExpiryText(row.record)})`));
   const lines = [
     `${state.pub.name} - Inspection Report`,
     `Generated: ${new Date().toLocaleString()}`,

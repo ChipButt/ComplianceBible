@@ -116,15 +116,23 @@ function userDocumentRecords() {
 }
 
 function userDocumentRecordFor(userId, requirementId, create = true) {
-  let record = userDocumentRecords().find(item => item.userId === userId && item.requirementId === requirementId);
+  let record = userDocumentRecords().find(item => String(item.userId || item.staffId || '') === String(userId) && String(item.requirementId || item.documentId || item.id || '') === String(requirementId));
   if (!record && create) {
-    record = { id: uid(), userId, requirementId };
+    record = { id: requirementId, documentId: requirementId, userId, staffId: userId, requirementId, recordKey: `${userId}|${requirementId}` };
     userDocumentRecords().push(record);
+  } else if (record) {
+    record.id = requirementId;
+    record.documentId = requirementId;
+    record.userId = userId;
+    record.staffId = userId;
+    record.requirementId = requirementId;
+    record.recordKey = `${userId}|${requirementId}`;
   }
   return record;
 }
 
 function linkedUserRequirements(user) {
+  if (isSystemUser(user) && !shouldShowSystemUsers()) return [];
   const reqs = getUserDocRequirements();
   const byId = new Map(reqs.filter(req => userDocumentApplies(req, user)).map(req => [req.id, req]));
   userDocumentRecords().filter(record => record.userId === user.id && record.requirementId).forEach(record => {
