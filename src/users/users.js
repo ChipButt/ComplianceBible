@@ -165,15 +165,29 @@ function systemUsersToggleHtml() {
   return `<label class="systemUsersToggle"><input id="showSystemUsersToggle" type="checkbox" ${checked ? 'checked' : ''}><span>Show hidden/system users</span></label>`;
 }
 
+function shouldShowSystemUsers() {
+  return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers());
+}
+
+function isSystemUser(user) {
+  return !!(user && (user.hidden === true || user.setupAdmin === true));
+}
+
+function visiblePeople() {
+  const users = Array.isArray(state.users) ? state.users : [];
+  return shouldShowSystemUsers() ? users : users.filter(user => !isSystemUser(user));
+}
+
 staff = function centralUsersPage() {
   if (centralUserPanel === 'profile' && centralUserProfileId) return centralUserProfilePage();
+  const people = visiblePeople();
   return `<section class="rotaPeopleShell">
     <div class="sectionHeader">
       <h2>People</h2>
       ${isAdminUser() ? '<button class="rotaRoundAdd usersAddUserBtn" data-new-user="true" type="button">Add User</button>' : ''}
     </div>
     ${systemUsersToggleHtml()}
-    <input id="centralPeopleSearch" class="rotaPeopleSearch" placeholder="Search ${state.users.length} people">
+    <input id="centralPeopleSearch" class="rotaPeopleSearch" placeholder="Search ${people.length} people">
     <div id="centralPeopleList" class="rotaPeopleList"></div>
   </section>`;
 };
@@ -183,7 +197,7 @@ function drawCentralPeopleList() {
   const list = document.getElementById('centralPeopleList');
   if (!input || !list) return;
   const query = input.value.toLowerCase();
-  list.innerHTML = state.users
+  list.innerHTML = visiblePeople()
     .filter(user => String(user.name || '').toLowerCase().includes(query) || String(user.nickname || '').toLowerCase().includes(query))
     .sort((a, b) => String(a.name).localeCompare(String(b.name)))
     .map(user => `<button class="personRow centralPersonRow" data-central-user="${user.id}">

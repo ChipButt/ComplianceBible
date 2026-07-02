@@ -132,6 +132,7 @@ service cloud.firestore {
         && (
           image.kind == 'premises'
           || image.kind == 'pub'
+          || image.kind == 'pub-logo'
           || image.ownerStaffId == staffId(pubId)
           || hasPermission(pubId, 'documents.viewAll')
           || hasPermission(pubId, 'documents.managePremises')
@@ -147,7 +148,7 @@ service cloud.firestore {
       return activeMember(pubId)
         && (
           (image.kind == 'premises' && (hasPermission(pubId, 'documents.managePremises') || hasPermission(pubId, 'premisesDocs.manage')))
-          || (image.kind == 'pub' && (hasPermission(pubId, 'settings.manage') || hasPermission(pubId, 'pub.manage')))
+          || ((image.kind == 'pub' || image.kind == 'pub-logo') && (hasPermission(pubId, 'settings.manage') || hasPermission(pubId, 'pub.manage')))
           || (image.kind == 'userdoc' && (
             (image.ownerStaffId == staffId(pubId) && (hasPermission(pubId, 'documents.uploadOwn') || hasPermission(pubId, 'staffDocs.viewOwn')))
             || hasPermission(pubId, 'documents.manageStaff')

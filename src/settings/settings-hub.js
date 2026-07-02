@@ -179,6 +179,12 @@
   function todayISO() { try { return typeof today === 'function' ? today() : new Date().toISOString().slice(0, 10); } catch (_) { return new Date().toISOString().slice(0, 10); } }
   function fieldChecked(form, name) { return !!(form && form.elements && form.elements[name] && form.elements[name].checked); }
   function groupOf(user) { return (user && (user.permissionSetId || user.role)) || 'Staff'; }
+  function isSystemUser(user) { return !!(user && (user.hidden === true || user.setupAdmin === true)); }
+  function showSystemUsers() { return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers()); }
+  function visibleUsers() {
+    var users = state.users || [];
+    return showSystemUsers() ? users : users.filter(function (user) { return !isSystemUser(user); });
+  }
   function namedAdmin(user) {
     var text = String((user && user.name || '') + ' ' + (user && user.nickname || '') + ' ' + (user && user.email || '')).toLowerCase();
     return text.indexOf('chip') !== -1 || text.indexOf('vicky') !== -1 || text.indexOf('rihanna') !== -1;
@@ -363,22 +369,25 @@
   }
 
   function logoPreviewHtml(pub) {
-    if (pub.logoData) return '<div class="coreLogoPreview full"><img src="' + h(pub.logoData) + '" alt="Current logo"></div>';
     if (pub.logoImageId && logoPreviewId === pub.logoImageId && logoPreviewData) return '<div class="coreLogoPreview full"><img src="' + h(logoPreviewData) + '" alt="Current logo"></div>';
     if (pub.logoImageId) return '<div class="coreLogoPreview full">Logo uploaded</div>';
+    if (pub.logoData) return '<div class="coreLogoPreview full"><img src="' + h(pub.logoData) + '" alt="Current logo"></div>';
     return '<div class="coreLogoPreview full">No logo uploaded</div>';
   }
 
   function resolveLogoImage(pub) {
     var imageId = pub && pub.logoImageId;
-    if (!imageId || (logoPreviewId === imageId && logoPreviewData) || logoResolvingId === imageId) return;
-    if (!window.ComplianceFirebase || typeof window.ComplianceFirebase.resolveImage !== 'function') return;
+    if (!imageId) return Promise.resolve(null);
+    if (logoPreviewId === imageId && logoPreviewData) return Promise.resolve({ imageId: imageId, dataUrl: logoPreviewData });
+    if (logoResolvingId === imageId) return Promise.resolve(null);
+    if (!window.ComplianceFirebase || typeof window.ComplianceFirebase.resolveImage !== 'function') return Promise.resolve(null);
     logoResolvingId = imageId;
-    window.ComplianceFirebase.resolveImage(imageId).then(function (result) {
+    return window.ComplianceFirebase.resolveImage(imageId).then(function (result) {
       if (!state.pub || state.pub.logoImageId !== imageId) return;
       logoPreviewId = imageId;
       logoPreviewData = result && result.dataUrl || '';
       applyBranding();
+      return result;
     }).catch(function () {}).finally(function () {
       if (logoResolvingId === imageId) logoResolvingId = '';
     });
@@ -396,7 +405,7 @@
       var checked = window.ComplianceFirebase.showSystemUsers && window.ComplianceFirebase.showSystemUsers();
       systemToggle = '<label class="systemUsersToggle coreSystemUsersToggle"><input id="coreShowSystemUsersToggle" type="checkbox" ' + (checked ? 'checked' : '') + '><span>Show hidden/system users</span></label>';
     }
-    return systemToggle + '<div class="coreUserPreview">' + (state.users || []).map(function (user) {
+    return systemToggle + '<div class="coreUserPreview">' + visibleUsers().map(function (user) {
       return '<button type="button" class="personRow centralPersonRow userOpenButton coreUserRow" data-core-open-user="' + h(user.id) + '"><span class="avatarText">' + h(initials(user)) + '</span><span class="userOpenText"><strong>' + h(user.name || user.nickname || 'User') + '</strong><em>' + h(user.jobArea || user.area || user.role || '') + '</em></span><span class="userRolePill">' + h(user.role || user.permissionSetId || 'User') + '</span></button>';
     }).join('') + '</div><h3>Permission Groups</h3><div class="corePermissionGroups">' + allGroups().map(groupCard).join('') + createGroupCard() + '</div>';
   }
@@ -407,7 +416,7 @@
 
   function groupCard(group) {
     var matrix = state.permissionMatrix[group] || {};
-    var users = state.users || [];
+    var users = visibleUsers();
     var isCore = CORE_GROUPS.indexOf(group) !== -1;
     return '<details class="corePermissionCard" ' + (group === 'Admin' ? 'open' : '') + '><summary><span><strong>' + h(group) + '</strong><em>' + users.filter(function (u) { return groupOf(u) === group; }).length + ' users</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form class="coreGroupForm" data-core-group-form="' + h(group) + '"><label class="full"><span>Group description</span><textarea name="description">' + h(matrix.description || '') + '</textarea></label><section class="coreAssigned"><h4>Who\'s in this group?</h4>' + quickUserControls() + userTickList(group) + '</section>' + PERMISSION_SECTIONS.map(function (section) { return permissionBlock(section, matrix); }).join('') + '<div class="coreFormActions full"><button class="primary">Save ' + h(group) + '</button>' + (isCore ? '' : '<button type="button" class="secondary danger" data-delete-core-group="' + h(group) + '">Delete Group</button>') + '</div></form></details>';
   }
@@ -415,7 +424,7 @@
     return '<div class="coreQuickUsers"><label><input type="checkbox" data-select-all-users><span>All users</span></label><label><span>Add by work area</span><select data-select-area-users><option value="">Select work area</option>' + areas().map(function (area) { return '<option value="' + h(area) + '">' + h(area) + '</option>'; }).join('') + '</select></label></div>';
   }
   function userTickList(group) {
-    return '<div class="coreUserTicks">' + (state.users || []).map(function (user) {
+    return '<div class="coreUserTicks">' + visibleUsers().map(function (user) {
       var checked = groupOf(user) === group;
       var locked = namedAdmin(user) && group !== 'Admin';
       return '<label class="coreTick"><input type="checkbox" name="user__' + h(user.id) + '" ' + (checked ? 'checked' : '') + ' ' + (locked ? 'disabled' : '') + '><span><strong>' + h(user.nickname || user.name) + '</strong><em>' + h(user.name || '') + '</em></span></label>';
@@ -565,7 +574,7 @@
     return '<section class="checkBuilderSection" data-builder-section data-section-type="' + h(type) + '" data-section-id="' + h(section.id || newId('section')) + '"><div class="checkBuilderSectionTop"><strong>' + h(sectionLabel(type)) + ' Section</strong><button type="button" class="settingsDeleteX" data-remove-core-check-section aria-label="Remove ' + h(sectionLabel(type)) + ' section">×</button></div><div class="checkTypePanel">' + body + '</div></section>';
   }
   function userOptions(selected) {
-    return '<option value="" ' + (!selected ? 'selected' : '') + '>Everyone</option>' + (state.users || []).map(function (user) {
+    return '<option value="" ' + (!selected ? 'selected' : '') + '>Everyone</option>' + visibleUsers().map(function (user) {
       return '<option value="' + h(user.id) + '" ' + (user.id === selected ? 'selected' : '') + '>' + h(user.nickname || user.name) + '</option>';
     }).join('');
   }
@@ -723,61 +732,28 @@
     bindPushNotificationButtons();
   }
 
-  function compressLocalLogo(file, done) {
-    if (!file || !String(file.type || '').startsWith('image/')) { done(new Error('Image too large. Retake closer/crop document.')); return; }
-    var image = new Image();
-    var url = URL.createObjectURL(file);
-    image.onload = function () {
-      URL.revokeObjectURL(url);
-      var scale = Math.min(1, 600 / image.width, 300 / image.height);
-      var canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      var context = canvas.getContext('2d');
-      if (!context || typeof canvas.toBlob !== 'function') { done(new Error('Compression failed.')); return; }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(function (blob) {
-        if (!blob) { done(new Error('Compression failed.')); return; }
-        if (blob.size > 900 * 1024) { done(new Error('Image too large. Retake closer/crop document.')); return; }
-        var reader = new FileReader();
-        reader.onload = function () { done(null, reader.result || ''); };
-        reader.onerror = function () { done(new Error('Compression failed.')); };
-        reader.readAsDataURL(blob);
-      }, 'image/jpeg', 0.55);
-    };
-    image.onerror = function () {
-      URL.revokeObjectURL(url);
-      done(new Error('Compression failed.'));
-    };
-    image.src = url;
-  }
-
   function saveUploadedLogo(file, finish) {
-    if (window.ComplianceFirebase && typeof window.ComplianceFirebase.uploadFile === 'function') {
-      var previous = state.pub && state.pub.logoImageId;
-      window.ComplianceFirebase.uploadFile(file, { kind: 'pub', folder: 'pub-branding', documentId: 'pub-logo' }).then(function (uploaded) {
-        if (!uploaded || !uploaded.imageId) { alert('Upload failed. Check connection.'); return; }
-        state.pub.logoImageId = uploaded.imageId;
-        state.pub.logoImageCount = uploaded.imageCount || 0;
-        state.pub.logoUploadedAt = uploaded.uploadedAt || new Date().toISOString();
-        state.pub.logoUploadedBy = uploaded.uploadedBy || '';
-        delete state.pub.logoData;
-        logoPreviewId = '';
-        logoPreviewData = '';
-        if (previous && previous !== uploaded.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.archiveImage === 'function') window.ComplianceFirebase.archiveImage(previous);
-        finish();
-      }).catch(function (error) {
-        alert(error && error.message || 'Upload failed. Check connection.');
-      });
+    if (!window.ComplianceFirebase || typeof window.ComplianceFirebase.uploadFile !== 'function') {
+      alert('Upload failed. Check connection.');
       return;
     }
-    compressLocalLogo(file, function (error, dataUrl) {
-      if (error) { alert(error.message || 'Compression failed.'); return; }
-      state.pub.logoData = dataUrl;
-      delete state.pub.logoImageId;
+    var previous = state.pub && state.pub.logoImageId;
+    window.ComplianceFirebase.uploadFile(file, { kind: 'pub', folder: 'pub-branding', documentId: 'pub-logo' }).then(function (uploaded) {
+      if (!uploaded || !uploaded.imageId) { alert('Upload failed. Check connection.'); return; }
+      state.pub.logoImageId = uploaded.imageId;
+      state.pub.logoImageCount = uploaded.imageCount || 0;
+      state.pub.logoFileName = uploaded.fileName || file.name || 'Pub logo';
+      state.pub.logoUpdatedAt = uploaded.uploadedAt || new Date().toISOString();
+      state.pub.logoUpdatedBy = uploaded.uploadedBy || '';
+      state.pub.logoUploadedAt = state.pub.logoUpdatedAt;
+      state.pub.logoUploadedBy = state.pub.logoUpdatedBy;
+      delete state.pub.logoData;
       logoPreviewId = '';
       logoPreviewData = '';
-      finish();
+      if (previous && previous !== uploaded.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.archiveImage === 'function') window.ComplianceFirebase.archiveImage(previous);
+      return resolveLogoImage(state.pub).catch(function () {}).then(function () { finish(); });
+    }).catch(function (error) {
+      alert(error && error.message || 'Upload failed. Check connection.');
     });
   }
 
@@ -788,7 +764,16 @@
     state.pub = state.pub || {};
     ['name', 'appDisplayName', 'licence', 'dps', 'address'].forEach(function (key) { state.pub[key] = String(data.get(key) || '').trim(); });
     var file = form.elements.logo && form.elements.logo.files && form.elements.logo.files[0];
-    var finish = function () { saveSafe(); applyBranding(); closeSection(); };
+    var finish = function () {
+      saveSafe();
+      var saveNow = window.ComplianceFirebase && typeof window.ComplianceFirebase.saveNow === 'function' ? window.ComplianceFirebase.saveNow() : Promise.resolve();
+      saveNow.then(function () {
+        applyBranding();
+        closeSection();
+      }).catch(function (error) {
+        alert(error && error.message || 'Upload failed. Check connection.');
+      });
+    };
     if (file) saveUploadedLogo(file, finish);
     else finish();
   }
@@ -817,6 +802,7 @@
     (state.users || []).forEach(function (user) {
       if (namedAdmin(user)) { user.permissionSetId = 'Admin'; user.role = 'Admin'; return; }
       var input = form.querySelector('[name="user__' + cssEscape(user.id) + '"]');
+      if (!input) return;
       if (input && input.checked) { user.permissionSetId = group; user.role = group; }
       else if (groupOf(user) === group) { user.permissionSetId = 'Staff'; user.role = 'Staff'; }
     });
@@ -1223,7 +1209,7 @@
     var h1 = topbar.querySelector('h1');
     if (h1) h1.textContent = title;
     var logo = topbar.querySelector('.appHeaderLogo');
-    var logoSrc = pub.logoData || (pub.logoImageId && logoPreviewId === pub.logoImageId ? logoPreviewData : '');
+    var logoSrc = (pub.logoImageId && logoPreviewId === pub.logoImageId ? logoPreviewData : '') || pub.logoData || '';
     if (logoSrc) {
       if (!logo) { logo = document.createElement('img'); logo.className = 'appHeaderLogo'; logo.alt = 'App logo'; var wrap = topbar.firstElementChild; if (wrap) wrap.insertBefore(logo, wrap.firstChild); }
       logo.src = logoSrc;

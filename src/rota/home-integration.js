@@ -20,6 +20,8 @@
   function currentUserId() { return state.currentUser || (state.users && state.users[0] && state.users[0].id); }
   function assignedToCurrentUser(assignedUserId) { const value = String(assignedUserId || '').trim(); const key = value.toLowerCase(); return !value || key === 'everyone' || key === 'all' || key === 'all users' || value === currentUserId(); }
   function rotaUserById(id) { return (state.users || []).find(u => u.id === id) || safeRotaState().users.find(u => u.id === id) || (state.users || [])[0] || {}; }
+  function isSystemUser(user) { return !!(user && (user.hidden === true || user.setupAdmin === true)); }
+  function assignableUsers() { return (state.users || []).filter(user => !isSystemUser(user)); }
   function timeNowShort() { return new Date().toTimeString().slice(0, 5); }
   function mins(time) { const bits = String(time || '00:00').split(':').map(Number); return (bits[0] || 0) * 60 + (bits[1] || 0); }
   function durationMins(start, end) { const raw = mins(end) - mins(start); return raw < 0 ? raw + 1440 : raw; }
@@ -194,10 +196,11 @@
 
   function mainShiftForm(shift) {
     const data = safeRotaState();
-    const s = shift || { id: '', userId: (state.users.find(u => u.role !== 'Admin') || state.users[0] || {}).id || '', section: data.sections[0] || 'FOH', date: today(), start: '09:00', end: '17:00', notes: '' };
+    const users = assignableUsers();
+    const s = shift || { id: '', userId: (users.find(u => u.role !== 'Admin') || users[0] || {}).id || '', section: data.sections[0] || 'FOH', date: today(), start: '09:00', end: '17:00', notes: '' };
     return `<form id="mainRotaShiftForm" class="formGrid">
       <input type="hidden" name="id" value="${esc(s.id || '')}">
-      <label>Staff<select name="userId">${state.users.map(u => `<option value="${u.id}" ${u.id === s.userId ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></label>
+      <label>Staff<select name="userId">${users.map(u => `<option value="${u.id}" ${u.id === s.userId ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></label>
       <label>Section<select name="section">${data.sections.map(section => `<option ${section === s.section ? 'selected' : ''}>${esc(section)}</option>`).join('')}</select></label>
       <label>Date<input name="date" type="date" value="${esc(s.date)}"></label>
       <label>Start<input name="start" type="time" value="${esc(s.start)}"></label>

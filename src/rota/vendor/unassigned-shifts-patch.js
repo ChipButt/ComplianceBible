@@ -13,9 +13,11 @@
     });
     if(changed && typeof save==='function') save();
   }
+  function isSystemUser(user){return !!(user&&(user.hidden===true||user.setupAdmin===true));}
+  function assignableUsers(){return (state.users||[]).filter(u=>!isSystemUser(u));}
   function userOptions(selected){
     return `<option value="unassigned" ${selected==='unassigned'?'selected':''}>Unassigned</option>` +
-      (state.users||[]).map(u=>`<option value="${u.id}" ${u.id===selected?'selected':''}>${esc(u.name)}</option>`).join('');
+      assignableUsers().map(u=>`<option value="${u.id}" ${u.id===selected?'selected':''}>${esc(u.name)}</option>`).join('');
   }
   function patchSelect(select){
     if(!select || select.dataset.unassignedReady) return;

@@ -492,21 +492,35 @@
   }
 
   function staffToUsers() {
-    var byStaffId = {};
-    remote.staff.forEach(function (staff) { byStaffId[staff.id] = staff; });
-    var byUid = {};
-    if (remote.member) byUid[remote.member.uid || authUser.uid] = remote.member;
+    var currentId = currentStaffId();
+    var currentUid = authUser && authUser.uid || remote.member && remote.member.uid || '';
+    var byKey = {};
     var includeSystem = showSystemUsers();
-    return remote.staff.filter(function (staff) {
-      return includeSystem || (staff.hidden !== true && staff.setupAdmin !== true);
-    }).map(function (staff) {
-      var member = remote.member && remote.member.staffId === staff.id ? remote.member : null;
+
+    function isCurrentStaff(staff) {
+      return !!(staff && (
+        staff.id === currentId
+        || staff.authUid === currentUid
+        || staff.memberUid === currentUid
+        || remote.member && staff.id === remote.member.staffId
+      ));
+    }
+
+    function userFromStaff(staff, member) {
+      staff = staff || {};
+      member = member || null;
+      var uid = member && member.uid || staff.memberUid || staff.authUid || currentUid || '';
+      var id = staff.id || member && member.staffId || uid || currentId;
+      var displayName = staff.displayName || staff.name || member && (member.displayName || member.name) || authUser && authUser.displayName || authUser && authUser.email || '';
+      var name = staff.name || staff.displayName || member && (member.name || member.displayName) || displayName;
       return Object.assign({}, staff, {
-        id: staff.id,
-        authUid: staff.authUid || member && member.uid || '',
-        memberUid: member && member.uid || staff.authUid || '',
-        name: staff.name || staff.displayName || '',
-        nickname: staff.nickname || staff.displayName || staff.name || '',
+        id: id,
+        authUid: staff.authUid || uid,
+        memberUid: staff.memberUid || uid,
+        email: staff.email || member && member.email || authUser && authUser.email || '',
+        name: name,
+        displayName: displayName || name,
+        nickname: staff.nickname || name || displayName || '',
         role: member && member.role || staff.role || staff.permissionSetId || 'Staff',
         permissionSetId: normalizePermissionSetId(member && member.permissionSetId || staff.permissionSetId || staff.role || 'staff'),
         area: staff.area || staff.jobArea || '',
@@ -515,7 +529,22 @@
         hidden: member ? member.hidden === true : staff.hidden === true,
         setupAdmin: member ? member.setupAdmin === true : staff.setupAdmin === true
       });
+    }
+
+    function addUser(user) {
+      if (!user || !user.id || byKey[user.id]) return;
+      byKey[user.id] = true;
+      users.push(user);
+    }
+
+    var users = [];
+    remote.staff.forEach(function (staff) {
+      var member = remote.member && isCurrentStaff(staff) ? remote.member : null;
+      var user = userFromStaff(staff, member);
+      if (includeSystem || isCurrentStaff(staff) || (user.hidden !== true && user.setupAdmin !== true)) addUser(user);
     });
+    if (remote.member && !byKey[currentId]) addUser(userFromStaff(null, remote.member));
+    return users;
   }
 
   function flattenStaffDocuments() {
@@ -1195,9 +1224,11 @@
     batch.set(services.doc(services.db, 'pubs', pubId(), 'staff', setupStaffId), clean({
       id: setupStaffId,
       authUid: authUser.uid,
+      memberUid: authUser.uid,
       email: authUser.email || '',
       name: displayName,
-      nickname: displayName.split(/\s+/)[0] || 'Setup',
+      displayName: displayName,
+      nickname: displayName,
       role: 'Admin',
       permissionSetId: 'full-admin',
       accountStatus: 'confirmed',
