@@ -369,9 +369,10 @@
   }
 
   function logoPreviewHtml(pub) {
-    if (pub.logoImageId && logoPreviewId === pub.logoImageId && logoPreviewData) return '<div class="coreLogoPreview full"><img src="' + h(logoPreviewData) + '" alt="Current logo"></div>';
-    if (pub.logoImageId) return '<div class="coreLogoPreview full">Logo uploaded</div>';
-    if (pub.logoData) return '<div class="coreLogoPreview full"><img src="' + h(pub.logoData) + '" alt="Current logo"></div>';
+    var remove = (pub.logoImageId || pub.logoData) ? '<button type="button" class="secondary danger full coreRemoveLogoButton" data-remove-pub-logo>Remove Logo</button>' : '';
+    if (pub.logoImageId && logoPreviewId === pub.logoImageId && logoPreviewData) return '<div class="coreLogoPreview full"><img src="' + h(logoPreviewData) + '" alt="Current logo"></div>' + remove;
+    if (pub.logoImageId) return '<div class="coreLogoPreview full">Logo uploaded</div>' + remove;
+    if (pub.logoData) return '<div class="coreLogoPreview full"><img src="' + h(pub.logoData) + '" alt="Current logo"></div>' + remove;
     return '<div class="coreLogoPreview full">No logo uploaded</div>';
   }
 
@@ -696,6 +697,8 @@
     var saveClose = document.querySelector('[data-save-close-core-settings]');
     if (saveClose) saveClose.onclick = closeSection;
     var pub = document.getElementById('corePubForm'); if (pub) pub.onsubmit = savePub;
+    var removeLogo = document.querySelector('[data-remove-pub-logo]');
+    if (removeLogo) removeLogo.onclick = removePubLogo;
     var systemToggle = document.getElementById('coreShowSystemUsersToggle');
     if (systemToggle && window.ComplianceFirebase && typeof window.ComplianceFirebase.setShowSystemUsers === 'function') {
       systemToggle.onchange = function () { window.ComplianceFirebase.setShowSystemUsers(systemToggle.checked); };
@@ -752,6 +755,40 @@
       logoPreviewData = '';
       if (previous && previous !== uploaded.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.archiveImage === 'function') window.ComplianceFirebase.archiveImage(previous);
       return resolveLogoImage(state.pub).catch(function () {}).then(function () { finish(); });
+    }).catch(function (error) {
+      alert(error && error.message || 'Upload failed. Check connection.');
+    });
+  }
+
+  function clearPubLogoFields() {
+    state.pub = state.pub || {};
+    state.pub.logoImageId = '';
+    state.pub.logoImageCount = 0;
+    state.pub.logoFileName = '';
+    state.pub.logoUpdatedAt = new Date().toISOString();
+    var current = window.ComplianceFirebase && typeof window.ComplianceFirebase.currentUser === 'function' ? window.ComplianceFirebase.currentUser() : null;
+    state.pub.logoUpdatedBy = current && current.uid || '';
+    state.pub.logoUploadedAt = '';
+    state.pub.logoUploadedBy = '';
+    delete state.pub.logoData;
+    logoPreviewId = '';
+    logoPreviewData = '';
+  }
+
+  function removePubLogo() {
+    if (!confirm('Remove pub logo?')) return;
+    var previous = state.pub && state.pub.logoImageId;
+    var archive = previous && window.ComplianceFirebase && typeof window.ComplianceFirebase.archiveImage === 'function'
+      ? window.ComplianceFirebase.archiveImage(previous)
+      : Promise.resolve(false);
+    archive.catch(function () {}).then(function () {
+      clearPubLogoFields();
+      saveSafe();
+      var saveNow = window.ComplianceFirebase && typeof window.ComplianceFirebase.saveNow === 'function' ? window.ComplianceFirebase.saveNow() : Promise.resolve();
+      return saveNow;
+    }).then(function () {
+      applyBranding();
+      closeSection();
     }).catch(function (error) {
       alert(error && error.message || 'Upload failed. Check connection.');
     });
