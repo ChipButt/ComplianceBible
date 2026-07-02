@@ -1321,7 +1321,7 @@
     if (document.getElementById('firebase-structured-style')) return;
     var style = document.createElement('style');
     style.id = 'firebase-structured-style';
-    style.textContent = '.firebaseStatusBar{position:sticky;top:var(--fixed-topbar-height,0);z-index:3000;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 12px;background:#071522;color:#fff8ea;border-bottom:1px solid rgba(208,173,88,.38);font-size:12px;font-weight:800}.firebaseStatusBar button{min-height:32px!important;height:32px!important;padding:0 10px!important;border-radius:999px!important}.firebaseStatusBar small{display:block;color:#d0ad58;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.firebaseGate{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:18px;background:rgba(3,8,12,.86);backdrop-filter:blur(8px)}.firebaseGate.hidden{display:none!important}.firebaseGateCard{width:min(460px,100%);display:grid;gap:12px;padding:18px;border-radius:20px;background:#151b22;border:1px solid rgba(208,173,88,.5);color:#fff8ea;box-shadow:0 28px 70px rgba(0,0,0,.35)}.firebaseGateCard h2{margin:0;color:#fff8ea}.firebaseGateForm{display:grid;gap:10px}.firebaseGateForm input,.firebaseGateForm textarea{width:100%;box-sizing:border-box}.firebaseGateActions{display:grid;grid-template-columns:1fr;gap:8px}.firebaseError{margin:0;color:#ff8b80;font-weight:800}.firebaseSetupMissing{color:#aaa194}.firebaseSmallText{font-size:12px;color:#aaa194;margin:0}';
+    style.textContent = '.firebaseStatusBar{display:none!important}.firebaseGate{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:18px;background:rgba(3,8,12,.86);backdrop-filter:blur(8px)}.firebaseGate.hidden{display:none!important}.firebaseGateCard{width:min(460px,100%);display:grid;gap:12px;padding:18px;border-radius:20px;background:#151b22;border:1px solid rgba(208,173,88,.5);color:#fff8ea;box-shadow:0 28px 70px rgba(0,0,0,.35)}.firebaseGateCard h2{margin:0;color:#fff8ea}.firebaseGateForm{display:grid;gap:10px}.firebaseGateForm input,.firebaseGateForm textarea{width:100%;box-sizing:border-box}.firebaseGateActions{display:grid;grid-template-columns:1fr;gap:8px}.firebaseError{margin:0;color:#ff8b80;font-weight:800}.firebaseSetupMissing{color:#aaa194}.firebaseSmallText{font-size:12px;color:#aaa194;margin:0}';
     document.head.appendChild(style);
   }
 
@@ -1350,27 +1350,23 @@
     if (!document.body) return;
     var els = ensureAuthContainers();
     var cfgReady = hasUsableConfig(currentConfig()) && !!pubId();
+    els.bar.innerHTML = '';
     if (!cfgReady) {
-      els.bar.innerHTML = '<span><strong>Firebase config missing</strong><small>Set src/firebase/config.js with project config and pubId</small></span>';
       els.gate.classList.toggle('hidden', options().allowLocalFallback === true);
       els.gate.innerHTML = options().allowLocalFallback === true ? '' : '<div class="firebaseGateCard"><h2>Firebase Setup Required</h2><p class="firebaseSetupMissing">This production build needs Firebase config and COMPLIANCE_FIREBASE_PUB_ID in src/firebase/config.js before staff can sign in.</p></div>';
       return;
     }
     if (!ready) {
-      els.bar.innerHTML = '<span><strong>Firebase</strong><small>' + escapeHtml(statusText) + '</small></span>';
       els.gate.classList.add('hidden');
       return;
     }
     if (!authUser) {
-      els.bar.innerHTML = '<span><strong>Firebase</strong><small>Sign in required</small></span>';
       els.gate.classList.remove('hidden');
       els.gate.innerHTML = '<div class="firebaseGateCard"><h2>Sign In</h2><form id="firebaseAuthForm" class="firebaseGateForm"><input name="email" type="email" placeholder="Email" autocomplete="email" required><input name="password" type="password" placeholder="Password" autocomplete="current-password" required><div class="firebaseGateActions"><button class="primary">Sign In</button></div></form>' + setupPanelHtml() + (lastError ? '<p class="firebaseError">' + escapeHtml(lastError) + '</p>' : '') + '</div>';
       bindAuthForm();
       bindSetupForm();
       return;
     }
-    els.bar.innerHTML = '<span><strong>' + escapeHtml(authUser.email || 'Signed in') + '</strong><small>' + escapeHtml(statusText) + '</small></span><button type="button" class="ghost small" data-firebase-signout>Sign Out</button>';
-    bindSignOut();
     if (accessMode === 'setup') return renderSetupGate(els.gate);
     if (accessMode === 'no-pub') return renderMessageGate(els.gate, 'Pub Not Set Up', 'This pub has not been created yet. Ask the approved setup admin to sign in.');
     if (accessMode === 'no-member') return renderMessageGate(els.gate, 'No Pub Access', 'This Firebase account is not an active member of this pub.');

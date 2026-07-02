@@ -43,6 +43,9 @@
     var switchControl = canSwitchUser() ? '<label>Switch user<select id="profileCircleUserSelect">' +
         state.users.map(function (x) { return '<option value="' + escapeText(x.id) + '" ' + (x.id === state.currentUser ? 'selected' : '') + '>' + escapeText(x.nickname || x.name) + ' (' + escapeText(x.role || 'User') + ')</option>'; }).join('') +
       '</select></label>' : '<div class="cloudUserLock">' + escapeText(u.email || u.nickname || u.name || 'Signed in') + '</div>';
+    var signOutControl = window.ComplianceFirebase && typeof window.ComplianceFirebase.signOut === 'function'
+      ? '<button id="profileCircleSignOut" class="secondary" type="button">Sign Out</button>'
+      : '';
 
     root.innerHTML = '<div class="modalCard profileCircleModal">' +
       '<button class="close" id="profileCircleClose">×</button>' +
@@ -57,6 +60,7 @@
         '<button id="profileCircleUsers">Full Profile</button>' +
         '<button id="profileCircleSchedule">Schedule</button>' +
         '<button id="profileCircleSettings">Settings</button>' +
+        signOutControl +
       '</div>' +
       '</div>';
 
@@ -77,6 +81,11 @@
     };
     document.getElementById('profileCircleSchedule').onclick = function () { route = 'rota'; root.classList.add('hidden'); render(); };
     document.getElementById('profileCircleSettings').onclick = function () { route = 'settings'; root.classList.add('hidden'); render(); };
+    var signOut = document.getElementById('profileCircleSignOut');
+    if (signOut) signOut.onclick = function () {
+      root.classList.add('hidden');
+      window.ComplianceFirebase.signOut();
+    };
   }
 
   function ensureButton() {
@@ -102,7 +111,7 @@
   }
 
   var style = document.createElement('style');
-  style.textContent = '.profileSwitch,.rotaHomeIdentity{display:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}.topbar{display:grid!important;grid-template-columns:1fr auto!important;align-items:start!important;gap:12px!important}#globalProfileCircle{width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;border-radius:50%!important;background:linear-gradient(135deg,#B0914A,#d0ad58)!important;color:#060708!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:0 10px 26px rgba(176,145,74,.24)!important;font-size:18px!important;font-weight:950!important;padding:0!important;pointer-events:auto!important}.profileCircleModalTop{display:grid!important;grid-template-columns:auto 1fr!important;gap:14px!important;align-items:center!important;margin-bottom:18px!important}.profileCircleActionsThree{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:14px!important}';
+  style.textContent = '.profileSwitch,.rotaHomeIdentity{display:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}.topbar{display:grid!important;grid-template-columns:1fr auto!important;align-items:start!important;gap:12px!important}#globalProfileCircle{width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;border-radius:50%!important;background:linear-gradient(135deg,#B0914A,#d0ad58)!important;color:#060708!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:0 10px 26px rgba(176,145,74,.24)!important;font-size:18px!important;font-weight:950!important;padding:0!important;pointer-events:auto!important}.profileCircleModalTop{display:grid!important;grid-template-columns:auto 1fr!important;gap:14px!important;align-items:center!important;margin-bottom:18px!important}.profileCircleActionsThree{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:14px!important}#profileCircleSignOut{background:#071522!important;color:#fff8ea!important;border-color:rgba(208,173,88,.48)!important}';
   document.head.appendChild(style);
 
   function afterRender() { ensureButton(); }
