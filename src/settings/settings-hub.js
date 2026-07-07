@@ -411,9 +411,11 @@
   }
 
   function usersSection() {
-    return '<div class="coreUserPreview">' + visibleUsers().map(function (user) {
+    var users = visibleUsers();
+    var userList = users.length ? users.map(function (user) {
       return '<button type="button" class="personRow centralPersonRow userOpenButton coreUserRow" data-core-open-user="' + h(user.id) + '"><span class="avatarText">' + h(initials(user)) + '</span><span class="userOpenText"><strong>' + h(user.name || user.nickname || 'User') + '</strong><em>' + h(user.jobArea || user.area || user.role || '') + '</em></span><span class="userRolePill">' + h(user.role || user.permissionSetId || 'User') + '</span></button>';
-    }).join('') + '</div><h3>Permission Groups</h3><div class="corePermissionGroups">' + allGroups().map(groupCard).join('') + createGroupCard() + '</div>';
+    }).join('') : '<p class="settingsEmptyState">No staff users added yet.</p>';
+    return addUserPanelHtml() + '<section class="settingsBlock coreSettingsSubsection settingsUsersListBlock"><h3>Users</h3><div class="coreUserPreview">' + userList + '</div></section><section class="settingsBlock coreSettingsSubsection settingsPermissionGroupsBlock"><h3>Permission Groups</h3><div class="corePermissionGroups">' + allGroups().map(groupCard).join('') + createGroupCard() + '</div></section>';
   }
   function initials(user) {
     var bits = String((user && user.name) || (user && user.nickname) || 'U').trim().split(/\s+/);
@@ -444,6 +446,9 @@
   }
   function createGroupCard() {
     return '<details class="corePermissionCard create"><summary><span><strong>Create New Permission Group</strong><em>Copy from an existing group and adjust it.</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form id="coreCreateGroupForm" class="coreSettingsForm"><label><span>New group name</span><input name="name" required></label><label><span>Copy permissions from</span><select name="copyFrom">' + allGroups().map(function (group) { return '<option>' + h(group) + '</option>'; }).join('') + '</select></label><button class="primary full">Create Group</button></form></details>';
+  }
+  function addUserPanelHtml() {
+    return '<section class="settingsBlock coreSettingsSubsection settingsAddUserBlock"><button type="button" class="settingsAddUserButton" data-settings-open-add-user>Add User</button><form id="settingsAddUserForm" class="settingsAddUserForm" hidden><label><span>Full name</span><input name="name" placeholder="Full name" required></label><label><span>Display name</span><input name="nickname" placeholder="Nickname shown in app" required></label><label><span>Email</span><input name="email" type="email" placeholder="name@example.com" required></label><label><span>Temporary password</span><input name="temporaryPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Temporary password" required></label><label><span>Role</span><select name="role"><option>Staff</option><option>Supervisor</option><option>Manager</option><option>Admin</option><option>Owner</option></select></label><label><span>Work area</span><select name="area">' + areas().map(function (area) { return '<option value="' + h(area) + '">' + h(area) + '</option>'; }).join('') + '</select></label><p class="settingsAddUserError" data-settings-add-user-error hidden></p><div class="settingsAddUserActions"><button type="button" class="secondary" data-settings-cancel-add-user>Cancel</button><button class="primary">Create User</button></div></form></section>';
   }
 
   function documentsSetupSection() {
@@ -482,14 +487,14 @@
     var open = !!openDocGroups[group.id];
     var reqs = getRequirements();
     var deleteButton = isCoreStaffGroup(group.id) ? '' : '<button type="button" class="secondary danger" data-delete-staff-doc-group="' + h(group.id) + '">Delete Group</button>';
-    return '<article class="permissionGroupCard settingsDocGroupCard staffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="permissionGroupButton settingsDocGroupButton" data-toggle-staff-doc-group="' + h(group.id) + '"><span class="fdocName settingsDocGroupName"><strong>' + h(group.label) + '</strong><em>' + docReqCount(group.id) + ' required documents</em></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel settingsDocGroupPanel ' + (open ? '' : 'closed') + '"><form class="staffDocGroupForm" data-staff-doc-group-form="' + h(group.id) + '"><div class="permissionTickList staffDocRequirementTickList">' + reqs.map(function (req) {
+    return '<article class="permissionGroupCard settingsDocGroupCard staffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="secondary settingsDocGroupButton" data-toggle-staff-doc-group="' + h(group.id) + '"><span class="fdocName settingsDocGroupName"><strong>' + h(group.label) + '</strong><em>' + docReqCount(group.id) + ' required documents</em></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel settingsDocGroupPanel ' + (open ? '' : 'closed') + '"><form class="staffDocGroupForm" data-staff-doc-group-form="' + h(group.id) + '"><div class="permissionTickList staffDocRequirementTickList">' + reqs.map(function (req) {
       var checked = (req.staffGroups || []).some(function (groupId) { return normalise(groupId) === normalise(group.id); });
       return '<label class="settingsTick permissionTick staffDocRequirementTick"><input type="checkbox" name="req__' + h(req.id) + '" ' + (checked ? 'checked' : '') + '><span>' + h(req.title) + '</span></label>';
     }).join('') + '</div><div class="permissionActions">' + deleteButton + '<button class="primary">Save Required Documents</button></div></form></div></article>';
   }
   function createDocGroup() {
     var open = openCreateDocGroup;
-    return '<article class="permissionGroupCard settingsDocGroupCard createStaffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="permissionGroupButton settingsDocGroupButton" data-toggle-create-staff-doc-group="true"><span class="fdocName settingsDocGroupName"><strong>Add Work Area Document Group</strong></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel settingsDocGroupPanel ' + (open ? '' : 'closed') + '"><form id="createStaffDocGroupForm" class="permissionGroupForm"><label class="settingsField"><span>Group title</span><input name="title" placeholder="e.g. Cellar Team" required></label><button class="primary">Create Group</button></form></div></article>';
+    return '<article class="permissionGroupCard settingsDocGroupCard createStaffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="secondary settingsDocGroupButton" data-toggle-create-staff-doc-group="true"><span class="fdocName settingsDocGroupName"><strong>Add Work Area Document Group</strong></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel settingsDocGroupPanel ' + (open ? '' : 'closed') + '"><form id="createStaffDocGroupForm" class="permissionGroupForm"><label class="settingsField"><span>Group title</span><input name="title" placeholder="e.g. Cellar Team" required></label><button class="primary">Create Group</button></form></div></article>';
   }
   function workAreaDocumentsSection() {
     return '<section class="settingsBlock staffDocSettingsBlock coreSettingsSubsection"><h3>Required Documents by Work Area</h3><div class="permissionGroupList staffDocGroupList settingsDocGroupList">' + getDocGroups().map(docGroupButton).join('') + createDocGroup() + '</div></section>';
@@ -721,6 +726,7 @@
     var pub = document.getElementById('corePubForm'); if (pub) pub.onsubmit = savePub;
     var removeLogo = document.querySelector('[data-remove-pub-logo]');
     if (removeLogo) removeLogo.onclick = removePubLogo;
+    bindSettingsAddUser();
     document.querySelectorAll('[data-core-open-user]').forEach(function (button) {
       button.onclick = function () {
         var id = button.dataset.coreOpenUser;
@@ -779,6 +785,77 @@
     }).catch(function (error) {
       alert(error && error.message || 'Upload failed. Check connection.');
     });
+  }
+  function bindSettingsAddUser() {
+    var open = document.querySelector('[data-settings-open-add-user]');
+    var form = document.getElementById('settingsAddUserForm');
+    var cancel = document.querySelector('[data-settings-cancel-add-user]');
+    var error = document.querySelector('[data-settings-add-user-error]');
+    if (open && form) open.onclick = function () {
+      form.hidden = false;
+      open.hidden = true;
+      setTimeout(function () { var input = form.querySelector('input[name="name"]'); if (input) input.focus(); }, 30);
+    };
+    if (cancel && form) cancel.onclick = function () {
+      form.reset();
+      form.hidden = true;
+      if (open) open.hidden = false;
+      if (error) { error.hidden = true; error.textContent = ''; }
+    };
+    if (!form) return;
+    form.onsubmit = function (event) {
+      event.preventDefault();
+      if (error) { error.hidden = true; error.textContent = ''; }
+      var data = new FormData(form);
+      var name = String(data.get('name') || '').trim();
+      var nickname = String(data.get('nickname') || name).trim();
+      var email = String(data.get('email') || '').trim().toLowerCase();
+      var temporaryPassword = String(data.get('temporaryPassword') || '');
+      var role = canonicalGroup(data.get('role') || 'Staff');
+      var area = String(data.get('area') || '').trim();
+      if (!name || !nickname || !email || !temporaryPassword) return;
+      var payload = {
+        email: email,
+        temporaryPassword: temporaryPassword,
+        displayName: name,
+        role: role,
+        permissionSetId: role,
+        workAreaIds: area ? [area] : [],
+        staffProfile: {
+          name: name,
+          displayName: name,
+          nickname: nickname,
+          email: email,
+          role: role,
+          permissionSetId: role,
+          area: area,
+          jobArea: area,
+          active: true,
+          archived: false,
+          hidden: false,
+          setupAdmin: false
+        }
+      };
+      var submit = form.querySelector('button.primary');
+      var createRemote = window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn() && typeof window.ComplianceFirebase.createPubUser === 'function';
+      if (createRemote) {
+        if (submit) submit.disabled = true;
+        window.ComplianceFirebase.createPubUser(payload).then(function () {
+          closeSection();
+        }).catch(function (err) {
+          if (submit) submit.disabled = false;
+          if (error) { error.textContent = err && err.message || 'Could not create user.'; error.hidden = false; }
+        });
+        return;
+      }
+      state.users = Array.isArray(state.users) ? state.users : [];
+      var id = newId('user');
+      state.users.push({ id: id, name: name, displayName: name, nickname: nickname, email: email, role: role, permissionSetId: role, area: area, jobArea: area, active: true, archived: false, hidden: false, setupAdmin: false });
+      if (!state.currentUser) state.currentUser = id;
+      saveSafe();
+      closeSection();
+      try { if (typeof render === 'function') render(); } catch (_) {}
+    };
   }
 
   function clearPubLogoFields() {
@@ -1366,6 +1443,7 @@
   style.textContent += '#modal.settingsCoreModalOpen .coreQuickUsers{grid-template-columns:minmax(0,1fr)!important;padding:9px!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickAll{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;align-items:center!important;gap:9px!important;min-height:36px!important;padding:7px 8px!important;border-radius:12px!important;background:rgba(255,255,255,.035)!important;color:#fff8ea!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickAll input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;max-width:18px!important;padding:0!important;margin:0!important;justify-self:start!important;accent-color:#d0ad58!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickAll span{min-width:0!important;color:#fff8ea!important;font-size:13px!important;line-height:1.15!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickSelect{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:5px!important;padding:0!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickSelect span,.coreAssignedSubhead{color:#d0ad58!important;font-size:12px!important;font-weight:900!important;line-height:1.2!important}.coreAssignedSubhead{margin:2px 4px -2px!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickSelect select{height:42px!important;min-height:42px!important;border-radius:12px!important}';
   style.textContent += '#modal.settingsCoreModalOpen .coreSettingsSubsection{gap:10px!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:18px!important;padding:12px!important;box-shadow:none!important}#modal.settingsCoreModalOpen .coreSettingsSubsection h3{font-size:15px!important;letter-spacing:0!important}#modal.settingsCoreModalOpen details.coreSettingsSubsection{display:grid!important;padding:0!important;overflow:hidden!important}#modal.settingsCoreModalOpen details.coreSettingsSubsection:not([open])>*:not(summary){display:none!important}.coreSettingsSubsectionSummary{list-style:none!important;display:grid!important;grid-template-columns:minmax(0,1fr) 30px!important;gap:10px!important;align-items:center!important;min-height:56px!important;padding:10px 12px!important;cursor:pointer!important}.coreSettingsSubsectionSummary::-webkit-details-marker{display:none!important}.coreSettingsSubsectionSummary span:first-child{display:grid!important;gap:3px!important;min-width:0!important}.coreSettingsSubsectionSummary strong{color:#fff8ea!important;font-size:15px!important;font-weight:900!important;line-height:1.12!important}.coreSettingsSubsectionSummary em{color:#aaa194!important;font-size:12px!important;font-style:normal!important;font-weight:780!important;line-height:1.2!important}.coreSettingsSubsectionSummary .fdocArrow{color:#d0ad58!important}details.coreSettingsSubsection[open] .coreSettingsSubsectionSummary{border-bottom:1px solid rgba(255,255,255,.08)!important}details.coreSettingsSubsection[open] .fdocArrow{transform:rotate(180deg)!important}#modal.settingsCoreModalOpen .settingsDeleteX,#modal.settingsCoreModalOpen .close{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-width:40px!important;max-height:40px!important;border-radius:999px!important;padding:0!important;display:grid!important;place-items:center!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.58)!important;font-size:24px!important;font-weight:950!important;line-height:1!important;box-shadow:none!important}#modal.settingsCoreModalOpen .settingsAreaButton,#modal.settingsCoreModalOpen .checkSetupCheckButton{background:rgba(255,255,255,.055)!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.09)!important;box-shadow:none!important}#modal.settingsCoreModalOpen .settingsAreaButton strong,#modal.settingsCoreModalOpen .settingsAreaButton small,#modal.settingsCoreModalOpen .checkSetupCheckButton strong,#modal.settingsCoreModalOpen .checkSetupCheckButton small{color:#fff8ea!important}#modal.settingsCoreModalOpen .settingsAreaButton small,#modal.settingsCoreModalOpen .checkSetupCheckButton small{color:#aaa194!important;opacity:1!important}.settingsRequirementForm,.settingsRequirementList{display:grid!important;gap:9px!important}.settingsRequirementForm{padding:12px 12px 0!important}.settingsRequirementRow{display:grid!important;grid-template-columns:minmax(0,1fr) 118px 40px!important;gap:8px!important;align-items:end!important;padding:10px!important;border-radius:14px!important;background:rgba(0,0,0,.18)!important;border:1px solid rgba(255,255,255,.08)!important}.settingsRequirementRow label{display:grid!important;gap:5px!important;min-width:0!important}.settingsRequirementRow label span,.staffRequirementAddForm select{color:#d0ad58!important;font-size:11px!important;font-weight:900!important}.settingsRequirementRow input,.settingsRequirementRow select,.staffRequirementAddForm input,.staffRequirementAddForm select{width:100%!important;min-width:0!important;height:42px!important;min-height:42px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;font-size:16px!important;box-sizing:border-box!important}.settingsRequirementForm>.primary{width:100%!important}.staffRequirementAddForm{grid-template-columns:minmax(0,1fr)!important;padding:0 12px 12px!important}.staffRequirementAddForm button{width:100%!important}.settingsDocGroupList{display:grid!important;gap:9px!important}.settingsDocGroupCard{background:transparent!important;border:0!important;margin:0!important;overflow:visible!important}.settingsDocGroupButton{width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) 30px!important;gap:10px!important;align-items:center!important;min-height:56px!important;padding:10px 12px!important;border-radius:15px!important;background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;text-align:left!important;box-shadow:none!important}.settingsDocGroupName{display:grid!important;gap:3px!important;min-width:0!important}.settingsDocGroupName strong{color:#fff8ea!important;font-size:15px!important;font-weight:900!important;line-height:1.12!important}.settingsDocGroupName em{color:#aaa194!important;font-size:12px!important;font-style:normal!important;font-weight:780!important;line-height:1.2!important;opacity:1!important}.settingsDocGroupButton .fdocArrow{color:#d0ad58!important}.settingsDocGroupPanel{margin:-8px 0 0!important;padding:18px 10px 10px!important;border-radius:0 0 15px 15px!important;background:rgba(0,0,0,.22)!important;border:1px solid rgba(255,255,255,.08)!important;border-top:0!important;color:#fff8ea!important;box-shadow:none!important}.settingsDocGroupPanel *{color:#fff8ea!important}.settingsDocGroupPanel .settingsField span{color:#d0ad58!important}.settingsDocGroupPanel .settingsField input{width:100%!important;min-height:42px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;font-size:16px!important}.staffDocRequirementTickList{display:grid!important;gap:7px!important;max-height:310px!important;overflow-y:auto!important;overflow-x:hidden!important;padding-right:2px!important}.staffDocRequirementTick{grid-template-columns:minmax(0,1fr) 22px!important;align-items:center!important;min-height:40px!important;padding:8px!important;border-radius:12px!important;background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.07)!important;color:#fff8ea!important}.staffDocRequirementTick input{grid-column:2!important;grid-row:1!important;width:18px!important;height:18px!important;min-height:18px!important;margin:0!important;justify-self:end!important;accent-color:#d0ad58!important}.staffDocRequirementTick span{grid-column:1!important;grid-row:1!important;min-width:0!important;color:#fff8ea!important;font-size:13px!important;font-weight:850!important;line-height:1.2!important}.settingsDocGroupPanel .permissionActions{grid-template-columns:1fr!important}.settingsDocGroupPanel .permissionActions .danger{background:#9b1c15!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}@media(max-width:430px){.settingsRequirementRow{grid-template-columns:minmax(0,1fr) 40px!important;align-items:start!important}.settingsRequirementName{grid-column:1!important;grid-row:1!important}.settingsRequirementExpiry{grid-column:1/-1!important;grid-row:2!important}.settingsRequirementDelete{grid-column:2!important;grid-row:1!important}.staffRequirementAddForm{gap:8px!important}.staffDocRequirementTickList{max-height:280px!important}}';
   style.textContent += '#modal.settingsCoreModalOpen .settingsRequirementRow{grid-template-columns:minmax(0,1fr) 92px 40px!important;align-items:center!important;min-height:58px!important;padding:8px!important}#modal.settingsCoreModalOpen .settingsRequirementTitle,#modal.settingsCoreModalOpen select.settingsRequirementExpiry{grid-column:auto!important;grid-row:auto!important;height:40px!important;min-height:40px!important;padding:0 9px!important;font-size:14px!important}#modal.settingsCoreModalOpen .settingsRequirementDelete{grid-column:auto!important;grid-row:auto!important;width:40px!important;height:40px!important;min-height:40px!important}#modal.settingsCoreModalOpen .settingsRequirementForm{gap:8px!important}#modal.settingsCoreModalOpen .settingsRequirementList{gap:7px!important}@media(max-width:430px){#modal.settingsCoreModalOpen .settingsRequirementRow{grid-template-columns:minmax(0,1fr) 92px 40px!important;align-items:center!important}.settingsRequirementTitle,select.settingsRequirementExpiry,.settingsRequirementDelete{grid-row:auto!important}}';
+  style.textContent += '#modal.settingsCoreModalOpen .coreModalBody{display:block!important}#modal.settingsCoreModalOpen .coreModalBody>*+*{margin-top:14px!important}#modal.settingsCoreModalOpen button.secondary.settingsDocGroupButton{background-color:rgba(255,255,255,.055)!important;background-image:none!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.09)!important;box-shadow:none!important}#modal.settingsCoreModalOpen button.secondary.settingsDocGroupButton strong{color:#fff8ea!important}#modal.settingsCoreModalOpen button.secondary.settingsDocGroupButton em{color:#aaa194!important}#modal.settingsCoreModalOpen button.secondary.settingsDocGroupButton .fdocArrow{color:#d0ad58!important}.settingsAddUserBlock{display:grid!important;gap:10px!important}.settingsAddUserButton{width:100%!important;min-height:54px!important;border-radius:15px!important;background:#071522!important;background-image:none!important;color:#fff8ea!important;border:1px solid rgba(208,173,88,.58)!important;font-size:16px!important;font-weight:950!important}.settingsAddUserForm{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important}.settingsAddUserForm[hidden]{display:none!important}.settingsAddUserForm label{display:grid!important;gap:5px!important;color:#d0ad58!important;font-size:12px!important;font-weight:900!important}.settingsAddUserForm input,.settingsAddUserForm select{width:100%!important;min-width:0!important;min-height:44px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;font-size:16px!important;box-sizing:border-box!important}.settingsAddUserActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}.settingsAddUserError{margin:0!important;color:#ff8b80!important;font-size:13px!important;font-weight:900!important}.settingsEmptyState{margin:0!important;padding:12px!important;border-radius:14px!important;background:rgba(255,255,255,.04)!important;color:#aaa194!important;font-weight:850!important}@media(max-width:430px){.settingsAddUserActions{grid-template-columns:1fr!important}}';
   document.head.appendChild(style);
 
   ensureState();
