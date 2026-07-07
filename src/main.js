@@ -243,18 +243,7 @@ function canResolveMaintenanceIssues() {
   return permissionAllows('issues.resolve', isAdminUser());
 }
 
-function firebaseSignedIn() {
-  try { return !!(window.ComplianceFirebase && window.ComplianceFirebase.isSignedIn && window.ComplianceFirebase.isSignedIn()); } catch (_) { return false; }
-}
-
-function canSwitchCurrentUser() {
-  return !firebaseSignedIn() || isAdminUser();
-}
-
 function currentUserControl() {
-  if (canSwitchCurrentUser()) {
-    return `<select id="userSwitch">${state.users.map(u => `<option value="${u.id}" ${u.id === state.currentUser ? 'selected' : ''}>${esc(u.nickname)} (${esc(u.role)})</option>`).join('')}</select>`;
-  }
   return `<span class="cloudUserLock">${esc(me().nickname)} (${esc(me().role)})</span>`;
 }
 

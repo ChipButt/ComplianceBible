@@ -5,7 +5,22 @@
 
   function getUser() {
     try {
-      return state.users.find(function (u) { return u.id === state.currentUser; }) || state.users[0] || {};
+      var users = state.users || [];
+      var currentId = state.currentUser || state.currentUserId || '';
+      var authUser = window.ComplianceFirebase && typeof window.ComplianceFirebase.currentUser === 'function'
+        ? window.ComplianceFirebase.currentUser()
+        : null;
+      return users.find(function (u) { return u.id === currentId; })
+        || users.find(function (u) {
+          return authUser && (
+            u.id === authUser.uid ||
+            u.authUid === authUser.uid ||
+            u.memberUid === authUser.uid ||
+            String(u.email || '').toLowerCase() === String(authUser.email || '').toLowerCase()
+          );
+        })
+        || users[0]
+        || {};
     } catch (e) {
       return {};
     }
@@ -24,13 +39,6 @@
     });
   }
 
-  function canSwitchUser() {
-    try {
-      if (typeof canSwitchCurrentUser === 'function') return canSwitchCurrentUser();
-    } catch (e) {}
-    return true;
-  }
-
   function openPanel() {
     var root;
     try { root = modalRoot; } catch (e) { root = document.getElementById('modal'); }
@@ -40,9 +48,6 @@
     var pubName = '';
     try { pubName = state.pub && state.pub.name ? state.pub.name : ''; } catch (e) {}
 
-    var switchControl = canSwitchUser() ? '<label>Switch user<select id="profileCircleUserSelect">' +
-        state.users.map(function (x) { return '<option value="' + escapeText(x.id) + '" ' + (x.id === state.currentUser ? 'selected' : '') + '>' + escapeText(x.nickname || x.name) + ' (' + escapeText(x.role || 'User') + ')</option>'; }).join('') +
-      '</select></label>' : '<div class="cloudUserLock">' + escapeText(u.email || u.nickname || u.name || 'Signed in') + '</div>';
     var signOutControl = window.ComplianceFirebase && typeof window.ComplianceFirebase.signOut === 'function'
       ? '<button id="profileCircleSignOut" class="secondary" type="button">Sign Out</button>'
       : '';
@@ -51,11 +56,10 @@
       '<button class="close" id="profileCircleClose">×</button>' +
       '<div class="profileCircleModalTop">' +
         '<span class="avatarText big">' + escapeText(getInitials(u.nickname || u.name)) + '</span>' +
-        '<div><p class="muted">' + escapeText(pubName || 'Current user') + '</p>' +
-        '<h2>' + escapeText(u.nickname || u.name || 'User') + '</h2>' +
+        '<div><h2>' + escapeText(u.nickname || u.name || 'User') + '</h2>' +
+        (pubName ? '<p class="muted">' + escapeText(pubName) + '</p>' : '') +
         '<p>' + escapeText([u.role, u.area || u.jobArea].filter(Boolean).join(' · ')) + '</p></div>' +
       '</div>' +
-      switchControl +
       '<div class="profileCircleActions profileCircleActionsThree">' +
         '<button id="profileCircleUsers">Full Profile</button>' +
         '<button id="profileCircleSchedule">Schedule</button>' +
@@ -67,20 +71,18 @@
     root.classList.remove('hidden');
 
     document.getElementById('profileCircleClose').onclick = function () { root.classList.add('hidden'); };
-    var switcher = document.getElementById('profileCircleUserSelect');
-    if (switcher) switcher.onchange = function (event) {
-      state.currentUser = event.target.value;
-      if (typeof save === 'function') save();
-      root.classList.add('hidden');
-      if (typeof render === 'function') render();
-    };
     document.getElementById('profileCircleUsers').onclick = function () {
       root.classList.add('hidden');
       if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(u.id);
       else { route = 'settings'; render(); if (typeof window.openCoreSettingsSection === 'function') setTimeout(function () { window.openCoreSettingsSection('users'); }, 0); }
     };
     document.getElementById('profileCircleSchedule').onclick = function () { route = 'rota'; root.classList.add('hidden'); render(); };
-    document.getElementById('profileCircleSettings').onclick = function () { route = 'settings'; root.classList.add('hidden'); render(); };
+    document.getElementById('profileCircleSettings').onclick = function () {
+      root.classList.add('hidden');
+      if (typeof openUserEditor === 'function') openUserEditor(u.id);
+      else if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(u.id);
+      else { route = 'settings'; render(); if (typeof window.openCoreSettingsSection === 'function') setTimeout(function () { window.openCoreSettingsSection('users'); }, 0); }
+    };
     var signOut = document.getElementById('profileCircleSignOut');
     if (signOut) signOut.onclick = function () {
       root.classList.add('hidden');
@@ -97,7 +99,7 @@
       button = document.createElement('button');
       button.id = 'globalProfileCircle';
       button.type = 'button';
-      button.setAttribute('aria-label', 'Current user profile');
+      button.setAttribute('aria-label', 'User profile');
       topbar.appendChild(button);
     }
 
