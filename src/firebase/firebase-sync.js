@@ -672,9 +672,10 @@
   function writePermissionSets(batch, matrix) {
     Object.keys(matrix).forEach(function (id) {
       var value = Object.assign({}, matrix[id] || {});
+      var storeId = normalizePermissionSetId(id);
       var description = value.description || '';
       delete value.description;
-      batch.set(services.doc(services.db, 'pubs', pubId(), 'permissionSets', id), clean({ id: id, description: description, permissions: normalizePermissionMap(value), updatedAt: services.serverTimestamp(), updatedBy: authUser.uid }), { merge: true });
+      batch.set(services.doc(services.db, 'pubs', pubId(), 'permissionSets', storeId), clean({ id: storeId, label: id, description: description, permissions: normalizePermissionMap(value), updatedAt: services.serverTimestamp(), updatedBy: authUser.uid }), { merge: true });
     });
   }
 

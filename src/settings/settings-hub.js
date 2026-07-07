@@ -178,7 +178,12 @@
   }
   function todayISO() { try { return typeof today === 'function' ? today() : new Date().toISOString().slice(0, 10); } catch (_) { return new Date().toISOString().slice(0, 10); } }
   function fieldChecked(form, name) { return !!(form && form.elements && form.elements[name] && form.elements[name].checked); }
-  function groupOf(user) { return (user && (user.permissionSetId || user.role)) || 'Staff'; }
+  function canonicalGroup(value) {
+    var text = String(value || '').trim();
+    var aliases = { owner: 'Owner', admin: 'Admin', 'full-admin': 'Admin', manager: 'Manager', supervisor: 'Supervisor', staff: 'Staff' };
+    return aliases[normalise(text)] || text || 'Staff';
+  }
+  function groupOf(user) { return canonicalGroup(user && (user.permissionSetId || user.role) || 'Staff'); }
   function isSystemUser(user) { return !!(user && (user.hidden === true || user.setupAdmin === true)); }
   function showSystemUsers() { return !!(window.ComplianceFirebase && typeof window.ComplianceFirebase.showSystemUsers === 'function' && window.ComplianceFirebase.showSystemUsers()); }
   function visibleUsers() {
@@ -297,7 +302,12 @@
   }
 
   function ensureState() {
-    state.permissionMatrix = state.permissionMatrix || {};
+    var rawMatrix = state.permissionMatrix || {};
+    state.permissionMatrix = {};
+    Object.keys(rawMatrix).forEach(function (group) {
+      var canonical = canonicalGroup(group);
+      state.permissionMatrix[canonical] = Object.assign({}, state.permissionMatrix[canonical] || {}, rawMatrix[group] || {});
+    });
     CORE_GROUPS.forEach(function (group) { state.permissionMatrix[group] = state.permissionMatrix[group] || {}; });
     var keys = permissionKeys();
     Object.keys(state.permissionMatrix).forEach(function (group) {
@@ -311,7 +321,7 @@
     });
     (state.users || []).forEach(function (user) {
       if (namedAdmin(user)) { user.permissionSetId = 'Admin'; user.role = 'Admin'; return; }
-      if (!user.permissionSetId) user.permissionSetId = user.role || 'Staff';
+      user.permissionSetId = canonicalGroup(user.permissionSetId || user.role || 'Staff');
       if (!state.permissionMatrix[user.permissionSetId]) user.permissionSetId = 'Staff';
       user.role = user.permissionSetId;
     });
@@ -414,7 +424,7 @@
     var matrix = state.permissionMatrix[group] || {};
     var users = visibleUsers();
     var isCore = CORE_GROUPS.indexOf(group) !== -1;
-    return '<details class="corePermissionCard" ' + (group === 'Admin' ? 'open' : '') + '><summary><span><strong>' + h(group) + '</strong><em>' + users.filter(function (u) { return groupOf(u) === group; }).length + ' users</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form class="coreGroupForm" data-core-group-form="' + h(group) + '"><label class="full"><span>Group description</span><textarea name="description">' + h(matrix.description || '') + '</textarea></label><section class="coreAssigned"><h4>Who\'s in this group?</h4>' + quickUserControls() + '<div class="coreAssignedSubhead">Individual users</div>' + userTickList(group) + '</section>' + PERMISSION_SECTIONS.map(function (section) { return permissionBlock(section, matrix); }).join('') + '<div class="coreFormActions full"><button class="primary">Save ' + h(group) + '</button>' + (isCore ? '' : '<button type="button" class="secondary danger" data-delete-core-group="' + h(group) + '">Delete Group</button>') + '</div></form></details>';
+    return '<details class="corePermissionCard"><summary><span><strong>' + h(group) + '</strong><em>' + users.filter(function (u) { return groupOf(u) === group; }).length + ' users</em></span><span class="fdocArrow corePermissionChevron" aria-hidden="true">⌄</span></summary><form class="coreGroupForm" data-core-group-form="' + h(group) + '"><label class="full"><span>Group description</span><textarea name="description">' + h(matrix.description || '') + '</textarea></label><section class="coreAssigned"><h4>Who\'s in this group?</h4>' + quickUserControls() + '<div class="coreAssignedSubhead">Individual users</div>' + userTickList(group) + '</section>' + PERMISSION_SECTIONS.map(function (section) { return permissionBlock(section, matrix); }).join('') + '<div class="coreFormActions full"><button class="primary">Save ' + h(group) + '</button>' + (isCore ? '' : '<button type="button" class="secondary danger" data-delete-core-group="' + h(group) + '">Delete Group</button>') + '</div></form></details>';
   }
   function quickUserControls() {
     var users = visibleUsers();
@@ -437,15 +447,31 @@
   }
 
   function documentsSetupSection() {
-    return documentGroupsSection() + workAreaDocumentsSection();
+    return documentGroupsSection() + staffRequirementTypesSection() + workAreaDocumentsSection();
   }
   function documentGroupsSection() {
     var cats = (state.documentCategories || []).filter(function (cat) { return normalise(cat) !== 'staff'; });
     if (!cats.length) cats = ['Licensing', 'Food Safety', 'Fire Safety', 'Health & Safety', 'Equipment'];
     state.documentCategories = cats.slice();
-    return '<section class="settingsBlock documentGroupSetup"><h3>Document Groups</h3><div class="settingsItemList documentGroupList">' + cats.map(function (cat) {
+    return '<section class="settingsBlock documentGroupSetup coreSettingsSubsection"><h3>Document Groups</h3><div class="settingsItemList documentGroupList">' + cats.map(function (cat) {
       return '<div class="settingsItemRow documentGroupRow"><span>' + h(cat) + '</span><button type="button" class="settingsDeleteX" data-delete-doc-category="' + h(cat) + '" aria-label="Delete ' + h(cat) + '">×</button></div>';
     }).join('') + '</div><form id="coreDocCategoryForm" class="coreInlineForm"><input name="category" placeholder="Add Document Group" required><button class="primary">Add</button></form></section>';
+  }
+  function expiryModeOptions(selected) {
+    var current = selected || 'optional';
+    return [
+      ['none', 'No Expiry'],
+      ['optional', 'Optional'],
+      ['required', 'Required']
+    ].map(function (item) {
+      return '<option value="' + h(item[0]) + '" ' + (item[0] === current ? 'selected' : '') + '>' + h(item[1]) + '</option>';
+    }).join('');
+  }
+  function staffRequirementTypesSection() {
+    var reqs = getRequirements().sort(function (a, b) { return String(a.title || '').localeCompare(String(b.title || '')); });
+    return '<details class="settingsBlock staffRequirementSetup coreSettingsSubsection"><summary class="coreSettingsSubsectionSummary"><span><strong>Staff Document Types</strong><em>' + reqs.length + ' document types</em></span><span class="fdocArrow" aria-hidden="true">⌄</span></summary><form id="coreStaffRequirementTypesForm" class="settingsRequirementForm"><div class="settingsRequirementList">' + reqs.map(function (req) {
+      return '<div class="settingsRequirementRow" data-staff-requirement-row="' + h(req.id) + '"><input class="settingsRequirementTitle" data-requirement-title value="' + h(req.title) + '" aria-label="Document type" required><select class="settingsRequirementExpiry" data-requirement-expiry aria-label="Expiry setting">' + expiryModeOptions(req.expiryMode) + '</select><button type="button" class="settingsDeleteX settingsRequirementDelete" data-delete-staff-requirement="' + h(req.id) + '" aria-label="Delete ' + h(req.title) + '">×</button></div>';
+    }).join('') + '</div><button class="primary full">Save Document Types</button></form><form id="coreAddStaffRequirementForm" class="coreInlineForm staffRequirementAddForm"><input name="title" placeholder="New staff document type" required><select name="expiryMode">' + expiryModeOptions('optional') + '</select><button class="primary">Add</button></form></details>';
   }
   function docReqCount(groupId) {
     return getRequirements().filter(function (req) {
@@ -456,17 +482,17 @@
     var open = !!openDocGroups[group.id];
     var reqs = getRequirements();
     var deleteButton = isCoreStaffGroup(group.id) ? '' : '<button type="button" class="secondary danger" data-delete-staff-doc-group="' + h(group.id) + '">Delete Group</button>';
-    return '<article class="permissionGroupCard staffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="fdocBar permissionGroupButton" data-toggle-staff-doc-group="' + h(group.id) + '"><span class="fdocIcon">□</span><span class="fdocName"><strong>' + h(group.label) + '</strong><em>' + docReqCount(group.id) + ' required documents</em></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel ' + (open ? '' : 'closed') + '"><form class="staffDocGroupForm" data-staff-doc-group-form="' + h(group.id) + '"><div class="permissionTickList staffDocRequirementTickList">' + reqs.map(function (req) {
+    return '<article class="permissionGroupCard settingsDocGroupCard staffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="permissionGroupButton settingsDocGroupButton" data-toggle-staff-doc-group="' + h(group.id) + '"><span class="fdocName settingsDocGroupName"><strong>' + h(group.label) + '</strong><em>' + docReqCount(group.id) + ' required documents</em></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel settingsDocGroupPanel ' + (open ? '' : 'closed') + '"><form class="staffDocGroupForm" data-staff-doc-group-form="' + h(group.id) + '"><div class="permissionTickList staffDocRequirementTickList">' + reqs.map(function (req) {
       var checked = (req.staffGroups || []).some(function (groupId) { return normalise(groupId) === normalise(group.id); });
       return '<label class="settingsTick permissionTick staffDocRequirementTick"><input type="checkbox" name="req__' + h(req.id) + '" ' + (checked ? 'checked' : '') + '><span>' + h(req.title) + '</span></label>';
     }).join('') + '</div><div class="permissionActions">' + deleteButton + '<button class="primary">Save Required Documents</button></div></form></div></article>';
   }
   function createDocGroup() {
     var open = openCreateDocGroup;
-    return '<article class="permissionGroupCard createStaffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="fdocBar permissionGroupButton" data-toggle-create-staff-doc-group="true"><span class="fdocIcon">+</span><span class="fdocName"><strong>Add Work Area Document Group</strong></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel ' + (open ? '' : 'closed') + '"><form id="createStaffDocGroupForm" class="permissionGroupForm"><label class="settingsField"><span>Group title</span><input name="title" placeholder="e.g. Cellar Team" required></label><button class="primary">Create Group</button></form></div></article>';
+    return '<article class="permissionGroupCard settingsDocGroupCard createStaffDocGroupCard ' + (open ? 'open' : '') + '"><button type="button" class="permissionGroupButton settingsDocGroupButton" data-toggle-create-staff-doc-group="true"><span class="fdocName settingsDocGroupName"><strong>Add Work Area Document Group</strong></span><span class="fdocArrow" aria-hidden="true">⌄</span></button><div class="permissionGroupPanel settingsDocGroupPanel ' + (open ? '' : 'closed') + '"><form id="createStaffDocGroupForm" class="permissionGroupForm"><label class="settingsField"><span>Group title</span><input name="title" placeholder="e.g. Cellar Team" required></label><button class="primary">Create Group</button></form></div></article>';
   }
   function workAreaDocumentsSection() {
-    return '<section class="settingsBlock staffDocSettingsBlock"><h3>Work Area Documents</h3><div class="permissionGroupList staffDocGroupList">' + getDocGroups().map(docGroupButton).join('') + createDocGroup() + '</div></section>';
+    return '<section class="settingsBlock staffDocSettingsBlock coreSettingsSubsection"><h3>Required Documents by Work Area</h3><div class="permissionGroupList staffDocGroupList settingsDocGroupList">' + getDocGroups().map(docGroupButton).join('') + createDocGroup() + '</div></section>';
   }
 
   function newId(prefix) {
@@ -533,7 +559,7 @@
   }
   function checklistSetupSection() {
     var list = checkAreas();
-    return '<section class="settingsBlock checklistSetupHub"><h3>Checklist Setup</h3><div class="settingsAreaButtonList">' + list.map(function (area) {
+    return '<section class="settingsBlock checklistSetupHub"><div class="settingsAreaButtonList">' + list.map(function (area) {
       var checks = checksForArea(area);
       return '<button type="button" class="settingsAreaButton" data-open-core-check-area="' + h(area) + '"><span><strong>' + h(area) + '</strong><small>' + checks.length + ' checks</small></span></button>';
     }).join('') + '</div></section>';
@@ -714,6 +740,9 @@
     bindAreaDrag();
     var docCategoryForm = document.getElementById('coreDocCategoryForm'); if (docCategoryForm) docCategoryForm.onsubmit = addDocumentCategory;
     document.querySelectorAll('[data-delete-doc-category]').forEach(function (button) { button.onclick = function () { deleteDocumentCategory(button.dataset.deleteDocCategory); }; });
+    var requirementTypesForm = document.getElementById('coreStaffRequirementTypesForm'); if (requirementTypesForm) requirementTypesForm.onsubmit = saveStaffRequirementTypes;
+    var addRequirementForm = document.getElementById('coreAddStaffRequirementForm'); if (addRequirementForm) addRequirementForm.onsubmit = addStaffRequirement;
+    document.querySelectorAll('[data-delete-staff-requirement]').forEach(function (button) { button.onclick = function () { deleteStaffRequirement(button.dataset.deleteStaffRequirement); }; });
     bindStaffDocGroups();
     document.querySelectorAll('[data-open-core-check-area]').forEach(function (button) { button.onclick = function () { openChecklistAreaModal(button.dataset.openCoreCheckArea); }; });
     document.querySelectorAll('[data-create-core-check]').forEach(function (button) { button.onclick = function () { openChecklistEditorModal('', button.dataset.createCoreCheck || ''); }; });
@@ -849,7 +878,7 @@
   function createGroup(event) {
     event.preventDefault();
     var form = event.currentTarget;
-    var name = String(form.elements.name.value || '').trim();
+    var name = canonicalGroup(String(form.elements.name.value || '').trim());
     var copyFrom = String(form.elements.copyFrom.value || 'Staff').trim();
     if (!name || state.permissionMatrix[name]) return;
     state.permissionMatrix[name] = Object.assign({}, state.permissionMatrix[copyFrom] || state.permissionMatrix.Staff || {});
@@ -959,6 +988,58 @@
     var replacement = current[0];
     (state.docs || []).forEach(function (doc) { if (normalise(doc.cat) === normalise(category)) doc.cat = replacement; });
     state.documentCategories = current;
+    saveSafe();
+    openSection('documents');
+  }
+  function saveStaffRequirementTypes(event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var current = getRequirements();
+    var byId = {};
+    var seenTitles = {};
+    var next = [];
+    current.forEach(function (req) { byId[req.id] = req; });
+    form.querySelectorAll('[data-staff-requirement-row]').forEach(function (row) {
+      var id = row.dataset.staffRequirementRow;
+      var titleInput = row.querySelector('[data-requirement-title]');
+      var expiryInput = row.querySelector('[data-requirement-expiry]');
+      var title = String(titleInput && titleInput.value || '').trim();
+      if (!id || !title || seenTitles[normalise(title)]) return;
+      seenTitles[normalise(title)] = true;
+      next.push(Object.assign({}, byId[id] || {}, {
+        id: id,
+        title: title,
+        expiryMode: expiryInput && expiryInput.value || 'optional',
+        staffGroups: validStaffGroups((byId[id] && byId[id].staffGroups) || [])
+      }));
+    });
+    saveRequirements(next);
+    saveSafe();
+    closeSection();
+  }
+  function addStaffRequirement(event) {
+    event.preventDefault();
+    var form = event.currentTarget;
+    var data = new FormData(form);
+    var title = String(data.get('title') || '').trim();
+    if (!title) return;
+    var reqs = getRequirements();
+    if (reqs.some(function (req) { return normalise(req.title) === normalise(title); })) return;
+    var id = stableReqId(title);
+    if (reqs.some(function (req) { return req.id === id; })) id = newId('req');
+    reqs.push({ id: id, title: title, expiryMode: String(data.get('expiryMode') || 'optional'), staffGroups: [] });
+    saveRequirements(reqs);
+    saveSafe();
+    openSection('documents');
+  }
+  function deleteStaffRequirement(id) {
+    var req = getRequirements().find(function (item) { return item.id === id; });
+    if (!req) return;
+    if (!confirm('Delete staff document type "' + req.title + '"?')) return;
+    saveRequirements(getRequirements().filter(function (item) { return item.id !== id; }));
+    state.userRequiredDocuments = (state.userRequiredDocuments || []).filter(function (item) {
+      return item.requirementId !== id && item.documentId !== id && item.id !== id;
+    });
     saveSafe();
     openSection('documents');
   }
@@ -1283,6 +1364,8 @@
   style.textContent += '#modal.settingsCoreModalOpen .corePushActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}#modal.settingsCoreModalOpen .corePushActions button{width:100%!important;background:#071522!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}#modal.settingsCoreModalOpen .corePushStatus{margin:0!important;color:#aaa194!important;font-size:12px!important;font-weight:850!important;line-height:1.25!important}@media(max-width:430px){#modal.settingsCoreModalOpen .corePushActions{grid-template-columns:1fr!important}}';
   style.textContent += '#modal.settingsCoreModalOpen .corePermissionGroups{width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:10px!important;align-items:start!important;align-content:start!important}#modal.settingsCoreModalOpen .corePermissionCard{display:block!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;position:relative!important;overflow:hidden!important;contain:none!important}#modal.settingsCoreModalOpen .corePermissionCard:not([open])>.coreGroupForm,#modal.settingsCoreModalOpen .corePermissionCard:not([open])>.coreSettingsForm{display:none!important}#modal.settingsCoreModalOpen .corePermissionCard[open]>.coreGroupForm,#modal.settingsCoreModalOpen .corePermissionCard[open]>.coreSettingsForm{display:grid!important;position:static!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;grid-template-columns:minmax(0,1fr)!important;box-sizing:border-box!important}#modal.settingsCoreModalOpen .corePermissionCard>summary{width:100%!important;max-width:100%!important;box-sizing:border-box!important;grid-template-columns:minmax(0,1fr) 34px!important}#modal.settingsCoreModalOpen .corePermissionCard>summary span,#modal.settingsCoreModalOpen .corePermissionCard>summary strong,#modal.settingsCoreModalOpen .corePermissionCard>summary em{min-width:0!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important}#modal.settingsCoreModalOpen .coreGroupForm,#modal.settingsCoreModalOpen .coreAssigned,#modal.settingsCoreModalOpen .corePermissionBlock,#modal.settingsCoreModalOpen .corePermissionTicks,#modal.settingsCoreModalOpen .coreUserTicks,#modal.settingsCoreModalOpen .coreQuickUsers{min-width:0!important;max-width:100%!important;box-sizing:border-box!important}#modal.settingsCoreModalOpen .coreTick{grid-template-columns:minmax(0,1fr) 22px!important;align-items:center!important;min-width:0!important;max-width:100%!important}#modal.settingsCoreModalOpen .coreTick input{grid-column:2!important;grid-row:1!important;justify-self:end!important;margin:0!important}#modal.settingsCoreModalOpen .coreTick span{grid-column:1!important;grid-row:1!important;min-width:0!important;max-width:100%!important}#modal.settingsCoreModalOpen .coreQuickUsers label{min-width:0!important;max-width:100%!important}#modal.settingsCoreModalOpen .coreQuickUsers select{width:100%!important;min-width:0!important}@media(max-width:430px){#modal.settingsCoreModalOpen .coreGroupForm{padding:0 10px 10px!important}.corePermissionBlock{padding:9px!important}.coreTick{padding:8px!important}}';
   style.textContent += '#modal.settingsCoreModalOpen .coreQuickUsers{grid-template-columns:minmax(0,1fr)!important;padding:9px!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickAll{display:grid!important;grid-template-columns:22px minmax(0,1fr)!important;align-items:center!important;gap:9px!important;min-height:36px!important;padding:7px 8px!important;border-radius:12px!important;background:rgba(255,255,255,.035)!important;color:#fff8ea!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickAll input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px!important;min-height:18px!important;max-width:18px!important;padding:0!important;margin:0!important;justify-self:start!important;accent-color:#d0ad58!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickAll span{min-width:0!important;color:#fff8ea!important;font-size:13px!important;line-height:1.15!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickSelect{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:5px!important;padding:0!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickSelect span,.coreAssignedSubhead{color:#d0ad58!important;font-size:12px!important;font-weight:900!important;line-height:1.2!important}.coreAssignedSubhead{margin:2px 4px -2px!important}#modal.settingsCoreModalOpen .coreQuickUsers .coreQuickSelect select{height:42px!important;min-height:42px!important;border-radius:12px!important}';
+  style.textContent += '#modal.settingsCoreModalOpen .coreSettingsSubsection{gap:10px!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:18px!important;padding:12px!important;box-shadow:none!important}#modal.settingsCoreModalOpen .coreSettingsSubsection h3{font-size:15px!important;letter-spacing:0!important}#modal.settingsCoreModalOpen details.coreSettingsSubsection{display:grid!important;padding:0!important;overflow:hidden!important}#modal.settingsCoreModalOpen details.coreSettingsSubsection:not([open])>*:not(summary){display:none!important}.coreSettingsSubsectionSummary{list-style:none!important;display:grid!important;grid-template-columns:minmax(0,1fr) 30px!important;gap:10px!important;align-items:center!important;min-height:56px!important;padding:10px 12px!important;cursor:pointer!important}.coreSettingsSubsectionSummary::-webkit-details-marker{display:none!important}.coreSettingsSubsectionSummary span:first-child{display:grid!important;gap:3px!important;min-width:0!important}.coreSettingsSubsectionSummary strong{color:#fff8ea!important;font-size:15px!important;font-weight:900!important;line-height:1.12!important}.coreSettingsSubsectionSummary em{color:#aaa194!important;font-size:12px!important;font-style:normal!important;font-weight:780!important;line-height:1.2!important}.coreSettingsSubsectionSummary .fdocArrow{color:#d0ad58!important}details.coreSettingsSubsection[open] .coreSettingsSubsectionSummary{border-bottom:1px solid rgba(255,255,255,.08)!important}details.coreSettingsSubsection[open] .fdocArrow{transform:rotate(180deg)!important}#modal.settingsCoreModalOpen .settingsDeleteX,#modal.settingsCoreModalOpen .close{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-width:40px!important;max-height:40px!important;border-radius:999px!important;padding:0!important;display:grid!important;place-items:center!important;background:#071522!important;color:#d0ad58!important;border:1px solid rgba(208,173,88,.58)!important;font-size:24px!important;font-weight:950!important;line-height:1!important;box-shadow:none!important}#modal.settingsCoreModalOpen .settingsAreaButton,#modal.settingsCoreModalOpen .checkSetupCheckButton{background:rgba(255,255,255,.055)!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.09)!important;box-shadow:none!important}#modal.settingsCoreModalOpen .settingsAreaButton strong,#modal.settingsCoreModalOpen .settingsAreaButton small,#modal.settingsCoreModalOpen .checkSetupCheckButton strong,#modal.settingsCoreModalOpen .checkSetupCheckButton small{color:#fff8ea!important}#modal.settingsCoreModalOpen .settingsAreaButton small,#modal.settingsCoreModalOpen .checkSetupCheckButton small{color:#aaa194!important;opacity:1!important}.settingsRequirementForm,.settingsRequirementList{display:grid!important;gap:9px!important}.settingsRequirementForm{padding:12px 12px 0!important}.settingsRequirementRow{display:grid!important;grid-template-columns:minmax(0,1fr) 118px 40px!important;gap:8px!important;align-items:end!important;padding:10px!important;border-radius:14px!important;background:rgba(0,0,0,.18)!important;border:1px solid rgba(255,255,255,.08)!important}.settingsRequirementRow label{display:grid!important;gap:5px!important;min-width:0!important}.settingsRequirementRow label span,.staffRequirementAddForm select{color:#d0ad58!important;font-size:11px!important;font-weight:900!important}.settingsRequirementRow input,.settingsRequirementRow select,.staffRequirementAddForm input,.staffRequirementAddForm select{width:100%!important;min-width:0!important;height:42px!important;min-height:42px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;font-size:16px!important;box-sizing:border-box!important}.settingsRequirementForm>.primary{width:100%!important}.staffRequirementAddForm{grid-template-columns:minmax(0,1fr)!important;padding:0 12px 12px!important}.staffRequirementAddForm button{width:100%!important}.settingsDocGroupList{display:grid!important;gap:9px!important}.settingsDocGroupCard{background:transparent!important;border:0!important;margin:0!important;overflow:visible!important}.settingsDocGroupButton{width:100%!important;display:grid!important;grid-template-columns:minmax(0,1fr) 30px!important;gap:10px!important;align-items:center!important;min-height:56px!important;padding:10px 12px!important;border-radius:15px!important;background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.09)!important;color:#fff8ea!important;text-align:left!important;box-shadow:none!important}.settingsDocGroupName{display:grid!important;gap:3px!important;min-width:0!important}.settingsDocGroupName strong{color:#fff8ea!important;font-size:15px!important;font-weight:900!important;line-height:1.12!important}.settingsDocGroupName em{color:#aaa194!important;font-size:12px!important;font-style:normal!important;font-weight:780!important;line-height:1.2!important;opacity:1!important}.settingsDocGroupButton .fdocArrow{color:#d0ad58!important}.settingsDocGroupPanel{margin:-8px 0 0!important;padding:18px 10px 10px!important;border-radius:0 0 15px 15px!important;background:rgba(0,0,0,.22)!important;border:1px solid rgba(255,255,255,.08)!important;border-top:0!important;color:#fff8ea!important;box-shadow:none!important}.settingsDocGroupPanel *{color:#fff8ea!important}.settingsDocGroupPanel .settingsField span{color:#d0ad58!important}.settingsDocGroupPanel .settingsField input{width:100%!important;min-height:42px!important;border-radius:12px!important;background:#080b0e!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff8ea!important;font-size:16px!important}.staffDocRequirementTickList{display:grid!important;gap:7px!important;max-height:310px!important;overflow-y:auto!important;overflow-x:hidden!important;padding-right:2px!important}.staffDocRequirementTick{grid-template-columns:minmax(0,1fr) 22px!important;align-items:center!important;min-height:40px!important;padding:8px!important;border-radius:12px!important;background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.07)!important;color:#fff8ea!important}.staffDocRequirementTick input{grid-column:2!important;grid-row:1!important;width:18px!important;height:18px!important;min-height:18px!important;margin:0!important;justify-self:end!important;accent-color:#d0ad58!important}.staffDocRequirementTick span{grid-column:1!important;grid-row:1!important;min-width:0!important;color:#fff8ea!important;font-size:13px!important;font-weight:850!important;line-height:1.2!important}.settingsDocGroupPanel .permissionActions{grid-template-columns:1fr!important}.settingsDocGroupPanel .permissionActions .danger{background:#9b1c15!important;color:#fff8ea!important;border:1px solid rgba(255,255,255,.16)!important}@media(max-width:430px){.settingsRequirementRow{grid-template-columns:minmax(0,1fr) 40px!important;align-items:start!important}.settingsRequirementName{grid-column:1!important;grid-row:1!important}.settingsRequirementExpiry{grid-column:1/-1!important;grid-row:2!important}.settingsRequirementDelete{grid-column:2!important;grid-row:1!important}.staffRequirementAddForm{gap:8px!important}.staffDocRequirementTickList{max-height:280px!important}}';
+  style.textContent += '#modal.settingsCoreModalOpen .settingsRequirementRow{grid-template-columns:minmax(0,1fr) 92px 40px!important;align-items:center!important;min-height:58px!important;padding:8px!important}#modal.settingsCoreModalOpen .settingsRequirementTitle,#modal.settingsCoreModalOpen select.settingsRequirementExpiry{grid-column:auto!important;grid-row:auto!important;height:40px!important;min-height:40px!important;padding:0 9px!important;font-size:14px!important}#modal.settingsCoreModalOpen .settingsRequirementDelete{grid-column:auto!important;grid-row:auto!important;width:40px!important;height:40px!important;min-height:40px!important}#modal.settingsCoreModalOpen .settingsRequirementForm{gap:8px!important}#modal.settingsCoreModalOpen .settingsRequirementList{gap:7px!important}@media(max-width:430px){#modal.settingsCoreModalOpen .settingsRequirementRow{grid-template-columns:minmax(0,1fr) 92px 40px!important;align-items:center!important}.settingsRequirementTitle,select.settingsRequirementExpiry,.settingsRequirementDelete{grid-row:auto!important}}';
   document.head.appendChild(style);
 
   ensureState();
