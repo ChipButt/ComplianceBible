@@ -68,24 +68,30 @@
       '</div>' +
       '</div>';
 
+    function closePanel() {
+      root.classList.add('hidden');
+      root.classList.remove('profileCircleModalOpen');
+    }
+
+    root.classList.add('profileCircleModalOpen');
     root.classList.remove('hidden');
 
-    document.getElementById('profileCircleClose').onclick = function () { root.classList.add('hidden'); };
+    document.getElementById('profileCircleClose').onclick = closePanel;
     document.getElementById('profileCircleUsers').onclick = function () {
-      root.classList.add('hidden');
+      closePanel();
       if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(u.id);
       else { route = 'settings'; render(); if (typeof window.openCoreSettingsSection === 'function') setTimeout(function () { window.openCoreSettingsSection('users'); }, 0); }
     };
-    document.getElementById('profileCircleSchedule').onclick = function () { route = 'rota'; root.classList.add('hidden'); render(); };
+    document.getElementById('profileCircleSchedule').onclick = function () { route = 'rota'; closePanel(); render(); };
     document.getElementById('profileCircleSettings').onclick = function () {
-      root.classList.add('hidden');
+      closePanel();
       if (typeof openUserEditor === 'function') openUserEditor(u.id);
       else if (typeof window.openUserProfileModal === 'function') window.openUserProfileModal(u.id);
       else { route = 'settings'; render(); if (typeof window.openCoreSettingsSection === 'function') setTimeout(function () { window.openCoreSettingsSection('users'); }, 0); }
     };
     var signOut = document.getElementById('profileCircleSignOut');
     if (signOut) signOut.onclick = function () {
-      root.classList.add('hidden');
+      closePanel();
       window.ComplianceFirebase.signOut();
     };
   }
@@ -113,7 +119,7 @@
   }
 
   var style = document.createElement('style');
-  style.textContent = '.profileSwitch,.rotaHomeIdentity{display:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}.topbar{display:grid!important;grid-template-columns:1fr auto!important;align-items:start!important;gap:12px!important}#globalProfileCircle{width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;border-radius:50%!important;background:linear-gradient(135deg,#B0914A,#d0ad58)!important;color:#060708!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:0 10px 26px rgba(176,145,74,.24)!important;font-size:18px!important;font-weight:950!important;padding:0!important;pointer-events:auto!important}.profileCircleModalTop{display:grid!important;grid-template-columns:auto 1fr!important;gap:14px!important;align-items:center!important;margin-bottom:18px!important}.profileCircleActionsThree{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:14px!important}#profileCircleSignOut{background:#071522!important;color:#fff8ea!important;border-color:rgba(208,173,88,.48)!important}';
+  style.textContent = '.profileSwitch,.rotaHomeIdentity{display:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}.topbar{display:grid!important;grid-template-columns:1fr auto!important;align-items:start!important;gap:12px!important}#globalProfileCircle{width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;border-radius:50%!important;background:linear-gradient(135deg,#B0914A,#d0ad58)!important;color:#060708!important;border:1px solid rgba(255,255,255,.16)!important;box-shadow:0 10px 26px rgba(176,145,74,.24)!important;font-size:18px!important;font-weight:950!important;padding:0!important;pointer-events:auto!important}#modal.profileCircleModalOpen{position:fixed!important;inset:calc(var(--fixed-topbar-height,48px) + var(--fixed-mainnav-height,54px)) 0 0 0!important;z-index:1300!important;display:flex!important;align-items:flex-start!important;justify-content:center!important;padding:10px 14px max(14px,env(safe-area-inset-bottom))!important;background:rgba(0,0,0,.58)!important;box-sizing:border-box!important;overflow:hidden!important}#modal.profileCircleModalOpen.hidden{display:none!important}#modal.profileCircleModalOpen .profileCircleModal{width:min(420px,100%)!important;max-height:100%!important;margin:0!important;overflow-y:auto!important;overflow-x:hidden!important;border-radius:24px!important;box-sizing:border-box!important}.profileCircleModalTop{display:grid!important;grid-template-columns:auto 1fr!important;gap:14px!important;align-items:center!important;margin-bottom:18px!important}.profileCircleActionsThree{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;margin-top:14px!important}#profileCircleSignOut{background:#071522!important;color:#fff8ea!important;border-color:rgba(208,173,88,.48)!important}';
   document.head.appendChild(style);
 
   function afterRender() { ensureButton(); }
