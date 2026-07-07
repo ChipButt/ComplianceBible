@@ -218,7 +218,8 @@
   }
 
   function showSystemUsers() {
-    return localStorage.getItem(SHOW_SYSTEM_USERS_KEY) === 'true' && hasPermission('users.edit');
+    try { localStorage.removeItem(SHOW_SYSTEM_USERS_KEY); } catch (_) {}
+    return false;
   }
 
   function isSystemRecord(record) {
@@ -1497,8 +1498,8 @@
     signOut: signOutUser,
     hasPermission: hasPermission,
     showSystemUsers: showSystemUsers,
-    setShowSystemUsers: function (value) {
-      localStorage.setItem(SHOW_SYSTEM_USERS_KEY, value ? 'true' : 'false');
+    setShowSystemUsers: function () {
+      try { localStorage.removeItem(SHOW_SYSTEM_USERS_KEY); } catch (_) {}
       refreshStaffDocumentListeners();
       rebuildLocalState();
     },

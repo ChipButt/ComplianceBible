@@ -401,12 +401,7 @@
   }
 
   function usersSection() {
-    var systemToggle = '';
-    if (window.ComplianceFirebase && typeof window.ComplianceFirebase.hasPermission === 'function' && window.ComplianceFirebase.hasPermission('users.edit')) {
-      var checked = window.ComplianceFirebase.showSystemUsers && window.ComplianceFirebase.showSystemUsers();
-      systemToggle = '<label class="systemUsersToggle coreSystemUsersToggle"><input id="coreShowSystemUsersToggle" type="checkbox" ' + (checked ? 'checked' : '') + '><span>Show hidden/system users</span></label>';
-    }
-    return systemToggle + '<div class="coreUserPreview">' + visibleUsers().map(function (user) {
+    return '<div class="coreUserPreview">' + visibleUsers().map(function (user) {
       return '<button type="button" class="personRow centralPersonRow userOpenButton coreUserRow" data-core-open-user="' + h(user.id) + '"><span class="avatarText">' + h(initials(user)) + '</span><span class="userOpenText"><strong>' + h(user.name || user.nickname || 'User') + '</strong><em>' + h(user.jobArea || user.area || user.role || '') + '</em></span><span class="userRolePill">' + h(user.role || user.permissionSetId || 'User') + '</span></button>';
     }).join('') + '</div><h3>Permission Groups</h3><div class="corePermissionGroups">' + allGroups().map(groupCard).join('') + createGroupCard() + '</div>';
   }
@@ -700,10 +695,6 @@
     var pub = document.getElementById('corePubForm'); if (pub) pub.onsubmit = savePub;
     var removeLogo = document.querySelector('[data-remove-pub-logo]');
     if (removeLogo) removeLogo.onclick = removePubLogo;
-    var systemToggle = document.getElementById('coreShowSystemUsersToggle');
-    if (systemToggle && window.ComplianceFirebase && typeof window.ComplianceFirebase.setShowSystemUsers === 'function') {
-      systemToggle.onchange = function () { window.ComplianceFirebase.setShowSystemUsers(systemToggle.checked); };
-    }
     document.querySelectorAll('[data-core-open-user]').forEach(function (button) {
       button.onclick = function () {
         var id = button.dataset.coreOpenUser;
