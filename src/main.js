@@ -66,6 +66,7 @@ let state = load();
 let route = savedInitialRoute();
 let settingsTab = 'checks';
 let lastPermittedRoute = route === 'settings' ? 'dashboard' : route;
+let pendingRouteScrollReset = true;
 let deferredInstallPrompt = null;
 let openInspectionUserDocs = {};
 const PERMISSION_KEYS = ['checks', 'documents', 'logs', 'users', 'rota', 'inspection', 'settings'];
@@ -281,7 +282,8 @@ function render() {
 }
 
 function resetRouteScroll() {
-  if (route !== 'rota') return;
+  if (route !== 'rota' && !pendingRouteScrollReset) return;
+  pendingRouteScrollReset = false;
   const scroller = document.scrollingElement || document.documentElement;
   if (scroller) scroller.scrollTop = 0;
   document.body.scrollTop = 0;
@@ -291,10 +293,15 @@ function resetRouteScroll() {
 function closeActiveModal() {
   if (!modalRoot || modalRoot.classList.contains('hidden')) return;
   modalRoot.classList.add('hidden');
-  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen', 'homeCheckModalOpen', 'inspectDocViewerOpen');
+  modalRoot.classList.remove('editUserModalOpen', 'reportModalOpen', 'homeCheckModalOpen', 'inspectDocViewerOpen', 'settingsCoreModalOpen', 'profileCircleModalOpen');
   modalRoot.innerHTML = '';
-  document.body.classList.remove('edit-user-modal-open', 'report-modal-open', 'inspect-doc-viewer-open');
+  document.body.classList.remove('edit-user-modal-open', 'report-modal-open', 'inspect-doc-viewer-open', 'settings-core-modal-page-locked');
   document.body.style.top = '';
+  document.body.style.position = '';
+  document.body.style.width = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.overflow = '';
   document.documentElement.style.overflow = '';
 }
 
@@ -303,10 +310,12 @@ function navigateRoute(nextRoute) {
   if (!VALID_ROUTES.has(nextRoute)) nextRoute = 'dashboard';
   closeActiveModal();
   if (nextRoute === route) {
+    pendingRouteScrollReset = true;
     resetRouteScroll();
     return;
   }
   route = nextRoute;
+  pendingRouteScrollReset = true;
   writeNavigationState({ route, activeCheckId: nextRoute === 'checks' ? readNavigationState().activeCheckId || '' : '' });
   render();
 }
