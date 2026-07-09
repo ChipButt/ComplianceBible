@@ -55,7 +55,8 @@
 }
 
 #app .fdocArrow,
-#app .permissionDetailArrow {
+#app .permissionDetailArrow,
+:is(#app,#modal) .fdoc .fdocArrow {
   width: var(--app-chevron-size) !important;
   height: var(--app-chevron-size) !important;
   min-width: var(--app-chevron-size) !important;
@@ -77,6 +78,25 @@
   top: auto !important;
   bottom: auto !important;
   transform: none !important;
+}
+
+:is(#app,#modal) .fdoc .fdocArrow::before {
+  content: '' !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: var(--app-chevron-drawn-size) !important;
+  height: var(--app-chevron-drawn-size) !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  border-right: var(--app-chevron-stroke) solid currentColor !important;
+  border-bottom: var(--app-chevron-stroke) solid currentColor !important;
+  border-radius: 1px !important;
+  transform-origin: 50% 50% !important;
+  transition: transform .15s ease !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
 }
 
 #app .fdocBar > .fdocArrow,
@@ -177,7 +197,8 @@
 }
 
 #modal .fdocArrow,
-#modal .permissionDetailArrow {
+#modal .permissionDetailArrow,
+:is(#app,#modal) .fdoc .fdocArrow {
   width: var(--app-chevron-size) !important;
   height: var(--app-chevron-size) !important;
   min-width: var(--app-chevron-size) !important;
@@ -214,5 +235,22 @@
 #modal details.settingsAddCheckDetails[open] > summary::after,
 #modal .permissionGroupCard.open > .permissionGroupButton .fdocArrow::before,
 #modal .permissionUsersDrop[open] .permissionDetailArrow::before {
+  transform: rotate(225deg) !important;
+}
+
+#modal details.coreSettingsSubsection:not([open]) > summary .fdocArrow::before {
+  transform: rotate(45deg) !important;
+}
+
+#modal details.coreSettingsSubsection[open] > summary .fdocArrow::before {
+  transform: rotate(225deg) !important;
+}
+
+:is(#app,#modal) .fdoc:not(.open) > .fdocBar .fdocArrow::before {
+  transform: rotate(45deg) !important;
+}
+
+:is(#app,#modal) .fdoc.open > .fdocBar .fdocArrow::before,
+:is(#app,#modal) .fdoc .fdocBar:has(+ .fdocPanel:not(.closed)) .fdocArrow::before {
   transform: rotate(225deg) !important;
 }

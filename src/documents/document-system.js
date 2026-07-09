@@ -299,7 +299,7 @@
         '<span class="fdocName"><strong>' + esc(o.title) + '</strong><em>' + esc(subtitle) + '</em></span>' +
         cog +
         '<span class="fdocDate">' + esc(expiryText(record)) + '</span>' +
-        '<span class="fdocArrow" aria-hidden="true">⌄</span>' +
+        '<span class="fdocArrow" aria-hidden="true"></span>' +
       '</button>' +
       '<div class="fdocPanel ' + (expanded ? '' : 'closed') + '">' +
         '<p class="fdocInstruction">' + esc(o.note || 'Upload a clear, current copy of this document.') + '</p>' +

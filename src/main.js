@@ -537,7 +537,7 @@ function inspectionStaffTraining() {
     }).join('') : '<p class="muted">No document requirements linked to this user.</p>';
     const trainingRows = training.length ? training.map(item => `<div class="inspectionTrainingRow"><span>${esc(item.course)}</span>${badge(item.status || 'Missing', item.status === 'Valid' ? 'ok' : 'warn')}<small>${esc(item.expiry ? 'Expires ' + item.expiry : item.evidence || 'No expiry set')}</small></div>`).join('') : '<p class="muted">No training records.</p>';
     return `<article class="inspectionUserCard ${open ? 'open' : ''}">
-      <button type="button" class="inspectionUserButton" data-inspect-user-toggle="${esc(u.id)}"><span><strong>${esc(u.nickname || u.name)}</strong><em>${esc(u.name)} · ${esc(u.jobArea || u.area || u.role || 'Staff')}</em></span><small>${completeCount}/${docs.length} docs complete</small><span class="fdocArrow">⌄</span></button>
+      <button type="button" class="inspectionUserButton" data-inspect-user-toggle="${esc(u.id)}"><span><strong>${esc(u.nickname || u.name)}</strong><em>${esc(u.name)} · ${esc(u.jobArea || u.area || u.role || 'Staff')}</em></span><small>${completeCount}/${docs.length} docs complete</small><span class="fdocArrow" aria-hidden="true"></span></button>
       <div class="inspectionUserPanel ${open ? '' : 'closed'}"><h4>Documents</h4>${docRows}<h4>Training records</h4>${trainingRows}</div>
     </article>`;
   });
