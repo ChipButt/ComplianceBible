@@ -58,7 +58,37 @@
   }
   function userDocs() { state.userRequiredDocuments = state.userRequiredDocuments || []; return state.userRequiredDocuments; }
   function saveNow() { try { save(); } catch {} }
-  function hasEvidence(record) { return !!(record && (record.imageId || record.fileData || record.fileUrl)); }
+  function directImageSource(record) {
+    if (!record) return '';
+    const candidates = [
+      record.fileData,
+      record.dataUrl,
+      record.imageData,
+      record.photoData,
+      record.previewData,
+      record.thumbnailData,
+      record.thumbData,
+      record.fileUrl,
+      record.downloadUrl,
+      record.imageUrl,
+      record.url
+    ];
+    for (const value of candidates) {
+      const src = String(value || '').trim();
+      if (!src) continue;
+      if (/^data:image\//i.test(src) || /^blob:/i.test(src)) return src;
+      if (/^(https?:\/\/|\/)/i.test(src) && (String(record.fileType || '').startsWith('image/') || /\.(avif|gif|heic|heif|jpe?g|png|webp)([?#].*)?$/i.test(src))) return src;
+    }
+    return '';
+  }
+  function withImageTimeout(promise) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Upload failed. Check connection.')), 15000);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  }
+  function hasEvidence(record) { return !!(record && (record.imageId || directImageSource(record))); }
   function archiveImage(imageId) {
     if (!imageId || !window.ComplianceFirebase || typeof window.ComplianceFirebase.archiveImage !== 'function') return;
     window.ComplianceFirebase.archiveImage(imageId);
@@ -101,7 +131,7 @@
     record.uploadedAt = record.uploadedAt || new Date().toISOString();
     record.status = 'Stored';
   }
-  function image(record) { return !!record?.imageId || String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/'); }
+  function image(record) { return !!record?.imageId || !!directImageSource(record) || String(record?.fileType || '').startsWith('image/'); }
   function confirmed(record) { return !!(hasEvidence(record) && (record.noExpiry || record.expiryDate || record.expiry)); }
   function status(record, required) { if (confirmed(record)) return ['', 'complete']; if (hasEvidence(record)) return ['Uploaded','warn']; return [required ? 'Required' : 'Missing','danger']; }
   function statusText(record, required) {
@@ -117,9 +147,10 @@
   }
   function resolveRecordImage(record) {
     if (!record) return Promise.reject(new Error('No document uploaded'));
-    if (record.fileData) return Promise.resolve({ dataUrl: record.fileData, fileName: record.fileName || 'Document evidence', fileType: record.fileType || 'image/jpeg' });
+    const direct = directImageSource(record);
+    if (direct) return Promise.resolve({ dataUrl: direct, fileName: record.fileName || 'Document evidence', fileType: record.fileType || 'image/jpeg' });
     if (record.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.resolveImage === 'function') {
-      return window.ComplianceFirebase.resolveImage(record.imageId);
+      return withImageTimeout(window.ComplianceFirebase.resolveImage(record.imageId));
     }
     return Promise.reject(new Error('No document uploaded'));
   }
@@ -182,7 +213,9 @@
   function thumb(record) {
     if (!hasEvidence(record)) return '<button type="button" class="fdocThumb empty" data-fdoc-thumb="">No document</button>';
     const key = recordLookupKey(record);
-    if (record.imageId && !record.fileData) {
+    const direct = directImageSource(record);
+    if (direct) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(key) + '"><img src="' + esc(direct) + '" alt="Document preview"></button>';
+    if (record.imageId) {
       const cached = thumbCache[record.imageId];
       if (cached) return '<button type="button" class="fdocThumb" data-fdoc-thumb="' + esc(key) + '" data-fdoc-thumb-image-id="' + esc(record.imageId) + '"><img src="' + esc(cached) + '" alt="Document preview"></button>';
       return '<button type="button" class="fdocThumb file fdocThumbLoading" data-fdoc-thumb="' + esc(key) + '" data-fdoc-thumb-image-id="' + esc(record.imageId) + '">Loading photo...</button>';
@@ -210,11 +243,13 @@
     }
     if (thumbPending[imageId]) return;
     if (!window.ComplianceFirebase || typeof window.ComplianceFirebase.resolveImage !== 'function') {
-      button.textContent = 'Photo uploaded';
+      button.classList.remove('fdocThumbLoading');
+      button.classList.add('fdocThumbFailed');
+      button.textContent = 'Photo unavailable';
       return;
     }
     thumbPending[imageId] = true;
-    window.ComplianceFirebase.resolveImage(imageId).then(result => {
+    withImageTimeout(window.ComplianceFirebase.resolveImage(imageId)).then(result => {
       const dataUrl = result && result.dataUrl;
       if (!dataUrl) throw new Error('No image available.');
       thumbCache[imageId] = dataUrl;
@@ -224,7 +259,7 @@
     }).catch(() => {
       button.classList.remove('fdocThumbLoading');
       button.classList.add('fdocThumbFailed');
-      button.textContent = 'Photo uploaded';
+      button.textContent = 'Photo unavailable';
     }).finally(() => {
       delete thumbPending[imageId];
     });
@@ -413,19 +448,28 @@
 
   function viewer(record) {
     if (!hasEvidence(record)) return;
-    modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal"><button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2><div class="fdocFileBig">Loading photo...</div></div>';
+    function closeEvidenceViewer() {
+      modalRoot.classList.add('hidden');
+      modalRoot.classList.remove('evidenceViewerOpen');
+      modalRoot.innerHTML = '';
+      modalRoot.onclick = null;
+    }
+    modalRoot.classList.remove('docGroupModalOpen', 'inspectDocViewerOpen', 'settingsCoreModalOpen', 'settingsModalOpen', 'profileCircleModalOpen', 'homeCheckModalOpen', 'homeActionModalOpen', 'editUserModalOpen', 'reportModalOpen');
+    modalRoot.innerHTML = '<div class="modalCard evidenceViewerModal" role="dialog" aria-modal="true"><button class="close" id="fdocClose" type="button">×</button><h2>' + esc(record.fileName || 'Document evidence') + '</h2><div class="fdocFileBig">Loading photo...</div></div>';
+    modalRoot.classList.add('evidenceViewerOpen');
     modalRoot.classList.remove('hidden');
-    document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
+    document.getElementById('fdocClose').onclick = closeEvidenceViewer;
+    modalRoot.onclick = event => { if (event.target === modalRoot) closeEvidenceViewer(); };
     resolveRecordImage(record).then(result => {
       const card = modalRoot.querySelector('.evidenceViewerModal');
       if (!card) return;
-      card.innerHTML = '<button class="close" id="fdocClose">×</button><h2>' + esc(record.fileName || result.fileName || 'Document evidence') + '</h2><img class="fdocFull" src="' + result.dataUrl + '" alt="Document preview">';
-      document.getElementById('fdocClose').onclick = () => modalRoot.classList.add('hidden');
+      card.innerHTML = '<button class="close" id="fdocClose" type="button">×</button><h2>' + esc(record.fileName || result.fileName || 'Document evidence') + '</h2><img class="fdocFull" src="' + esc(result.dataUrl) + '" alt="Document preview">';
+      document.getElementById('fdocClose').onclick = closeEvidenceViewer;
     }).catch(error => {
       const card = modalRoot.querySelector('.evidenceViewerModal');
       if (card) card.innerHTML = '<button class="close" id="fdocClose">×</button><h2>Document evidence</h2><div class="fdocFileBig">' + esc(error && error.message || 'Upload failed. Check connection.') + '</div>';
       const close = document.getElementById('fdocClose');
-      if (close) close.onclick = () => modalRoot.classList.add('hidden');
+      if (close) close.onclick = closeEvidenceViewer;
     });
   }
 

@@ -408,8 +408,40 @@ function inspectUserDocumentRecord(userId, reqId) {
   return (state.userRequiredDocuments || []).find(record => record.userId === userId && record.requirementId === reqId);
 }
 
+function inspectDirectImageSource(record) {
+  if (!record) return '';
+  const candidates = [
+    record.fileData,
+    record.dataUrl,
+    record.imageData,
+    record.photoData,
+    record.previewData,
+    record.thumbnailData,
+    record.thumbData,
+    record.fileUrl,
+    record.downloadUrl,
+    record.imageUrl,
+    record.url
+  ];
+  for (const value of candidates) {
+    const src = String(value || '').trim();
+    if (!src) continue;
+    if (/^data:image\//i.test(src) || /^blob:/i.test(src)) return src;
+    if (/^(https?:\/\/|\/)/i.test(src) && (String(record.fileType || '').startsWith('image/') || /\.(avif|gif|heic|heif|jpe?g|png|webp)([?#].*)?$/i.test(src))) return src;
+  }
+  return '';
+}
+
+function inspectWithImageTimeout(promise) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Upload failed. Check connection.')), 15000);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function inspectHasEvidence(record) {
-  return !!(record && (record.imageId || record.fileData || record.fileUrl));
+  return !!(record && (record.imageId || inspectDirectImageSource(record)));
 }
 
 function inspectDocumentComplete(record) {
@@ -431,13 +463,14 @@ function inspectExpiryText(record) {
 }
 
 function inspectIsImage(record) {
-  return !!record?.imageId || String(record?.fileType || '').startsWith('image/') || String(record?.fileData || '').startsWith('data:image/');
+  return !!record?.imageId || !!inspectDirectImageSource(record) || String(record?.fileType || '').startsWith('image/');
 }
 
 function inspectResolveImage(record) {
   if (!record) return Promise.reject(new Error('No document uploaded'));
-  if (record.fileData) return Promise.resolve({ dataUrl: record.fileData, fileName: record.fileName || 'Document evidence' });
-  if (record.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.resolveImage === 'function') return window.ComplianceFirebase.resolveImage(record.imageId);
+  const direct = inspectDirectImageSource(record);
+  if (direct) return Promise.resolve({ dataUrl: direct, fileName: record.fileName || 'Document evidence' });
+  if (record.imageId && window.ComplianceFirebase && typeof window.ComplianceFirebase.resolveImage === 'function') return inspectWithImageTimeout(window.ComplianceFirebase.resolveImage(record.imageId));
   return Promise.reject(new Error('No document uploaded'));
 }
 
