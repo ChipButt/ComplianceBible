@@ -100,6 +100,10 @@
   var saveTimer = 0;
   var statusText = 'Firebase not ready';
   var lastError = '';
+  var lastSaveAt = '';
+  var lastSaveError = '';
+  var pendingSave = false;
+  var saveBlockedReason = '';
   var accessMode = 'booting';
   var unsubscribers = [];
   var dataUnsubscribers = [];
@@ -296,6 +300,14 @@
     statusText = text || statusText;
     lastError = error || '';
     renderAuthUI();
+  }
+
+  function cloudSaveBlockReason() {
+    if (applyingRemote) return 'Applying remote Firebase data.';
+    if (!ready) return 'Firebase is not ready.';
+    if (!authUser) return 'No Firebase user is signed in.';
+    if (accessMode !== 'member') return 'Signed in, but this user is not an active member of this pub yet. Current access mode: ' + accessMode + '.';
+    return '';
   }
 
   function docData(snapshot) {
@@ -619,20 +631,46 @@
   }
 
   function queueStateSave() {
-    if (applyingRemote || !ready || !authUser || accessMode !== 'member') return;
+    var blocked = cloudSaveBlockReason();
+    if (blocked) {
+      saveBlockedReason = blocked;
+      if (!applyingRemote) setStatus('Firebase save not queued', blocked);
+      return;
+    }
+    saveBlockedReason = '';
+    pendingSave = true;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveCloudStateNow, 700);
   }
 
   function saveCloudStateNow() {
-    if (applyingRemote || !ready || !authUser || accessMode !== 'member') return Promise.resolve();
+    var blocked = cloudSaveBlockReason();
+    if (blocked) {
+      saveBlockedReason = blocked;
+      pendingSave = false;
+      if (!applyingRemote) setStatus('Firebase save not queued', blocked);
+      return Promise.resolve(false);
+    }
+    saveBlockedReason = '';
     var app = api();
     var state = app && app.getState && app.getState();
     if (!state) return Promise.resolve();
+    pendingSave = true;
     setStatus('Saving structured data');
     return persistState(state)
-      .then(function () { setStatus('Synced structured Firebase data'); })
-      .catch(function (error) { setStatus('Firebase save failed', error && error.message || String(error)); });
+      .then(function () {
+        pendingSave = false;
+        lastSaveAt = nowISO();
+        lastSaveError = '';
+        setStatus('Synced structured Firebase data');
+        return true;
+      })
+      .catch(function (error) {
+        pendingSave = false;
+        lastSaveError = error && error.message || String(error);
+        setStatus('Firebase save failed', lastSaveError);
+        return false;
+      });
   }
 
   function persistState(state) {
@@ -1323,7 +1361,7 @@
     if (document.getElementById('firebase-structured-style')) return;
     var style = document.createElement('style');
     style.id = 'firebase-structured-style';
-    style.textContent = '.firebaseStatusBar{display:none!important}.firebaseGate{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:18px;background:rgba(3,8,12,.86);backdrop-filter:blur(8px)}.firebaseGate.hidden{display:none!important}.firebaseGateCard{width:min(460px,100%);display:grid;gap:12px;padding:18px;border-radius:20px;background:#151b22;border:1px solid rgba(208,173,88,.5);color:#fff8ea;box-shadow:0 28px 70px rgba(0,0,0,.35)}.firebaseGateCard h2{margin:0;color:#fff8ea}.firebaseGateForm{display:grid;gap:10px}.firebaseGateForm input,.firebaseGateForm textarea{width:100%;box-sizing:border-box}.firebaseGateActions{display:grid;grid-template-columns:1fr;gap:8px}.firebaseError{margin:0;color:#ff8b80;font-weight:800}.firebaseSetupMissing{color:#aaa194}.firebaseSmallText{font-size:12px;color:#aaa194;margin:0}';
+    style.textContent = '.firebaseStatusBar{display:none!important}.firebaseGate{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:18px;background:rgba(3,8,12,.86);backdrop-filter:blur(8px)}.firebaseGate.hidden{display:none!important}.firebaseGateCard{width:min(460px,100%);display:grid;gap:12px;padding:18px;border-radius:20px;background:#151b22;border:1px solid rgba(208,173,88,.5);color:#fff8ea;box-shadow:0 28px 70px rgba(0,0,0,.35)}.firebaseGateCard h2{margin:0;color:#fff8ea}.firebaseGateForm{display:grid;gap:10px}.firebaseGateForm input,.firebaseGateForm textarea{width:100%;box-sizing:border-box}.firebaseGateActions{display:grid;grid-template-columns:1fr;gap:8px}.firebaseError{margin:0;color:#ff8b80;font-weight:800}.firebaseSetupMissing{color:#aaa194}.firebaseSmallText{font-size:12px;color:#aaa194;margin:0}.firebaseSyncNotice{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:4300;display:grid;gap:4px;padding:10px 12px;border-radius:14px;background:#311715;border:1px solid rgba(255,139,128,.55);color:#fff8ea;box-shadow:0 14px 34px rgba(0,0,0,.34);font-size:12px;font-weight:800}.firebaseSyncNotice.hidden{display:none!important}.firebaseSyncNotice strong{color:#ffb4aa;font-size:13px}';
     document.head.appendChild(style);
   }
 
@@ -1345,7 +1383,14 @@
       gate.className = 'firebaseGate hidden';
       document.body.appendChild(gate);
     }
-    return { bar: bar, gate: gate };
+    var notice = document.getElementById('firebaseSyncNotice');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.id = 'firebaseSyncNotice';
+      notice.className = 'firebaseSyncNotice hidden';
+      document.body.appendChild(notice);
+    }
+    return { bar: bar, gate: gate, notice: notice };
   }
 
   function renderAuthUI() {
@@ -1353,13 +1398,22 @@
     var els = ensureAuthContainers();
     var cfgReady = hasUsableConfig(currentConfig()) && !!pubId();
     els.bar.innerHTML = '';
+    els.notice.classList.add('hidden');
+    els.notice.innerHTML = '';
     if (!cfgReady) {
       els.gate.classList.toggle('hidden', options().allowLocalFallback === true);
       els.gate.innerHTML = options().allowLocalFallback === true ? '' : '<div class="firebaseGateCard"><h2>Firebase Setup Required</h2><p class="firebaseSetupMissing">This production build needs Firebase config and COMPLIANCE_FIREBASE_PUB_ID in src/firebase/config.js before staff can sign in.</p></div>';
       return;
     }
     if (!ready) {
-      els.gate.classList.add('hidden');
+      els.gate.classList.toggle('hidden', options().allowLocalFallback === true);
+      if (options().allowLocalFallback === true) {
+        els.gate.innerHTML = '';
+      } else if (lastError) {
+        els.gate.innerHTML = '<div class="firebaseGateCard"><h2>Firebase Connection Failed</h2><p class="firebaseSetupMissing">' + escapeHtml(lastError) + '</p><p class="firebaseSmallText">The app is in production mode, so local-only saving is disabled. Check the connection and reload.</p></div>';
+      } else {
+        els.gate.innerHTML = '<div class="firebaseGateCard"><h2>Connecting to Firebase</h2><p class="firebaseSetupMissing">Loading Firebase Auth and Firestore before the app can save data.</p></div>';
+      }
       return;
     }
     if (!authUser) {
@@ -1375,6 +1429,10 @@
     if (accessMode === 'archived') return renderMessageGate(els.gate, 'Account Archived', 'This account has been archived and cannot access the app.');
     els.gate.classList.add('hidden');
     els.gate.innerHTML = '';
+    if (lastError && /failed|blocked|not queued/i.test(statusText || '')) {
+      els.notice.classList.remove('hidden');
+      els.notice.innerHTML = '<strong>' + escapeHtml(statusText || 'Firebase sync problem') + '</strong><span>' + escapeHtml(lastError) + '</span>';
+    }
   }
 
   function renderMessageGate(gate, title, message) {
@@ -1511,7 +1569,22 @@
     member: function () { return remote.member; },
     pubId: pubId,
     hasConfig: function () { return hasUsableConfig(currentConfig()); },
-    status: function () { return { ready: ready, configured: configured, signedIn: !!authUser, text: statusText, error: lastError, pubId: pubId(), accessMode: accessMode, storageMode: options().storageMode || 'firestore-images' }; }
+    status: function () {
+      return {
+        ready: ready,
+        configured: configured,
+        signedIn: !!authUser,
+        text: statusText,
+        error: lastError,
+        pubId: pubId(),
+        accessMode: accessMode,
+        storageMode: options().storageMode || 'firestore-images',
+        pendingSave: pendingSave,
+        lastSaveAt: lastSaveAt,
+        lastSaveError: lastSaveError,
+        saveBlockedReason: saveBlockedReason || cloudSaveBlockReason()
+      };
+    }
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFirebase);

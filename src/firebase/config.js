@@ -16,6 +16,7 @@
     production: true,
     storageMode: 'firestore-images',
     allowFirebaseStorage: false,
+    allowLocalFallback: false,
     setupAdminEmails: ['jameschipbutt@hotmail.com']
   };
 
