@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#082f68">
+  <title>Compliance Bible · Chip In Works</title>
+  <link rel="icon" href="/assets/chip-in-mark.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="masthead">
+    <div class="mast-inner">
+      <div class="identity">
+        <picture><source media="(max-width: 620px)" srcset="/assets/chip-in-mark.svg"><img src="/assets/chip-in.png" alt="Chip In Works"></picture>
+        <span>Compliance Bible</span>
+      </div>
+      <div class="account" id="account" hidden>
+        <span id="venue"></span>
+        <label for="premises">Premises</label>
+        <select id="premises"></select>
+        <button class="quiet" id="sign-out" type="button">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <div class="workspace">
+    <nav aria-label="Compliance Bible" id="navigation" hidden>
+      <button type="button" data-view="check" aria-current="page">Opening check</button>
+      <button type="button" data-view="records">Records</button>
+    </nav>
+    <main id="main" tabindex="-1">
+      <p id="message" class="notice" role="status" hidden></p>
+      <section id="welcome" hidden>
+        <div class="intro">
+          <p class="kicker">Chip In Works</p>
+          <h1>Compliance Bible</h1>
+          <p>Complete an opening check, capture evidence and find the record in one place.</p>
+        </div>
+        <div class="card">
+          <h2>Sign in</h2>
+          <form id="sign-in">
+            <label for="email">Email address</label>
+            <input id="email" type="email" autocomplete="username" required>
+            <label for="password">Password</label>
+            <input id="password" type="password" autocomplete="current-password" required>
+            <button class="primary" type="submit">Sign in</button>
+          </form>
+        </div>
+      </section>
+      <section id="check" hidden>
+        <div class="intro">
+          <p class="kicker" id="check-context"></p>
+          <div class="title-row"><h1>Opening check</h1><span class="status" id="check-status">To do</span></div>
+          <p>Confirm the premises are ready to open and attach a photo for the record.</p>
+        </div>
+        <form id="check-form">
+          <div class="card">
+            <fieldset><legend>Before opening</legend><div id="tasks"></div></fieldset>
+          </div>
+          <div class="card">
+            <h2>Evidence</h2>
+            <label for="photo">Opening check photo</label>
+            <p class="hint" id="photo-hint">JPEG, PNG or WebP up to 5 MB.</p>
+            <input type="file" id="photo" required accept="image/jpeg,image/png,image/webp" aria-describedby="photo-hint">
+            <img id="photo-preview" alt="Selected evidence photo" hidden>
+            <label for="notes">Notes <span class="hint">(optional)</span></label>
+            <textarea id="notes" maxlength="1000" rows="3"></textarea>
+          </div>
+          <button class="primary" type="submit" id="submit">Submit opening check</button>
+        </form>
+        <div id="completed" class="card" hidden>
+          <h2>Opening check complete</h2>
+          <p>Today’s record and photo are available in Records.</p>
+          <button class="primary" type="button" id="show-completed">View record</button>
+        </div>
+      </section>
+      <section id="records" hidden>
+        <div class="intro">
+          <p class="kicker" id="records-context"></p>
+          <h1>Opening check records</h1>
+          <p>Review saved checks and their evidence.</p>
+        </div>
+        <div class="card" id="record-list"></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="evidence" aria-labelledby="evidence-title">
+    <div class="dialog-header">
+      <h2 id="evidence-title">Opening check evidence</h2>
+      <form method="dialog"><button class="quiet" autofocus>Close</button></form>
+    </div>
+    <div class="dialog-body">
+      <dl id="record-details"></dl>
+      <div class="evidence-frame" id="evidence-frame" tabindex="0" aria-label="Evidence photo viewer">
+        <img id="evidence-image" alt="Photo attached to this opening check">
+      </div>
+      <div class="viewer-actions">
+        <button class="quiet" type="button" id="zoom" aria-pressed="false">Zoom photo</button>
+        <a class="quiet" id="original" target="_blank" rel="noopener">Open original</a>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>
