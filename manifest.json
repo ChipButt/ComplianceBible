@@ -1,10 +1,15 @@
 {
-  "name": "Pub Compliance Hub",
-  "short_name": "Compliance",
+  "name": "Compliance Bible by Chip In Works",
+  "short_name": "Compliance Bible",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0f1f1b",
-  "theme_color": "#14342b",
-  "orientation": "portrait-primary",
-  "icons": []
+  "background_color": "#eefaf5",
+  "theme_color": "#082f68",
+  "icons": [
+    {
+      "src": "assets/chip-in-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
 }

@@ -145,7 +145,15 @@ function inspection() {
 
 function bind() {
   document.querySelectorAll('[data-route]').forEach(b => b.onclick = () => { route = b.dataset.route; render(); });
-  document.querySelectorAll('.bottomNav [data-route]').forEach(b => b.classList.toggle('active', b.dataset.route === route));
+  document.querySelectorAll('.bottomNav [data-route]').forEach(button => {
+    const active = button.dataset.route === route;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+    if (button.dataset.route === 'settings' && typeof isAdminUser === 'function') {
+      button.hidden = !isAdminUser();
+    }
+  });
   const userSwitch = document.getElementById('userSwitch');
   if (userSwitch) userSwitch.onchange = e => { state.currentUser = e.target.value; save(); render(); };
   document.querySelectorAll('[data-complete]').forEach(b => b.onclick = () => openCheck(b.dataset.complete));

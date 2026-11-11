@@ -126,10 +126,11 @@
   function bindFinal() {
     document.querySelectorAll('[data-final-filter]').forEach(btn => btn.onclick = () => { filter = btn.dataset.finalFilter; render(); });
     document.querySelectorAll('[data-fdoc-toggle]').forEach(btn => btn.onclick = () => { openCards[btn.dataset.fdocToggle] = !openCards[btn.dataset.fdocToggle]; render(); });
-    document.querySelectorAll('.fdoc').forEach(cardEl => {
+    document.querySelectorAll('.fdoc[data-fdoc-kind][data-fdoc-key]').forEach(cardEl => {
       if (cardEl.dataset.bound) return; cardEl.dataset.bound = '1';
       const kind = cardEl.dataset.fdocKind, key = cardEl.dataset.fdocKey;
       let record = getRecord(kind, key);
+      if (!record) return;
       const noExpiry = cardEl.querySelector('[data-fdoc-noexpiry]');
       const expiryInput = cardEl.querySelector('[data-fdoc-expiry]');
       function saveMeta() { record = getRecord(kind, key); record.noExpiry = !!noExpiry.checked; record.expiryDate = noExpiry.checked ? '' : expiryInput.value; record.expiry = noExpiry.checked ? '' : expiryInput.value; saveNow(); render(); }

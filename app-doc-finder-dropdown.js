@@ -13,7 +13,7 @@
   }
   function applyFilter(){
     var vals=Array.from(selected);
-    document.querySelectorAll('.fdoc').forEach(function(card){
+    document.querySelectorAll('.fdoc[data-fdoc-kind]').forEach(function(card){
       var show=!vals.length || vals.some(function(v){return matchesCard(card,v);});
       card.style.display=show?'':'none';
     });

@@ -2,15 +2,40 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-<meta name="theme-color" content="#14342b" />
-<title>Pub Compliance Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#082f68" />
+<title>Compliance Bible · Chip In Works</title>
+<link rel="icon" href="assets/chip-in-mark.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap">
 <link rel="manifest" href="manifest.json" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div id="appShell"><header class="topbar"><div><p class="eyebrow">Public House Compliance</p><h1>Pub Compliance Hub</h1></div><button id="installBtn" class="ghost small hidden">Install</button></header><main id="app"></main><nav class="bottomNav" aria-label="Main navigation"><button data-route="dashboard" class="navBtn active">Home</button><button data-route="checks" class="navBtn">Checks</button><button data-route="documents" class="navBtn">Docs</button><button data-route="logs" class="navBtn">Logs</button><button data-route="staff" class="navBtn">Users</button><button data-route="rota" class="navBtn">Rota</button><button data-route="inspection" class="navBtn">Inspect</button><button data-route="settings" class="navBtn">Settings</button></nav></div>
-<div id="modal" class="modalBackdrop hidden"></div>
+<a class="skipLink" href="#app">Skip to content</a>
+<div id="appShell">
+  <header class="topbar">
+    <div class="brandIdentity">
+      <picture>
+        <source media="(max-width: 620px)" srcset="assets/chip-in-mark.svg">
+        <img src="assets/chip-in.png" alt="Chip In Works" width="1715" height="516">
+      </picture>
+      <h1>Compliance Bible</h1>
+    </div>
+    <button id="installBtn" class="ghost hidden" type="button">Install</button>
+  </header>
+  <nav class="bottomNav" aria-label="Main navigation">
+    <button type="button" data-route="dashboard" class="navBtn active" aria-current="page">Home</button>
+    <button type="button" data-route="checks" class="navBtn">Checks</button>
+    <button type="button" data-route="documents" class="navBtn">Documents</button>
+    <button type="button" data-route="logs" class="navBtn">Logs</button>
+    <button type="button" data-route="staff" class="navBtn">Users</button>
+    <button type="button" data-route="rota" class="navBtn">Rota</button>
+    <button type="button" data-route="inspection" class="navBtn">Inspection</button>
+    <button type="button" data-route="settings" class="navBtn">Settings</button>
+  </nav>
+  <main id="app" tabindex="-1"></main>
+</div>
+<dialog id="modal" class="modalBackdrop hidden" aria-label="Compliance Bible dialog"></dialog>
 <script src="app.js"></script>
 <script src="checklist-edit.js"></script>
 <script src="app-extension.js"></script>
@@ -20,7 +45,6 @@
 <script src="rota-main-integration.js"></script>
 <script src="docs-hub-final.js"></script>
 <script src="rota-embed-final.js"></script>
-<script src="compliance-shell-final.js"></script>
 <script src="profile-circle-final.js?v=20260610-1"></script>
 <script src="status-card-actions.js?v=20260610-1"></script>
 <script src="final-document-system.js?v=20260612-7"></script>
@@ -37,7 +61,6 @@
 <script src="app-area-check-groups.js?v=20260612-1"></script>
 <link rel="stylesheet" href="document-neutral-hard.css?v=20260612-4" />
 <link rel="stylesheet" href="document-badge-switch-fix.css?v=20260612-4" />
-<link rel="stylesheet" href="app-fixed-banners.css?v=20260612-4" />
 <link rel="stylesheet" href="app-doc-finder-dropdown.css?v=20260612-1" />
 <link rel="stylesheet" href="app-add-premises-fix.css?v=20260612-1" />
 <link rel="stylesheet" href="app-fire-safety-system.css?v=20260612-1" />
@@ -48,5 +71,7 @@
 <link rel="stylesheet" href="app-user-buttons-modal.css?v=20260612-1" />
 <link rel="stylesheet" href="app-settings-check-buttons.css?v=20260612-1" />
 <link rel="stylesheet" href="app-settings-complete.css?v=20260612-1" />
+<link rel="stylesheet" href="chip-in-layout.css">
+<script src="chip-in-layout.js"></script>
 </body>
 </html>

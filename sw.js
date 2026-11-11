@@ -1,57 +1,48 @@
-const CACHE = 'compliance-bible-v20260612-9';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.json',
-  './final-document-system.js',
-  './document-neutral-hard.css',
-  './document-badge-switch-fix.css',
-  './app-approved-layout.js',
-  './app-fixed-banners.css',
-  './app-doc-finder-dropdown.js',
-  './app-doc-finder-dropdown.css',
-  './app-add-premises-fix.js',
-  './app-add-premises-fix.css',
-  './app-fire-safety-system.js',
-  './app-fire-safety-system.css',
-  './app-kitchen-safety-system.js',
-  './app-kitchen-safety-system.css',
-  './app-unified-expanders.css',
-  './app-check-expanders.js',
-  './app-check-expanders.css',
-  './app-user-buttons-modal.js',
-  './app-user-buttons-modal.css',
-  './app-settings-check-buttons.js',
-  './app-settings-check-buttons.css',
-  './app-settings-complete.js',
-  './app-settings-complete.css'
-];
+const CACHE_PREFIX = 'compliance-bible-';
+const CACHE = CACHE_PREFIX + 'chip-in-shell-v1';
 
 self.addEventListener('install', event => {
-  self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil((async () => {
+    const entry = new URL('index.html', self.registration.scope);
+    const response = await fetch(entry, {cache: 'reload'});
+    if (!response.ok) throw new Error('Unable to cache the application shell');
+    const html = await response.clone().text();
+    const urls = [...html.matchAll(/<(?:script|link)\b[^>]+(?:src|href)="([^"]+)"/g)]
+      .map(match => new URL(match[1], entry))
+      .filter(url => url.origin === entry.origin && url.href.startsWith(self.registration.scope));
+    const cache = await caches.open(CACHE);
+    await cache.addAll([...new Set(urls.map(url => url.href).concat([
+      new URL('assets/chip-in.png', entry).href,
+      new URL('assets/chip-in-mark.svg', entry).href
+    ]))]);
+    await cache.put(entry, response);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE).map(key => caches.delete(key))
-    )).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE).map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  const {request} = event;
+  if (request.method !== 'GET' || !request.url.startsWith(self.registration.scope)) return;
+  event.respondWith((async () => {
+    try {
+      return await fetch(request);
+    } catch (error) {
+      const cache = await caches.open(CACHE);
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      if (request.mode === 'navigate' && request.url === self.registration.scope) {
+        const entry = await cache.match(new URL('index.html', self.registration.scope));
+        if (entry) return entry;
+      }
+      throw error;
+    }
+  })());
 });
