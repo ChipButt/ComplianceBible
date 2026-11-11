@@ -107,6 +107,8 @@ dd { margin: 0; }
   .primary { justify-self: stretch; }
 }
 
-#sign-in { display: grid; gap: .65rem; max-inline-size: 27rem; margin-block-start: 1rem; }
-#sign-in input, #premises { min-block-size: 44px; border: 1px solid #9bb6ad; border-radius: .5rem; padding: .55rem; background: white; color: var(--ink); }
+:is(#sign-in, #new-password-form) { display: grid; gap: .65rem; max-inline-size: 27rem; margin-block-start: 1rem; }
+:is(#sign-in, #new-password-form) input, #premises { min-block-size: 44px; border: 1px solid #9bb6ad; border-radius: .5rem; padding: .55rem; background: white; color: var(--ink); }
 #premises { max-inline-size: 100%; }
+
+#forgot-password { margin-block-start: .75rem; }

@@ -1,5 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 
+const authLink = new URLSearchParams(location.hash.slice(1));
+const passwordLink = ['invite', 'recovery'].includes(authLink.get('type'));
 const db = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
   : null;
@@ -46,7 +48,7 @@ function notice(text = '', error = false) {
 }
 
 function show(view, focus = false) {
-  for (const name of ['welcome', 'check', 'records']) byId(name).hidden = name !== view;
+  for (const name of ['welcome', 'set-password', 'check', 'records']) byId(name).hidden = name !== view;
   for (const button of buttons) {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -213,6 +215,42 @@ byId('sign-in').addEventListener('submit', async event => {
   }
 });
 
+byId('forgot-password').addEventListener('click', async event => {
+  const email = byId('email');
+  if (!db || !email.reportValidity()) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  notice();
+  try {
+    unwrap(await db.auth.resetPasswordForEmail(email.value.trim(), {
+      redirectTo: new URL('/', location.origin).href
+    }));
+    notice('If this email has an account, a password reset link will arrive shortly.');
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+byId('new-password-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = event.submitter;
+  button.disabled = true;
+  notice();
+  try {
+    unwrap(await db.auth.updateUser({password: byId('new-password').value}));
+    event.target.reset();
+    unwrap(await db.auth.signOut());
+    await setUser(null);
+    notice('Password saved. Sign in to continue.');
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 byId('premises').addEventListener('change', async () => {
   notice();
   try {
@@ -325,9 +363,19 @@ dialog.addEventListener('close', () => {
   if (!db) {
     show('welcome');
     byId('sign-in').hidden = true;
+    byId('forgot-password').hidden = true;
     notice('Set up this deployment’s Supabase connection to enable sign-in.');
     return;
   }
   const session = unwrap(await db.auth.getSession()).session;
+  if (passwordLink) {
+    if (session && session.access_token === authLink.get('access_token')) {
+      show('set-password');
+    } else {
+      show('welcome');
+      notice('This password link is invalid or has expired. Request a new link.', true);
+    }
+    return;
+  }
   await setUser(session?.user ?? null);
 })().catch(error => notice(error.message, true));
