@@ -112,3 +112,9 @@ dd { margin: 0; }
 #premises { max-inline-size: 100%; }
 
 #forgot-password { margin-block-start: .75rem; }
+
+.workspace:has(#workspace:not([hidden])) { grid-template-columns: minmax(0, 1fr); max-inline-size: none; gap: .75rem; padding-block-start: .75rem; }
+.workspace:has(#workspace:not([hidden])) > nav { flex-flow: row wrap; }
+.workspace-tools { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-block-end: .5rem; }
+#workspace-status { margin: 0; }
+#workspace-frame { display: block; width: 100%; height: max(480px, calc(100dvh - 12rem)); border: 1px solid var(--line); border-radius: .75rem; background: white; }

@@ -29,6 +29,7 @@
   </header>
   <div class="workspace">
     <nav aria-label="Compliance Bible" id="navigation" hidden>
+      <button type="button" data-view="workspace" hidden>Compliance Bible</button>
       <button type="button" data-view="check" aria-current="page">Opening check</button>
       <button type="button" data-view="records">Records</button>
     </nav>
@@ -59,6 +60,17 @@
           <input id="new-password" type="password" autocomplete="new-password" minlength="12" required>
           <button class="primary" type="submit">Save password</button>
         </form>
+      </section>
+      <section id="workspace" hidden>
+        <div class="workspace-tools">
+          <p id="workspace-status" role="status"></p>
+          <button class="quiet" type="button" id="retry-workspace" hidden>Retry save</button>
+          <button class="quiet" type="button" id="export-cloud-workspace" hidden>Download backup</button>
+          <label id="import-workspace-label" class="quiet" hidden>Import original app backup
+            <input id="import-workspace" type="file" accept=".json,application/json">
+          </label>
+        </div>
+        <iframe id="workspace-frame" title="Full Compliance Bible workspace" sandbox="allow-scripts allow-downloads allow-forms" hidden></iframe>
       </section>
       <section id="check" hidden>
         <div class="intro">

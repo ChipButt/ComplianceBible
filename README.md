@@ -10,8 +10,13 @@ The Chip In wordmark and compact mark come from the ChipButt/ChipIn repository.
 
 ## Cloudflare Pages and Supabase development build
 
-The Cloudflare build serves the authenticated opening-check workflow under `pilot/`.
-The original root entry remains the GitHub Pages prototype.
+The Cloudflare build serves the signed-in opening-check workflow and the full owner workspace.
+The owner workspace uses the original eight sections and stores a versioned snapshot per premises in Supabase. Legacy profile switching remains local to this workspace and does not grant app login or database permissions.
+Staff and managers use the signed-in opening-check and records workflow.
+
+To carry over browser records, use **Export app data** on the original GitHub Pages site in the browser profile that holds them. On the signed-in Cloudflare site, choose the destination premises, then use **Import original app backup** before the first workspace save. The export contains workspace data, not Supabase login credentials. Opening-check records created in the signed-in workflow are kept in their existing table.
+
+The development workspace stores legacy evidence with its snapshot. Opening-check photos submitted through the signed-in workflow use private Supabase Storage.
 
 1. Apply the checked-in migration to the intended Supabase development project.
 2. Create staff accounts in Supabase Auth. As an administrator, create rows in `cb_companies` and `cb_premises`, then assign each Auth user a row in `cb_memberships` with the matching company and premises, a display name, and a role.

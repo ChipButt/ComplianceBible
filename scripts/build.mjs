@@ -1,5 +1,6 @@
 import {cp, mkdir, rm, writeFile} from 'node:fs/promises';
 import {build} from 'esbuild';
+import {buildWorkspace} from './build-workspace.mjs';
 
 const url = process.env.SUPABASE_URL || '';
 const key = process.env.SUPABASE_PUBLISHABLE_KEY || '';
@@ -24,10 +25,16 @@ await build({
   outfile: 'dist/app.js',
   define: {SUPABASE_URL: JSON.stringify(url), SUPABASE_PUBLISHABLE_KEY: JSON.stringify(key)}
 });
-await writeFile('dist/_headers', `/*
+await buildWorkspace();
+await writeFile('dist/_headers', `/
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
-  X-Frame-Options: DENY
   Cache-Control: no-store
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob:; connect-src 'self' ${url}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob:; connect-src 'self' ${url}; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
+
+/workspace/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'
 `);

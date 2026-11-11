@@ -1,10 +1,12 @@
 import {createClient} from '@supabase/supabase-js';
+import {ownerWorkspace} from './workspace.js';
 
 const authLink = new URLSearchParams(location.hash.slice(1));
 const passwordLink = ['invite', 'recovery'].includes(authLink.get('type'));
 const db = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
   : null;
+const workspace = ownerWorkspace(db);
 const bucket = 'cb-opening-evidence';
 const tasks = [
   ['exits', 'Fire exits and escape routes are clear'],
@@ -48,7 +50,7 @@ function notice(text = '', error = false) {
 }
 
 function show(view, focus = false) {
-  for (const name of ['welcome', 'set-password', 'check', 'records']) byId(name).hidden = name !== view;
+  for (const name of ['welcome', 'set-password', 'workspace', 'check', 'records']) byId(name).hidden = name !== view;
   for (const button of buttons) {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -157,7 +159,19 @@ async function openRecord(record) {
 }
 
 async function selectPremises() {
-  site = memberships.find(row => row.premises_id === byId('premises').value);
+  const picker = byId('premises');
+  if (!await workspace.close()) {
+    if (site) picker.value = site.premises_id;
+    return;
+  }
+  site = memberships.find(row => row.premises_id === picker.value);
+  const isOwner = site.role === 'owner';
+  document.querySelector('[data-view="workspace"]').hidden = !isOwner;
+  if (isOwner) {
+    show('workspace');
+    await workspace.open(site);
+    return;
+  }
   form.reset();
   clearPhoto();
   upload = null;
@@ -263,6 +277,12 @@ byId('premises').addEventListener('change', async () => {
 for (const button of buttons) button.addEventListener('click', async () => {
   notice();
   try {
+    if (button.dataset.view === 'workspace') {
+      if (site?.role !== 'owner') return;
+      show('workspace', true);
+      await workspace.open(site);
+      return;
+    }
     await refreshRecords();
     show(button.dataset.view, true);
   } catch (error) {
@@ -272,6 +292,7 @@ for (const button of buttons) button.addEventListener('click', async () => {
 
 byId('sign-out').addEventListener('click', async () => {
   try {
+    if (!await workspace.close()) return;
     unwrap(await db.auth.signOut());
     notice();
     await setUser(null);
